@@ -23,14 +23,19 @@
     "@primer/octicons-react": "^16.3.0",
     "axios": "^0.25.0",
     "classnames": "^2.3.1",
+    "constate": "^3.3.0",
     "fp-ts": "^2.11.8",
     "io-ts": "^2.2.16",
+    "kill-port": "^1.6.1",
     "lodash": "^4.17.21",
     "next": "12.0.10",
+    "node-abort-controller": "^3.0.1",
     "react": "17.0.2",
     "react-dom": "17.0.2",
     "react-hot-toast": "2.2.0",
-    "react-query": "3.34.12"
+    "react-query": "3.34.12",
+    "tmp-promise": "^3.0.3",
+    "tree-kill": "^1.2.2"
   },
   "devDependencies": {
     "@babel/parser": "^7.17.0",

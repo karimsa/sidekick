@@ -1,6 +1,6 @@
 import * as t from 'io-ts';
 
-import { ConfigManager } from '../../utils/config';
+import { ConfigManager } from '../../services/config';
 import { routes, createRpcMethod } from '../../utils/http';
 
 export const getConfig = createRpcMethod(t.interface({}), async function () {

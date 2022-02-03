@@ -47,6 +47,7 @@ export class ConfigManager {
 
     private async loadConfig() {
         let configData: object | void;
+        const configOverrides = validateConfig((await ConfigManager.loadProjectOverrides()).defaultConfig);
 
         try {
             const configRawData = await fs.promises.readFile(this.configFilePath, 'utf8');
@@ -57,7 +58,7 @@ export class ConfigManager {
             }
         }
 
-        this.configData = validateConfig(configData ?? {});
+        this.configData = validateConfig(merge(configOverrides, configData ?? {}));
     }
 
     private async flushConfig() {
@@ -155,9 +156,13 @@ export class ConfigManager {
         const config = JSON.parse(output.split('\0')[1]!);
         return validate(
             t.partial({
+                defaultConfig: ConfigTypes,
                 extensions: t.array(t.string)
             }),
-            config
+            {
+                ...config,
+                defaultConfig: validateConfig(config.defaultConfig ?? {})
+            }
         );
     }
 

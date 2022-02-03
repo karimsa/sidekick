@@ -5,6 +5,8 @@ import { Toaster } from 'react-hot-toast';
 import Head from 'next/head';
 
 import '../styles/globals.scss';
+import {useRpcQuery} from "../hooks/useQuery";
+import {getConfig} from "./api/config";
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -15,7 +17,7 @@ const queryClient = new QueryClient({
 });
 
 function QueryDevtools() {
-    const { data: config } = useRequest<Record<string, any>>('/api/config', {});
+    const { data: config } = useRpcQuery(getConfig, {});
     if (!config?.showReactQueryDebugger) {
         return null;
     }

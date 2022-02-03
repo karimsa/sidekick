@@ -4,6 +4,8 @@ import * as t from 'io-ts';
 import merge from 'lodash/merge';
 import { validate } from './http';
 
+import { version as SidekickVersion } from '../package.json';
+
 const ConfigTypes = t.interface({
     projectPath: t.string,
     databases: t.record(t.string, t.record(t.string, t.string)),
@@ -27,9 +29,9 @@ const validateConfig = (config: any) =>
 export class ConfigManager {
     private readyPromise: Promise<void>;
     private readyError: Error | null = null;
-    private configData: t.TypeOf<typeof ConfigTypes> | null = null;
+    private configData: (t.TypeOf<typeof ConfigTypes> & { projectName: string; version: string }) | null = null;
 
-    constructor(private readonly configFilePath: string) {
+    constructor(private readonly projectName: string, private readonly configFilePath: string) {
         this.readyPromise = this.loadConfig();
     }
 
@@ -41,18 +43,22 @@ export class ConfigManager {
     }
 
     private async loadConfig() {
+        let configData: object | void;
+
         try {
-            const configData = await fs.promises.readFile(this.configFilePath, 'utf8');
-            this.configData = validateConfig(JSON.parse(configData));
+            const configRawData = await fs.promises.readFile(this.configFilePath, 'utf8');
+            configData = JSON.parse(configRawData);
         } catch (error: any) {
             if (error?.code !== 'ENOENT') {
                 this.readyError = error;
-            } else {
-                this.configData = validateConfig({});
             }
         }
 
-        Object.assign(this.configData, { __filename: this.configFilePath });
+        this.configData = Object.assign(validateConfig(configData ?? {}), {
+            projectName: this.projectName,
+            version: SidekickVersion,
+            __filename: this.configFilePath
+        });
     }
 
     private async flushConfig() {
@@ -110,7 +116,7 @@ export class ConfigManager {
                 recursive: true
             });
 
-            return new ConfigManager(path.resolve(configDirectory, 'config.json'));
+            return new ConfigManager(name, path.resolve(configDirectory, 'config.json'));
         } catch (error: any) {
             throw new Error(`Failed to load package.json: ${error.message || error}`);
         }

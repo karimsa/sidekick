@@ -1,6 +1,7 @@
 {
-  "name": "@karimsa/sidekick",
   "private": true,
+  "name": "@karimsa/sidekick",
+  "version": "0.0.0",
   "publishConfig": {
     "access": "public"
   },
@@ -18,7 +19,10 @@
   },
   "dependencies": {
     "@karimsa/boa": "^0.1.0",
+    "@mui/icons-material": "^5.3.1",
+    "@primer/octicons-react": "^16.3.0",
     "axios": "^0.25.0",
+    "classnames": "^2.3.1",
     "fp-ts": "^2.11.8",
     "io-ts": "^2.2.16",
     "lodash": "^4.17.21",

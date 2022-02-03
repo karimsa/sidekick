@@ -1,3 +1,15 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+html,
+body,
+#__next {
+  height: 100%;
+  width: 100%;
+}
+
+#__next {
+  display: flex;
+  flex-direction: row;
+}

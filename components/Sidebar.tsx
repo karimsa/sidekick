@@ -1,0 +1,90 @@
+import * as React from 'react';
+import { PackageIcon, ToolsIcon, ArrowLeftIcon, ArrowRightIcon } from '@primer/octicons-react';
+import { useRouter } from 'next/router';
+import Link from 'next/link';
+import classNames from 'classnames';
+
+// import { InboxItems } from './InboxItems';
+import { useLocalState } from '../hooks/useLocalState';
+import { useEffect, useMemo } from 'react';
+
+export const Sidebar: React.FC<{ isOpen: boolean; setOpen(open: boolean): void }> = ({ isOpen, setOpen }) => {
+    const router = useRouter();
+    const links = useMemo(
+        () => [
+            {
+                icon: <PackageIcon />,
+                href: '/servers',
+                label: 'Dev Servers'
+            },
+            {
+                icon: <ToolsIcon />,
+                href: '/settings',
+                label: 'Settings'
+            }
+        ],
+        []
+    );
+
+    useEffect(() => {
+        for (const { href } of links) {
+            router.prefetch(href);
+        }
+    }, [links, router]);
+
+    return (
+        <div className={'flex-initial bg-slate-900 text-white'}>
+            <ul>
+                {links.map(({ icon, href, label }) => (
+                    <li
+                        key={href}
+                        className={classNames('p-5 hover:bg-slate-700', {
+                            'bg-slate-800': href === router.pathname
+                        })}
+                    >
+                        <Link href={href} passHref>
+                            <a className={'inline-flex items-center'}>
+                                <span className={classNames('text-lg flex items-center', isOpen && 'pr-5')}>
+                                    {icon}
+                                </span>
+                                {isOpen && <span className={'text-lg'}>{label}</span>}
+                            </a>
+                        </Link>
+                    </li>
+                ))}
+                <li className={classNames('p-5 hover:bg-slate-700')}>
+                    <a
+                        className={'inline-flex items-center'}
+                        href={'#'}
+                        onClick={evt => {
+                            evt.preventDefault();
+                            setOpen(!isOpen);
+                        }}
+                    >
+                        <span className={classNames('text-lg flex items-center', isOpen && 'pr-5')}>
+                            {isOpen ? <ArrowLeftIcon /> : <ArrowRightIcon />}
+                        </span>
+                        {isOpen && <span className={'text-lg'}>Close sidebar</span>}
+                    </a>
+                </li>
+            </ul>
+        </div>
+    );
+};
+
+export function withSidebar<T>(Main: React.FC<T>): React.FC<T> {
+    return function SidebarWrappedComponent(props: T) {
+        const [isOpen = true, setOpen] = useLocalState('sidebarOpen', Boolean);
+
+        return (
+            <>
+                <Sidebar isOpen={isOpen} setOpen={setOpen} />
+                <main className={'flex flex-col flex-auto p-5 bg-slate-700'}>
+                    <div className={'w-full d-flex flex-initial'}>{/*    <InboxItems />*/}</div>
+
+                    <Main {...props} />
+                </main>
+            </>
+        );
+    };
+}

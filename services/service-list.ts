@@ -1,11 +1,10 @@
-import { ConfigManager } from './config';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as t from 'io-ts';
-
 import { ExecUtils } from '../utils/exec';
 import { validate } from '../utils/http';
 import { objectEntries } from '../utils/util-types';
+import { ConfigManager } from './config';
+import * as fs from 'fs';
+import * as t from 'io-ts';
+import * as path from 'path';
 
 export class ServiceList {
     static async getServices() {
@@ -16,6 +15,7 @@ export class ServiceList {
         if (packageJson.workspaces) {
             return this.loadServicesWithYarnWorkspaces();
         }
+
         if (rootFiles.includes('lerna.json')) {
             return this.loadServicesWithLerna();
         }
@@ -25,14 +25,7 @@ export class ServiceList {
 
     static async loadServicesWithYarnWorkspaces() {
         const projectPath = await ConfigManager.getProjectPath();
-        const infoOutput = (await ExecUtils.runCommand(`yarn workspaces info --json`, { cwd: projectPath })).split(
-            '\n'
-        );
-
-        // the first line has the yarn version
-        infoOutput.shift();
-        // the last line has how long the command took to run
-        infoOutput.pop();
+        const infoOutput = await ExecUtils.runCommand(`yarn workspaces info --json`, { cwd: projectPath });
 
         const workspaceConfig = validate(
             t.record(
@@ -41,8 +34,9 @@ export class ServiceList {
                     location: t.string
                 })
             ),
-            infoOutput.join('')
+            JSON.parse(infoOutput)
         );
+
         return this.loadServicesFromPaths(
             objectEntries(workspaceConfig).map(([name, { location }]) => ({
                 name,
@@ -53,7 +47,9 @@ export class ServiceList {
 
     static async loadServicesWithLerna() {
         const projectPath = await ConfigManager.getProjectPath();
-        const listOutput = JSON.parse(await ExecUtils.runCommand(`lerna list --all --json`, { cwd: projectPath }));
+
+        const listOutput = await ExecUtils.runCommand(`lerna list --all --json`, { cwd: projectPath });
+
         const lernaList = validate(
             t.array(
                 t.interface({
@@ -61,7 +57,7 @@ export class ServiceList {
                     location: t.string
                 })
             ),
-            listOutput.join('')
+            JSON.parse(listOutput)
         );
         return this.loadServicesFromPaths(
             lernaList.map(({ name, location }) => ({

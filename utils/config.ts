@@ -29,7 +29,7 @@ const validateConfig = (config: any) =>
 export class ConfigManager {
     private readyPromise: Promise<void>;
     private readyError: Error | null = null;
-    private configData: (t.TypeOf<typeof ConfigTypes> & { projectName: string; version: string }) | null = null;
+    private configData: t.TypeOf<typeof ConfigTypes> | null = null;
 
     constructor(private readonly projectName: string, private readonly configFilePath: string) {
         this.readyPromise = this.loadConfig();
@@ -54,11 +54,7 @@ export class ConfigManager {
             }
         }
 
-        this.configData = Object.assign(validateConfig(configData ?? {}), {
-            projectName: this.projectName,
-            version: SidekickVersion,
-            __filename: this.configFilePath
-        });
+        this.configData = validateConfig(configData ?? {});
     }
 
     private async flushConfig() {
@@ -82,7 +78,11 @@ export class ConfigManager {
 
     async getAll() {
         await this.waitForReady();
-        return this.configData!;
+        return Object.assign({}, this.configData!, {
+            projectName: this.projectName,
+            version: SidekickVersion,
+            __filename: this.configFilePath
+        });
     }
 
     async setAll(updates: t.TypeOf<typeof ConfigTypes>) {

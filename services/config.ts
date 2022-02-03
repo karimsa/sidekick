@@ -3,11 +3,12 @@ import * as path from 'path';
 import * as t from 'io-ts';
 import merge from 'lodash/merge';
 import { validate } from '../utils/http';
+import * as esbuild from 'esbuild';
 
 import SidekickPackageJson from '../package.json';
+import { ExecUtils } from '../utils/exec';
 
 const ConfigTypes = t.interface({
-    projectPath: t.string,
     environments: t.record(t.string, t.record(t.string, t.string)),
     showReactQueryDebugger: t.boolean
 });
@@ -18,7 +19,6 @@ const validateConfig = (config: any) =>
         ConfigTypes,
         merge(
             {
-                projectPath: '',
                 environments: {
                     local: {},
                     production: {}
@@ -115,6 +115,50 @@ export class ConfigManager {
         }
 
         return projectPath;
+    }
+
+    static async loadProjectOverrides() {
+        const projectPath = await this.getProjectPath();
+        const buildConfig: esbuild.BuildOptions = {
+            entryPoints: [path.resolve(projectPath, 'sidekick.config.ts')],
+            target: 'node12',
+            format: 'cjs',
+            logLevel: 'silent',
+            write: false
+        };
+        const result = await esbuild
+            .build(buildConfig)
+            .catch(error => {
+                if (error.errors?.[0]?.text?.includes('Could not resolve')) {
+                    return esbuild.build({
+                        ...buildConfig,
+                        entryPoints: [path.resolve(projectPath, 'sidekick.config.js')]
+                    });
+                }
+                throw error;
+            })
+            .catch(error => error);
+        if (result.errors?.[0]?.text?.includes('Could not resolve')) {
+            return {};
+        }
+
+        const output = await ExecUtils.runCommand(`node`, {
+            cwd: projectPath,
+            stdin: `
+                    const modulePolyfill = { exports: {} };
+                    !function(module, exports){
+                        ${result.outputFiles[0].text}
+                    }(modulePolyfill, modulePolyfill.exports)
+                    console.log('\\0' + JSON.stringify(modulePolyfill.exports.config));
+                `
+        });
+        const config = JSON.parse(output.split('\0')[1]!);
+        return validate(
+            t.partial({
+                extensions: t.array(t.string)
+            }),
+            config
+        );
     }
 
     static async createProvider() {

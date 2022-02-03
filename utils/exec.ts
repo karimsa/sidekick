@@ -8,6 +8,7 @@ import { fmt } from './fmt';
 const debug = createDebug('sidekick:exec');
 
 type RunOptions = childProcess.ExecOptions & {
+    stdin?: string;
     onStdout?: (chunk: string) => void;
     abortController?: AbortController;
 };
@@ -50,6 +51,11 @@ export class ExecUtils {
                     reject(new Error(stderr));
                 }
             });
+
+            if (options.stdin) {
+                child.stdin.write(options.stdin);
+                child.stdin.end();
+            }
 
             const abortController = options?.abortController;
             if (abortController) {

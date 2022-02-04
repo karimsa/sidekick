@@ -4,6 +4,7 @@ import { useRpcQuery } from './useQuery';
 import * as ReactQuery from 'react-query';
 import { getExtensions, runExtensionMethod } from '../pages/api/extensions';
 import octicons from '@primer/octicons';
+import { loadModule } from '../utils/load-module';
 
 function createUseExtensionQuery(extensionPath: string) {
     return function useExtensionQuery(methodName: string, params: any[]) {
@@ -22,13 +23,9 @@ export function useExtensions() {
         try {
             return {
                 data: data?.map(({ id, extensionPath, code }) => {
-                    const moduleExports = { exports: {} as any };
-                    const moduleLoader = new Function('module', 'exports', 'UseSidekickQuery', 'require', code);
-                    moduleLoader(
-                        moduleExports,
-                        moduleExports.exports,
-                        createUseExtensionQuery(extensionPath),
-                        function (modName: string) {
+                    const { config, Page } = loadModule(code, {
+                        UseSidekickQuery: createUseExtensionQuery(extensionPath),
+                        require(modName: string) {
                             switch (modName) {
                                 case 'react':
                                     return React;
@@ -38,14 +35,14 @@ export function useExtensions() {
                                     throw new Error(`Failed to bundle '${modName}' (source: ${id})`);
                             }
                         }
-                    );
+                    }) as any;
 
-                    const icon = octicons[moduleExports.exports.config.icon];
+                    const icon = octicons[config.icon];
                     if (!icon) {
-                        throw new Error(`Unexpected icon: ${moduleExports.exports.config.icon} (source: ${id})`);
+                        throw new Error(`Unexpected icon: ${config.icon} (source: ${id})`);
                     }
 
-                    return { id, icon: icon.toSVG(), ...moduleExports.exports };
+                    return { id, icon: icon.toSVG(), config, Page };
                 })
             };
         } catch (error: any) {

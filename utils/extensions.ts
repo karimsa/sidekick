@@ -4,10 +4,18 @@ import * as path from 'path';
 import { ConfigManager } from '../services/config';
 import resolveModulePath from 'resolve/async';
 import * as util from 'util';
+import fs from 'fs';
 
 const resolveAsync = util.promisify(resolveModulePath);
 
 export class ExtensionBuilder {
+    static async getExtension(extensionPath: string) {
+        const projectPath = await ConfigManager.getProjectPath();
+        const absPath = path.resolve(projectPath, extensionPath);
+        const code = await fs.promises.readFile(absPath, 'utf8');
+        return ExtensionBuilder.splitServerClient(absPath, code);
+    }
+
     static async splitServerClient(filePath: string, code: string): Promise<{ server: string; client: string }> {
         console.time('build extension');
         const fullAst = await babel.parseAsync(code, {

@@ -1,26 +1,18 @@
 import * as t from 'io-ts';
-import * as fs from 'fs';
-import * as path from 'path';
 import slugify from 'slugify';
 
 import { APIError, createRpcMethod, validate } from '../../utils/http';
 import { ExtensionBuilder } from '../../utils/extensions';
 import { ConfigManager } from '../../services/config';
 import { ExecUtils } from '../../utils/exec';
+import { loadModule } from '../../utils/load-module';
 
 export const getExtensions = createRpcMethod(t.interface({}), async function () {
     const config = await ConfigManager.loadProjectOverrides();
-    const projectPath = await ConfigManager.getProjectPath();
     return Promise.all(
         config.extensions.map(async extensionPath => {
-            const absPath = path.resolve(projectPath, extensionPath);
-            const code = await fs.promises.readFile(absPath, 'utf8');
-            const { client, server } = await ExtensionBuilder.splitServerClient(absPath, code);
-
-            const loadModule = new Function(`module`, `exports`, `require`, `(function(){ ${server} }())`);
-            const moduleExports: any = { exports: {} };
-            loadModule(moduleExports, moduleExports.exports, mod => ({}));
-            const config = validate(t.interface({ title: t.string }), moduleExports.exports.config);
+            const { client, server } = await ExtensionBuilder.getExtension(extensionPath);
+            const config = validate(t.interface({ title: t.string }), loadModule(server, { require() {} }).config);
 
             return { id: slugify(config.title), extensionPath, code: client };
         })
@@ -40,9 +32,7 @@ export const runExtensionMethod = createRpcMethod(
         }
 
         const projectPath = await ConfigManager.getProjectPath();
-        const absPath = path.resolve(projectPath, extensionPath);
-        const code = await fs.promises.readFile(absPath, 'utf8');
-        const { server } = await ExtensionBuilder.splitServerClient(absPath, code);
+        const { server } = await ExtensionBuilder.getExtension(extensionPath);
 
         const output = await ExecUtils.runCommand(`node`, {
             cwd: projectPath,

@@ -24,7 +24,9 @@ export function useExtensions() {
             return {
                 data: data?.map(({ id, extensionPath, code }) => {
                     const { config, Page } = loadModule(code, {
-                        UseSidekickQuery: createUseExtensionQuery(extensionPath),
+                        SidekickExtensionHelpers: {
+                            useQuery: createUseExtensionQuery(extensionPath)
+                        },
                         require(modName: string) {
                             switch (modName) {
                                 case 'react':

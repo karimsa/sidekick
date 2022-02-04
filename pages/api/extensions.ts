@@ -11,10 +11,23 @@ export const getExtensions = createRpcMethod(t.interface({}), async function () 
     const config = await ConfigManager.loadProjectOverrides();
     return Promise.all(
         config.extensions.map(async extensionPath => {
-            const { client, server } = await ExtensionBuilder.getExtension(extensionPath);
-            const config = validate(t.interface({ title: t.string }), loadModule(server, { require() {} }).config);
+            try {
+                const { client, server } = await ExtensionBuilder.getExtension(extensionPath);
+                const config = validate(
+                    t.interface({ title: t.string }),
+                    loadModule(server, {
+                        require() {}
+                    }).config
+                );
 
-            return { id: slugify(config.title), extensionPath, code: client };
+                return { id: slugify(config.title), extensionPath, code: client };
+            } catch (error: any) {
+                return {
+                    id: slugify(extensionPath),
+                    extensionPath,
+                    code: `throw new Error(${JSON.stringify(String(error))})`
+                };
+            }
         })
     );
 });

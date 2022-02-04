@@ -5,6 +5,11 @@ import { ConfigManager } from '../services/config';
 import resolveModulePath from 'resolve/async';
 import * as util from 'util';
 import fs from 'fs';
+import { builtinModules } from 'module';
+import { minify } from 'terser';
+import babelPresetTypescript from '@babel/preset-typescript';
+import babelPresetReact from '@babel/preset-react';
+import babelPluginTransformModules from '@babel/plugin-transform-modules-commonjs';
 
 const resolveAsync = util.promisify(resolveModulePath);
 
@@ -43,18 +48,27 @@ export class ExtensionBuilder {
 
         const [client, server] = await Promise.all([
             this.buildClientBundle({ serverExports, filePath, fullAst, code }),
-            this.buildServerBundle({ fullAst, code })
+            this.buildServerBundle({ fullAst, filePath, code })
         ]);
         console.timeEnd('build extension');
         return { client, server };
     }
 
-    static async buildServerBundle({ fullAst, code }: { fullAst: babel.Node; code: string }): Promise<string> {
+    static async buildServerBundle({
+        fullAst,
+        filePath,
+        code
+    }: {
+        fullAst: babel.Node;
+        filePath: string;
+        code: string;
+    }): Promise<string> {
+        const filename = path.basename(filePath);
         const result = await esbuild.build({
             write: false,
             stdin: {
-                contents: await this.removeExportsFromAst(fullAst, code, ['Page']),
-                sourcefile: 'extension.server.ts',
+                contents: await this.removeExportsFromAst(fullAst, filename, code, ['Page']),
+                sourcefile: filename,
                 loader: 'tsx'
             },
             format: 'cjs',
@@ -69,6 +83,20 @@ export class ExtensionBuilder {
                             path: args.path,
                             external: true
                         }));
+                    }
+                },
+                {
+                    name: 'resolve-internal',
+                    setup: build => {
+                        build.onResolve({ filter: /^[./]/ }, async args => {
+                            return {
+                                path: await resolveAsync(args.path, {
+                                    basedir: args.resolveDir || path.dirname(filePath),
+                                    extensions: ['.ts', '.js', '.json']
+                                }),
+                                external: false
+                            };
+                        });
                     }
                 }
             ]
@@ -87,7 +115,7 @@ export class ExtensionBuilder {
         filePath: string;
         code: string;
     }): Promise<string> {
-        const clientCode = await this.removeExportsFromAst(fullAst, code, serverExports);
+        const clientCode = await this.removeExportsFromAst(fullAst, path.basename(filePath), code, serverExports);
         const projectPath = await ConfigManager.getProjectPath();
         const result = await esbuild.build({
             write: false,
@@ -106,12 +134,12 @@ export class ExtensionBuilder {
                 {
                     name: 'resolve-sidekick',
                     setup: build => {
-                        build.onResolve({ filter: /^sidekick\/client$/ }, args => {
-                            return { path: 'sidekick/client', external: false, namespace: 'sidekick' };
+                        build.onResolve({ filter: /^sidekick\/extension$/ }, args => {
+                            return { path: 'sidekick/extension', external: false, namespace: 'sidekick' };
                         });
-                        build.onLoad({ filter: /^sidekick\/client$/, namespace: 'sidekick' }, async () => {
+                        build.onLoad({ filter: /^sidekick\/extension$/, namespace: 'sidekick' }, async () => {
                             return {
-                                contents: `module.exports = { useQuery: UseSidekickQuery }`
+                                contents: `module.exports = SidekickExtensionHelpers`
                             };
                         });
                     }
@@ -128,10 +156,15 @@ export class ExtensionBuilder {
                 {
                     name: 'resolve-external',
                     setup: build => {
-                        build.onResolve({ filter: /^[^./]/ }, async args => {
+                        build.onResolve({ filter: /.*/ }, async args => {
+                            if (builtinModules.includes(args.path)) {
+                                return { path: args.path, external: true };
+                            }
+
                             return {
                                 path: await resolveAsync(args.path, {
-                                    basedir: projectPath
+                                    basedir: args.resolveDir || projectPath,
+                                    extensions: args.resolveDir ? ['.js', '.json'] : ['.ts', '.js', '.json']
                                 }),
                                 external: false
                             };
@@ -143,9 +176,10 @@ export class ExtensionBuilder {
         return result.outputFiles[0].text;
     }
 
-    static async removeExportsFromAst(inputAst: babel.Node, code: string, exportNames: string[]) {
+    static async removeExportsFromAst(inputAst: babel.Node, filename: string, code: string, exportNames: string[]) {
         const removedExports: string[] = [];
         const { code: outputCode } = await babel.transformFromAstAsync(inputAst, code, {
+            filename,
             plugins: [
                 {
                     visitor: {
@@ -181,12 +215,27 @@ export class ExtensionBuilder {
                             }
                         }
                     }
-                }
-            ]
+                },
+                babelPluginTransformModules
+            ],
+            presets: [babelPresetTypescript, babelPresetReact]
+        });
+        const { code: idktestorsomething } = await minify(outputCode, {
+            compress: {
+                defaults: false,
+                dead_code: true,
+                toplevel: true,
+                unused: true,
+                pure_funcs: ['require']
+            },
+            mangle: false,
+            format: {
+                beautify: true
+            }
         });
         if (removedExports.length !== exportNames.length) {
             throw new Error(`Failed to find exports for: ${exportNames.join(', ')}`);
         }
-        return outputCode;
+        return idktestorsomething;
     }
 }

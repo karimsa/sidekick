@@ -1,4 +1,5 @@
 import * as childProcess from 'child_process';
+import { SpawnOptionsWithStdioTuple } from 'child_process';
 import * as os from 'os';
 import createDebug from 'debug';
 import treeKill from 'tree-kill';
@@ -87,31 +88,25 @@ export class ExecUtils {
             let stdout = '';
             let stderr = '';
 
-            debug(
-                fmt`Starting process with ${{
-                    ...options,
-                    cmdPath,
-                    args,
-                    parentPID: process.pid,
-
-                    // TODO: Fix this
-                    // env: '(omitted)'
-                    env: {
-                        ...process.env,
-                        NODE_ENV: 'development',
-                        ...(options?.env ?? {})
-                    }
-                }}`
-            );
-            const child = childProcess.spawn(cmdPath, args, {
+            const childProcessOptions: SpawnOptionsWithStdioTuple<'pipe', 'pipe', 'pipe'> = {
                 ...(options ?? {}),
-                stdio: 'pipe',
+                stdio: ['pipe', 'pipe', 'pipe'],
                 env: {
                     ...process.env,
                     NODE_ENV: 'development',
                     ...(options?.env ?? {})
                 }
-            });
+            };
+
+            debug(
+                fmt`Starting process with ${{
+                    ...childProcessOptions,
+                    cmdPath,
+                    args,
+                    env: '(omitted)'
+                }}`
+            );
+            const child = childProcess.spawn(cmdPath, args, childProcessOptions);
             child.on('spawn', () => {
                 debug(fmt`${cmdPath} got a pid: ${child.pid}`);
             });

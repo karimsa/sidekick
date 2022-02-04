@@ -1,8 +1,15 @@
 import * as babel from '@babel/core';
 import * as esbuild from 'esbuild';
+import * as path from 'path';
+import getConfig from 'next/config';
+import { ConfigManager } from '../services/config';
+import resolveModulePath from 'resolve/async';
+import * as util from 'util';
+
+const resolveAsync = util.promisify(resolveModulePath);
 
 export class ExtensionBuilder {
-    static async splitServerClient(code: string): Promise<{ server: string; client: string }> {
+    static async splitServerClient(filePath: string, code: string): Promise<{ server: string; client: string }> {
         console.time('build extension');
         const fullAst = await babel.parseAsync(code, {
             parserOpts: {
@@ -28,7 +35,7 @@ export class ExtensionBuilder {
         });
 
         const [client, server] = await Promise.all([
-            this.buildClientBundle({ serverExports, fullAst, code }),
+            this.buildClientBundle({ serverExports, filePath, fullAst, code }),
             this.buildServerBundle({ fullAst, code })
         ]);
         console.timeEnd('build extension');
@@ -43,6 +50,7 @@ export class ExtensionBuilder {
                 sourcefile: 'extension.server.ts',
                 loader: 'tsx'
             },
+            format: 'cjs',
             platform: 'node',
             target: 'node12',
             bundle: true,
@@ -61,31 +69,79 @@ export class ExtensionBuilder {
         return result.outputFiles[0].text;
     }
 
+    static async buildExtensionClient() {
+        const result = await esbuild.build({
+            entryPoints: [path.resolve(getConfig().serverRuntimeConfig.PROJECT_ROOT, './utils/extension-client.ts')],
+            format: 'cjs',
+            platform: 'browser',
+            target: ['firefox94', 'chrome95'],
+            bundle: true,
+            write: false
+        });
+        return result.outputFiles[0].text;
+    }
+
     static async buildClientBundle({
         serverExports,
         fullAst,
+        filePath,
         code
     }: {
         serverExports: string[];
         fullAst: babel.Node;
+        filePath: string;
         code: string;
     }): Promise<string> {
         const clientCode = await this.removeExportsFromAst(fullAst, code, serverExports);
+        const projectPath = await ConfigManager.getProjectPath();
         const result = await esbuild.build({
             write: false,
             stdin: {
                 contents: clientCode,
-                sourcefile: 'extension.client.ts',
+                sourcefile: path.basename(filePath),
                 loader: 'tsx'
             },
             platform: 'browser',
             bundle: true,
+            absWorkingDir: path.dirname(filePath),
             plugins: [
                 {
                     name: 'resolve-sidekick',
-                    setup(build) {
-                        build.onResolve({ filter: /^(react|sidekick)$/ }, args => {
-                            return { path: args.path, external: true };
+                    setup: build => {
+                        build.onResolve({ filter: /^sidekick\/client$/ }, args => {
+                            return { path: 'sidekick/client', external: false, namespace: 'sidekick' };
+                        });
+                        build.onLoad({ filter: /^sidekick\/client$/, namespace: 'sidekick' }, async args => {
+                            return {
+                                contents: await this.buildExtensionClient()
+                            };
+                        });
+                    }
+                },
+                {
+                    name: 'resolve-react',
+                    setup: build => {
+                        build.onResolve({ filter: /^react$/ }, () => ({
+                            path: path.resolve(
+                                getConfig().serverRuntimeConfig.PROJECT_ROOT,
+                                'node_modules',
+                                'react',
+                                'index.js'
+                            ),
+                            external: false
+                        }));
+                    }
+                },
+                {
+                    name: 'resolve-external',
+                    setup: build => {
+                        build.onResolve({ filter: /^[^./]/ }, async args => {
+                            return {
+                                path: await resolveAsync(args.path, {
+                                    basedir: projectPath
+                                }),
+                                external: false
+                            };
                         });
                     }
                 }

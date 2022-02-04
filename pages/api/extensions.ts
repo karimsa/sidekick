@@ -38,6 +38,7 @@ export const runExtensionMethod = createRpcMethod(
             throw new Error(`No extension found at: ${extensionPath}`);
         }
 
+        const projectPath = await ConfigManager.getProjectPath();
         const { server } = await ExtensionBuilder.getExtension(extensionPath);
         const result = await ExecUtils.runJS(
             async function (require, { server, methodName, params }) {
@@ -54,7 +55,7 @@ export const runExtensionMethod = createRpcMethod(
             },
             { server, methodName, params },
             {
-                cwd: path.dirname(extensionPath)
+                cwd: path.resolve(projectPath, path.dirname(extensionPath))
             }
         );
         return { result };

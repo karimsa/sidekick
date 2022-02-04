@@ -1,15 +1,18 @@
 import * as React from 'react';
-import { PackageIcon, ToolsIcon, ArrowLeftIcon, ArrowRightIcon } from '@primer/octicons-react';
+import { useEffect, useMemo } from 'react';
+import { ArrowLeftIcon, ArrowRightIcon, PackageIcon, ToolsIcon } from '@primer/octicons-react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import classNames from 'classnames';
 
 // import { InboxItems } from './InboxItems';
 import { useLocalState } from '../hooks/useLocalState';
-import { useEffect, useMemo } from 'react';
+import { useExtensions } from '../hooks/useExtensions';
 
 export const Sidebar: React.FC<{ isOpen: boolean; setOpen(open: boolean): void }> = ({ isOpen, setOpen }) => {
     const router = useRouter();
+    const { extensions } = useExtensions();
+
     const links = useMemo(
         () => [
             {
@@ -17,13 +20,18 @@ export const Sidebar: React.FC<{ isOpen: boolean; setOpen(open: boolean): void }
                 href: '/servers',
                 label: 'Dev Servers'
             },
+            ...(extensions ?? []).map(extension => ({
+                icon: <span style={{ fill: 'white' }} dangerouslySetInnerHTML={{ __html: extension.icon }} />,
+                href: `/extensions/${extension.id}`,
+                label: extension.config.title
+            })),
             {
                 icon: <ToolsIcon />,
                 href: '/settings',
                 label: 'Settings'
             }
         ],
-        []
+        [extensions]
     );
 
     useEffect(() => {

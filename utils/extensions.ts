@@ -1,7 +1,6 @@
 import * as babel from '@babel/core';
 import * as esbuild from 'esbuild';
 import * as path from 'path';
-import getConfig from 'next/config';
 import { ConfigManager } from '../services/config';
 import resolveModulePath from 'resolve/async';
 import * as util from 'util';
@@ -69,18 +68,6 @@ export class ExtensionBuilder {
         return result.outputFiles[0].text;
     }
 
-    static async buildExtensionClient() {
-        const result = await esbuild.build({
-            entryPoints: [path.resolve(getConfig().serverRuntimeConfig.PROJECT_ROOT, './utils/extension-client.ts')],
-            format: 'cjs',
-            platform: 'browser',
-            target: ['firefox94', 'chrome95'],
-            bundle: true,
-            write: false
-        });
-        return result.outputFiles[0].text;
-    }
-
     static async buildClientBundle({
         serverExports,
         fullAst,
@@ -102,6 +89,9 @@ export class ExtensionBuilder {
                 loader: 'tsx'
             },
             platform: 'browser',
+            target: ['firefox94', 'chrome95'],
+            format: 'cjs',
+            // minify: true,
             bundle: true,
             absWorkingDir: path.dirname(filePath),
             plugins: [
@@ -111,9 +101,9 @@ export class ExtensionBuilder {
                         build.onResolve({ filter: /^sidekick\/client$/ }, args => {
                             return { path: 'sidekick/client', external: false, namespace: 'sidekick' };
                         });
-                        build.onLoad({ filter: /^sidekick\/client$/, namespace: 'sidekick' }, async args => {
+                        build.onLoad({ filter: /^sidekick\/client$/, namespace: 'sidekick' }, async () => {
                             return {
-                                contents: await this.buildExtensionClient()
+                                contents: `module.exports = { useQuery: UseSidekickQuery }`
                             };
                         });
                     }
@@ -121,14 +111,9 @@ export class ExtensionBuilder {
                 {
                     name: 'resolve-react',
                     setup: build => {
-                        build.onResolve({ filter: /^react$/ }, () => ({
-                            path: path.resolve(
-                                getConfig().serverRuntimeConfig.PROJECT_ROOT,
-                                'node_modules',
-                                'react',
-                                'index.js'
-                            ),
-                            external: false
+                        build.onResolve({ filter: /^react|react-dom$/ }, args => ({
+                            path: args.path,
+                            external: true
                         }));
                     }
                 },

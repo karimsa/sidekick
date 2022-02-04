@@ -5,8 +5,8 @@ import { Toaster } from 'react-hot-toast';
 import Head from 'next/head';
 
 import '../styles/globals.scss';
-import {useRpcQuery} from "../hooks/useQuery";
-import {getConfig} from "./api/config";
+import { useRpcQuery } from '../hooks/useQuery';
+import { getConfig } from './api/config';
 
 const queryClient = new QueryClient({
     defaultOptions: {

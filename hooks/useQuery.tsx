@@ -1,38 +1,40 @@
-import {
-    useQuery,
-    UseQueryOptions,
-    QueryFunctionContext,
-    UseQueryResult,
-} from 'react-query'
+import { QueryFunctionContext, useQuery, UseQueryOptions, UseQueryResult } from 'react-query';
 
-import axios from 'axios'
-import type { RpcHandler } from '../utils/http'
-import { MethodToRoute } from './bridge-method-map'
+import axios from 'axios';
+import type { RpcHandler } from '../utils/http';
 
 function useRpcQueryInternal<InputType, OutputType>(
     // this is the type of the handler at runtime
     handler: { methodName: string },
     data: InputType,
-    options?: UseQueryOptions<OutputType>,
+    options?: UseQueryOptions<OutputType>
 ) {
     return useQuery<OutputType>({
         ...options,
         queryKey: [handler, data],
         async queryFn(inputData: QueryFunctionContext): Promise<OutputType> {
-            const { data: resData } = await axios.post(MethodToRoute[handler.methodName]!, {
-                ...handler,
-                data: inputData.queryKey[1],
-            })
-            return resData
-        },
-    })
+            try {
+                const { data: resData } = await axios.post('/api/rpc', {
+                    ...handler,
+                    data: inputData.queryKey[1]
+                });
+                return resData;
+            } catch (error: any) {
+                const decodedError = error.response?.data.error;
+                if (decodedError) {
+                    throw new Error(decodedError);
+                }
+                throw error;
+            }
+        }
+    });
 }
 
 export function useRpcQuery<InputType, OutputType>(
     // this is the type of the handler at compile-time
     handler: RpcHandler<InputType, OutputType>,
     data: InputType,
-    options?: UseQueryOptions<OutputType>,
+    options?: UseQueryOptions<OutputType>
 ): UseQueryResult<OutputType, Error> {
-    return useRpcQueryInternal(handler as any, data, options) as any
+    return useRpcQueryInternal(handler as any, data, options) as any;
 }

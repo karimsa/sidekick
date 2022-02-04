@@ -25,7 +25,7 @@ export class ServiceList {
 
     static async loadServicesWithYarnWorkspaces() {
         const projectPath = await ConfigManager.getProjectPath();
-        const infoOutput = await ExecUtils.runCommand(`yarn workspaces info --json`, { cwd: projectPath });
+        const infoOutput = await ExecUtils.runCommand(`yarn`, ['workspaces', 'info', '--json'], { cwd: projectPath });
 
         const workspaceConfig = validate(
             t.record(
@@ -48,7 +48,7 @@ export class ServiceList {
     static async loadServicesWithLerna() {
         const projectPath = await ConfigManager.getProjectPath();
 
-        const listOutput = await ExecUtils.runCommand(`lerna list --all --json`, { cwd: projectPath });
+        const listOutput = await ExecUtils.runCommand(`lerna`, ['list', '--all', '--json'], { cwd: projectPath });
 
         const lernaList = validate(
             t.array(

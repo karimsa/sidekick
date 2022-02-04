@@ -143,7 +143,7 @@ export class ConfigManager {
             return {};
         }
 
-        const output = await ExecUtils.runCommand(`node`, {
+        const output = await ExecUtils.runCommand(`node`, [], {
             cwd: projectPath,
             stdin: `
                     const modulePolyfill = { exports: {} };

@@ -1,19 +1,28 @@
 import * as React from 'react';
 import { useMemo } from 'react';
 import { useRpcQuery } from './useQuery';
-import * as ReactQuery from 'react-query';
 import { getExtensions, runExtensionMethod } from '../pages/api/extensions';
 import octicons from '@primer/octicons';
 import { loadModule } from '../utils/load-module';
+import toast from 'react-hot-toast';
 
-function createUseExtensionQuery(extensionPath: string) {
-    return function useExtensionQuery(methodName: string, params: any[]) {
-        const { data, ...props } = useRpcQuery(runExtensionMethod, {
-            extensionPath,
-            methodName,
-            params
-        });
-        return { ...props, data: data?.result };
+function createExtensionHelpers(extensionPath: string) {
+    return {
+        useQuery(methodName: string, params: any[]) {
+            console.warn({ methodName, params });
+            const { data, ...props } = useRpcQuery(
+                runExtensionMethod,
+                {
+                    extensionPath,
+                    methodName,
+                    params
+                },
+                {
+                    retry: false
+                }
+            );
+            return { ...props, data: data?.result };
+        }
     };
 }
 
@@ -22,29 +31,39 @@ export function useExtensions() {
     const { data: extensions, error: errLoadingExtensions } = useMemo(() => {
         try {
             return {
-                data: data?.map(({ id, extensionPath, code }) => {
-                    const { config, Page } = loadModule(code, {
-                        SidekickExtensionHelpers: {
-                            useQuery: createUseExtensionQuery(extensionPath)
-                        },
-                        require(modName: string) {
-                            switch (modName) {
-                                case 'react':
-                                    return React;
-                                case 'react-query':
-                                    return ReactQuery;
-                                default:
-                                    throw new Error(`Failed to bundle '${modName}' (source: ${id})`);
+                data: data?.flatMap(({ id, extensionPath, code }) => {
+                    try {
+                        const helpers = createExtensionHelpers(extensionPath);
+                        const { config, Page } = loadModule(code, {
+                            // these cannot be bundled and must be loaded at runtime
+                            require(modName: string) {
+                                switch (modName) {
+                                    case 'react':
+                                        return React;
+                                    case 'sidekick/extension':
+                                        return helpers;
+                                    default:
+                                        throw new Error(`Failed to bundle '${modName}' (source: ${id})`);
+                                }
                             }
+                        }) as any;
+
+                        if (!config) {
+                            throw new Error(`Missing 'config' export`);
                         }
-                    }) as any;
 
-                    const icon = octicons[config.icon];
-                    if (!icon) {
-                        throw new Error(`Unexpected icon: ${config.icon} (source: ${id})`);
+                        const icon = octicons[config.icon];
+                        if (!icon) {
+                            throw new Error(`Unrecognized icon: ${config.icon}`);
+                        }
+
+                        return [{ id, icon: icon.toSVG(), config, Page }];
+                    } catch (error: any) {
+                        toast.error(`Failed to load extension from ${extensionPath}: ${String(error)}`, {
+                            id: `load-extension-${extensionPath}`
+                        });
+                        return [];
                     }
-
-                    return { id, icon: icon.toSVG(), config, Page };
                 })
             };
         } catch (error: any) {

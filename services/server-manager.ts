@@ -250,7 +250,7 @@ export class ServerManager {
                 return {
                     file: file.substr(servicePath.length + 1),
                     commit: (
-                        await ExecUtils.runCommand(`git log --oneline -n1 -- ${file}`, {
+                        await ExecUtils.runCommand(`git`, ['log', '--oneline', '-n1', '--', file], {
                             cwd: projectPath
                         })
                     ).trim()

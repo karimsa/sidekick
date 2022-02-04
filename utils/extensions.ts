@@ -10,7 +10,10 @@ import { minify } from 'terser';
 import babelPresetTypescript from '@babel/preset-typescript';
 import babelPresetReact from '@babel/preset-react';
 import babelPluginTransformModules from '@babel/plugin-transform-modules-commonjs';
+import createDebug from 'debug';
+import ms from 'ms';
 
+const debug = createDebug('sidekick:extensions');
 const resolveAsync = util.promisify(resolveModulePath);
 
 export class ExtensionBuilder {
@@ -22,7 +25,7 @@ export class ExtensionBuilder {
     }
 
     static async splitServerClient(filePath: string, code: string): Promise<{ server: string; client: string }> {
-        console.time('build extension');
+        const buildStartTime = Date.now();
         const fullAst = await babel.parseAsync(code, {
             parserOpts: {
                 plugins: ['typescript', 'jsx'],
@@ -50,7 +53,7 @@ export class ExtensionBuilder {
             this.buildClientBundle({ serverExports, filePath, fullAst, code }),
             this.buildServerBundle({ fullAst, filePath, code })
         ]);
-        console.timeEnd('build extension');
+        debug(`built extension ${filePath} in ${ms(Date.now() - buildStartTime)}`);
         return { client, server };
     }
 
@@ -64,10 +67,12 @@ export class ExtensionBuilder {
         code: string;
     }): Promise<string> {
         const filename = path.basename(filePath);
+        const serverCode = await this.removeExportsFromAst(fullAst, filename, code, ['Page']);
+        debug({ filePath, serverCode });
         const result = await esbuild.build({
             write: false,
             stdin: {
-                contents: await this.removeExportsFromAst(fullAst, filename, code, ['Page']),
+                contents: serverCode,
                 sourcefile: filename,
                 loader: 'tsx'
             },
@@ -116,6 +121,7 @@ export class ExtensionBuilder {
         code: string;
     }): Promise<string> {
         const clientCode = await this.removeExportsFromAst(fullAst, path.basename(filePath), code, serverExports);
+        debug({ filePath, clientCode });
         const projectPath = await ConfigManager.getProjectPath();
         const result = await esbuild.build({
             write: false,
@@ -132,22 +138,9 @@ export class ExtensionBuilder {
             absWorkingDir: path.dirname(filePath),
             plugins: [
                 {
-                    name: 'resolve-sidekick',
+                    name: 'resolve-sidekick-packages',
                     setup: build => {
-                        build.onResolve({ filter: /^sidekick\/extension$/ }, args => {
-                            return { path: 'sidekick/extension', external: false, namespace: 'sidekick' };
-                        });
-                        build.onLoad({ filter: /^sidekick\/extension$/, namespace: 'sidekick' }, async () => {
-                            return {
-                                contents: `module.exports = SidekickExtensionHelpers`
-                            };
-                        });
-                    }
-                },
-                {
-                    name: 'resolve-react',
-                    setup: build => {
-                        build.onResolve({ filter: /^react|react-dom$/ }, args => ({
+                        build.onResolve({ filter: /^react|react-dom|sidekick\/extension$/ }, args => ({
                             path: args.path,
                             external: true
                         }));
@@ -226,7 +219,14 @@ export class ExtensionBuilder {
                 dead_code: true,
                 toplevel: true,
                 unused: true,
-                pure_funcs: ['require']
+                pure_funcs: [
+                    'require',
+
+                    // babel internal helpers
+                    // Source: https://github.com/babel/babel/blob/a6d77d07b461064deda6bdae308a0c70cacdd280/packages/babel-helpers/src/helpers.ts
+                    '_interopRequireWildcard',
+                    '_interopRequireDefault'
+                ]
             },
             mangle: false,
             format: {

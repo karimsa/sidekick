@@ -54,7 +54,7 @@ export class ProcessManager {
         onLogEntry: (chunk: string) => void;
         abortController: AbortController;
     }) {
-        await ExecUtils.runCommand(`tail -n 200 -f ${this.getProcessLogFile(name)}`, {
+        await ExecUtils.runCommand(`tail`, ['-n', '200', '-f', this.getProcessLogFile(name)], {
             onStdout: onLogEntry,
             abortController
         });

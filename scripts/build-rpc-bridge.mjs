@@ -20,8 +20,12 @@ await Promise.all(files.map(async file => {
 
     babelTraverse(ast, {
         ExportNamedDeclaration({ node }) {
-            console.warn(`Found: ${node.declaration.id.name} in ${route}`)
-            methodToRoute[node.declaration.id.name] = route
+            if (node.declaration.type === 'VariableDeclaration') {
+                const name = node.declaration.declarations[0].id.name;
+
+                console.warn(`Found: ${name} in ${route}`)
+                methodToRoute[name] = route
+            }
         },
     });
 }))

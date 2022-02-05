@@ -51,7 +51,7 @@ export const Sidebar: React.FC<{ isOpen: boolean; setOpen(open: boolean): void }
                                     'bg-slate-800': href === router.pathname
                                 })}
                             >
-                                <span className={classNames('text-lg flex items-center', isOpen && 'pr-5')}>
+                                <span className={classNames('text-lg flex items-center', { 'pr-5': isOpen })}>
                                     {icon}
                                 </span>
                                 {isOpen && <span className={'text-lg'}>{label}</span>}
@@ -68,7 +68,7 @@ export const Sidebar: React.FC<{ isOpen: boolean; setOpen(open: boolean): void }
                             setOpen(!isOpen);
                         }}
                     >
-                        <span className={classNames('text-lg flex items-center', isOpen && 'pr-5')}>
+                        <span className={classNames('text-lg flex items-center', { 'pr-5': isOpen })}>
                             {isOpen ? <ArrowLeftIcon /> : <ArrowRightIcon />}
                         </span>
                         {isOpen && <span className={'text-lg'}>Close sidebar</span>}
@@ -81,11 +81,12 @@ export const Sidebar: React.FC<{ isOpen: boolean; setOpen(open: boolean): void }
 
 export function withSidebar<T>(Main: React.FC<T>): React.FC<T> {
     return function SidebarWrappedComponent(props: T) {
-        const [isOpen = true, setOpen] = useLocalState('sidebarOpen', Boolean);
+        const [isOpen, setOpen] = useLocalState('sidebarOpen', Boolean);
 
         return (
             <>
-                <Sidebar isOpen={isOpen} setOpen={setOpen} />
+                {/* Avoid rendering sidebar on the server, because we need localStorage to correctly render */}
+                {global.window && <Sidebar isOpen={isOpen} setOpen={setOpen} />}
                 <main className={'flex flex-col flex-auto p-5 bg-slate-700'}>
                     <div className={'w-full d-flex flex-initial'}>{/*    <InboxItems />*/}</div>
 

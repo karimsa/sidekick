@@ -48,7 +48,7 @@ export const Sidebar: React.FC<{ isOpen: boolean; setOpen(open: boolean): void }
                         <Link href={href} passHref>
                             <a
                                 className={classNames('flex items-center p-5 hover:bg-slate-700', {
-                                    'bg-slate-800': href === router.pathname
+                                    'bg-emerald-900': href === router.asPath
                                 })}
                             >
                                 <span className={classNames('text-lg flex items-center', { 'pr-5': isOpen })}>

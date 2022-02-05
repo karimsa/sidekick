@@ -44,14 +44,13 @@ export const Sidebar: React.FC<{ isOpen: boolean; setOpen(open: boolean): void }
         <div className={'flex-initial bg-slate-900 text-white'}>
             <ul>
                 {links.map(({ icon, href, label }) => (
-                    <li
-                        key={href}
-                        className={classNames('p-5 hover:bg-slate-700', {
-                            'bg-slate-800': href === router.pathname
-                        })}
-                    >
+                    <li key={href}>
                         <Link href={href} passHref>
-                            <a className={'inline-flex items-center'}>
+                            <a
+                                className={classNames('flex items-center p-5 hover:bg-slate-700', {
+                                    'bg-slate-800': href === router.pathname
+                                })}
+                            >
                                 <span className={classNames('text-lg flex items-center', isOpen && 'pr-5')}>
                                     {icon}
                                 </span>

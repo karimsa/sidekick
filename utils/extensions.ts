@@ -14,43 +14,26 @@ import createDebug from 'debug';
 import ms from 'ms';
 import EsbuildNodeModulesPolyfill from '@esbuild-plugins/node-modules-polyfill';
 import { fmt } from './fmt';
+import { ParserOptions } from '@babel/parser';
 
 const debug = createDebug('sidekick:extensions');
 const resolveAsync = util.promisify(resolveModulePath);
 
+const BabelParserOptions: ParserOptions = {
+    plugins: ['typescript', 'jsx'],
+    sourceType: 'module'
+};
+
 export class ExtensionBuilder {
     static async getExtensionClient(extensionPath: string) {
         const buildStartTime = Date.now();
-        const { serverExports, filePath, fullAst, code } = await this.foo(extensionPath);
-        const clientCode = await this.buildClientBundle({ serverExports, filePath, fullAst, code });
-        debug(`built client extension ${filePath} in ${ms(Date.now() - buildStartTime)}`);
-        return clientCode;
-    }
 
-    static async getExtensionServer(extensionPath: string) {
-        const buildStartTime = Date.now();
-        const { filePath, fullAst, code } = await this.foo(extensionPath);
-        const serverCode = await this.buildServerBundle({ filePath, fullAst, code });
-        debug(`built server extension ${filePath} in ${ms(Date.now() - buildStartTime)}`);
-        return serverCode;
-    }
+        const { code, filePath } = await this.getRawExtension(extensionPath);
 
-    private static async foo(extensionPath: string) {
-        const projectPath = await ConfigManager.getProjectPath();
-        const filePath = path.resolve(projectPath, extensionPath);
-        const rawCode = await fs.promises.readFile(filePath, 'utf8');
-
-        const rolledUpCode = await this.rollupExtension({ filePath, code: rawCode });
-        debug(fmt`Rolled up extension: ${{ filePath, code: rolledUpCode }}`);
-
-        const fullAst = await babel.parseAsync(rolledUpCode, {
-            parserOpts: {
-                plugins: ['typescript', 'jsx'],
-                sourceType: 'module'
-            }
+        const fullAst = await babel.parseAsync(code, {
+            parserOpts: BabelParserOptions
         });
 
-        // TODO: Skip this for server bundles
         // First determine all the server-side exports
         const serverExports: string[] = [];
         await babel.traverse(fullAst, {
@@ -82,12 +65,33 @@ export class ExtensionBuilder {
             }
         });
 
-        return {
-            serverExports,
-            fullAst,
-            code: rolledUpCode,
-            filePath
-        };
+        const clientCode = await this.buildClientBundle({ serverExports, filePath, fullAst, code });
+        debug(`built client extension ${filePath} in ${ms(Date.now() - buildStartTime)}`);
+        return clientCode;
+    }
+
+    static async getExtensionServer(extensionPath: string) {
+        const buildStartTime = Date.now();
+
+        const { code, filePath } = await this.getRawExtension(extensionPath);
+        const fullAst = await babel.parseAsync(code, {
+            parserOpts: BabelParserOptions
+        });
+
+        const serverCode = await this.buildServerBundle({ filePath, fullAst, code });
+        debug(`built server extension ${filePath} in ${ms(Date.now() - buildStartTime)}`);
+        return serverCode;
+    }
+
+    private static async getRawExtension(extensionPath: string) {
+        const projectPath = await ConfigManager.getProjectPath();
+        const filePath = path.resolve(projectPath, extensionPath);
+        const rawCode = await fs.promises.readFile(filePath, 'utf8');
+
+        const rolledUpCode = await this.rollupExtension({ filePath, code: rawCode });
+        debug(fmt`Rolled up extension: ${{ filePath, code: rolledUpCode }}`);
+
+        return { filePath, code: rolledUpCode };
     }
 
     private static async rollupExtension({ filePath, code }: { filePath: string; code: string }) {
@@ -132,7 +136,7 @@ export class ExtensionBuilder {
         return result.outputFiles[0].text;
     }
 
-    static async buildServerBundle({
+    private static async buildServerBundle({
         fullAst,
         filePath,
         code
@@ -160,7 +164,9 @@ export class ExtensionBuilder {
                     {
                         name: 'mark-external-packages',
                         setup(build) {
-                            build.onResolve({ filter: /^[^./]|^\.[^./]|^\.\.[^/]/ }, args => ({
+                            // since we aren't fully tree-shaking the server bundle, we need to add polyfills
+                            // for client-side imports
+                            build.onResolve({ filter: /.*/ }, args => ({
                                 path: args.path,
                                 external: args.path !== 'next/router' && args.path !== 'sidekick/extension',
                                 namespace:
@@ -170,20 +176,6 @@ export class ExtensionBuilder {
                             }));
                             build.onLoad({ filter: /^(next\/router|sidekick\/extension)$/ }, args => {
                                 return { contents: 'module.exports = {}' };
-                            });
-                        }
-                    },
-                    {
-                        name: 'resolve-internal',
-                        setup: build => {
-                            build.onResolve({ filter: /^[./]/ }, async args => {
-                                return {
-                                    path: await resolveAsync(args.path, {
-                                        basedir: args.resolveDir || path.dirname(filePath),
-                                        extensions: ['.ts', '.js', '.json']
-                                    }),
-                                    external: false
-                                };
                             });
                         }
                     }
@@ -196,7 +188,7 @@ export class ExtensionBuilder {
         }
     }
 
-    static async buildClientBundle({
+    private static async buildClientBundle({
         serverExports,
         fullAst,
         filePath,
@@ -220,7 +212,7 @@ export class ExtensionBuilder {
                 platform: 'browser',
                 target: ['firefox94', 'chrome95'],
                 format: 'cjs',
-                // minify: true,
+                minify: true,
                 bundle: true,
                 absWorkingDir: path.dirname(filePath),
                 loader: {
@@ -272,7 +264,12 @@ export class ExtensionBuilder {
         }
     }
 
-    static async removeExportsFromAst(inputAst: babel.Node, filename: string, code: string, exportNames: string[]) {
+    private static async removeExportsFromAst(
+        inputAst: babel.Node,
+        filename: string,
+        code: string,
+        exportNames: string[]
+    ) {
         const removedExports: string[] = [];
         const { code: exportsRemovedCode } = await babel.transformFromAstAsync(inputAst, code, {
             filename,

@@ -12,8 +12,8 @@ export default withSidebar(function Home() {
             </h1>
             <p className={'text-xl text-white mt-5'}>Current project: {config?.projectName ?? '(loading)'}</p>
 
-            {config?.version && (
-                <p className={'text-sm text-white mt-5 absolute right-2 bottom-2'}>v{config?.version}</p>
+            {config?.projectVersion && (
+                <p className={'text-sm text-white mt-5 absolute right-2 bottom-2'}>v{config?.projectVersion}</p>
             )}
         </div>
     );

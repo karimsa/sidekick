@@ -8,9 +8,8 @@ export const getConfig = createRpcMethod(t.interface({}), async function () {
     return config.getAll();
 });
 
-export const updateConfig = createRpcMethod(t.record(t.string, t.unknown), async function (req) {
+export const updateConfig = createRpcMethod(t.record(t.string, t.unknown), async function (updates) {
     const config = await ConfigManager.createProvider();
-    // any is valid here, the config provider performs validation
-    await config.setAll(req.body as any);
+    await config.setAll(updates as any);
     return config.getAll();
 });

@@ -1,4 +1,4 @@
-import { QueryFunctionContext, useQuery, UseQueryOptions, UseQueryResult } from 'react-query';
+import { QueryFunctionContext, useQuery, useQueryClient, UseQueryOptions, UseQueryResult } from 'react-query';
 
 import axios from 'axios';
 import type { RpcHandler } from '../utils/http';
@@ -28,6 +28,14 @@ function useRpcQueryInternal<InputType, OutputType>(
             }
         }
     });
+}
+
+export function useQueryInvalidator() {
+    const queryClient = useQueryClient();
+    return function (handler: RpcHandler<any, any>) {
+        const { methodName } = handler as unknown as { methodName: string };
+        queryClient.invalidateQueries([{ methodName }]);
+    };
 }
 
 export function useRpcQuery<InputType, OutputType>(

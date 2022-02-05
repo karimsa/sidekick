@@ -4,6 +4,7 @@ import * as t from 'io-ts';
 import merge from 'lodash/merge';
 import { validate } from '../utils/http';
 import * as esbuild from 'esbuild';
+import omit from 'lodash/omit';
 
 import SidekickPackageJson from '../package.json';
 import { loadModule } from '../utils/load-module';
@@ -84,14 +85,14 @@ export class ConfigManager {
         await this.waitForReady();
         return Object.assign({}, this.configData!, {
             projectName: this.projectName,
-            version: SidekickPackageJson.version,
+            projectVersion: SidekickPackageJson.version,
             __filename: this.configFilePath
         });
     }
 
     async setAll(updates: t.TypeOf<typeof ConfigTypes>) {
         await this.waitForReady();
-        this.configData = validateConfig(updates);
+        this.configData = validateConfig(omit(updates, ['projectName', 'projectVersion', '__filename']));
         await this.flushConfig();
     }
 

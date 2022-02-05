@@ -11,6 +11,7 @@ import { loadModule } from '../utils/load-module';
 
 const ConfigTypes = t.interface({
     environments: t.record(t.string, t.record(t.string, t.string)),
+    extensions: t.record(t.string, t.record(t.string, t.unknown)),
     showReactQueryDebugger: t.boolean
 });
 type ConfigTypes = t.TypeOf<typeof ConfigTypes>;
@@ -24,6 +25,7 @@ const validateConfig = (config: any) =>
                     local: {},
                     production: {}
                 },
+                extensions: {},
                 showReactQueryDebugger: false
             },
             config

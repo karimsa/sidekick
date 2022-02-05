@@ -35,10 +35,11 @@ export const runExtensionMethod = createRpcMethod(
         }),
         t.partial({
             targetEnvironment: t.string,
-            environment: t.record(t.string, t.string)
+            environment: t.record(t.string, t.string),
+            nodeOptions: t.array(t.string)
         })
     ]),
-    async ({ extensionPath, methodName, params, targetEnvironment, environment }) => {
+    async ({ extensionPath, methodName, params, targetEnvironment, environment, nodeOptions }) => {
         const sidekickConfig = await ConfigManager.loadProjectOverrides();
         if (!sidekickConfig.extensions.includes(extensionPath)) {
             throw new Error(`No extension found at: ${extensionPath}`);
@@ -66,6 +67,7 @@ export const runExtensionMethod = createRpcMethod(
             { server, methodName, params },
             {
                 cwd: path.resolve(projectPath, path.dirname(extensionPath)),
+                nodeOptions,
                 env: {
                     ...environment,
                     ...targetEnvironmentVars

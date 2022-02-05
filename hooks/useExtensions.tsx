@@ -6,14 +6,19 @@ import octicons from '@primer/octicons';
 import { loadModule } from '../utils/load-module';
 import toast from 'react-hot-toast';
 import { UseQueryOptions } from 'react-query';
+import * as t from 'io-ts';
+import { getConfig, updateConfig } from '../pages/api/config';
+import { useRpcMutation } from './useMutation';
+import { validate } from '../utils/http';
 
-function createExtensionHelpers(extensionPath: string) {
+function createExtensionHelpers(extensionId: string, extensionPath: string) {
     return {
         useQuery(
             methodName: string,
             params: any[],
             options?: {
                 queryOptions?: Omit<UseQueryOptions, 'queryFn' | 'queryKey' | 'queryHash' | 'queryKeyHashFn'>;
+                nodeOptions?: string[];
                 targetEnvironment?: string;
                 environment?: Record<string, string>;
             }
@@ -25,7 +30,8 @@ function createExtensionHelpers(extensionPath: string) {
                     methodName,
                     params,
                     targetEnvironment: options?.targetEnvironment,
-                    environment: options?.environment
+                    environment: options?.environment,
+                    nodeOptions: options?.nodeOptions
                 },
                 {
                     retry: false,
@@ -33,6 +39,43 @@ function createExtensionHelpers(extensionPath: string) {
                 }
             );
             return { ...props, data: data?.result };
+        },
+
+        useConfig<T extends Record<string, unknown>>(
+            schema: t.Type<T>
+        ): {
+            data?: T;
+            error: Error;
+            isLoading: boolean;
+            updateConfig(updates: T): void;
+        } {
+            const { data: config, error: errFetchingConfig, isLoading: isLoadingConfig } = useRpcQuery(getConfig, {});
+            const extensionConfig = useMemo<T | undefined>(() => {
+                if (config) {
+                    return (config.extensions[extensionId] ?? {}) as any;
+                }
+            }, [config]);
+
+            const {
+                error: errUpdatingConfig,
+                isLoading: isUpdatingConfig,
+                mutate: performUpdate
+            } = useRpcMutation(updateConfig);
+
+            return {
+                data: extensionConfig,
+                error: errFetchingConfig || errUpdatingConfig,
+                isLoading: isLoadingConfig || isUpdatingConfig,
+                updateConfig(updates: T) {
+                    performUpdate({
+                        ...config,
+                        extensions: {
+                            ...config.extensions,
+                            [extensionId]: validate(schema, updates)
+                        }
+                    });
+                }
+            };
         }
     };
 }
@@ -44,7 +87,7 @@ export function useExtensions() {
             return {
                 data: data?.flatMap(({ id, extensionPath, code }) => {
                     try {
-                        const helpers = createExtensionHelpers(extensionPath);
+                        const helpers = {};
                         const { config, Page } = loadModule(code, {
                             // these cannot be bundled and must be loaded at runtime
                             require(modName: string) {
@@ -62,12 +105,16 @@ export function useExtensions() {
                         if (!config) {
                             throw new Error(`Missing 'config' export`);
                         }
+                        if (!config.id) {
+                            throw new Error(`Extension is missing an 'id' (export using config)`);
+                        }
 
                         const icon = octicons[config.icon];
                         if (!icon) {
                             throw new Error(`Unrecognized icon: ${config.icon}`);
                         }
 
+                        Object.assign(helpers, createExtensionHelpers(config.id, extensionPath));
                         return [{ id, icon: icon.toSVG(), config, Page }];
                     } catch (error: any) {
                         toast.error(`Failed to load extension from ${extensionPath}: ${String(error)}`, {

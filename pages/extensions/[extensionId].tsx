@@ -3,6 +3,7 @@ import { useExtensions } from '../../hooks/useExtensions';
 import { useRouter } from 'next/router';
 import { useMemo } from 'react';
 import { Alert } from '../../components/Alert';
+import Head from 'next/head';
 
 export default withSidebar(function () {
     const router = useRouter();
@@ -26,5 +27,13 @@ export default withSidebar(function () {
     }
 
     const Content = selectedExtension.Page;
-    return <Content />;
+    return (
+        <>
+            <Head>
+                <title>{selectedExtension.config.title} | Sidekick</title>
+            </Head>
+
+            <Content />
+        </>
+    );
 });

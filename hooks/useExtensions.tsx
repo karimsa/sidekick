@@ -9,7 +9,6 @@ import toast from 'react-hot-toast';
 function createExtensionHelpers(extensionPath: string) {
     return {
         useQuery(methodName: string, params: any[]) {
-            console.warn({ methodName, params });
             const { data, ...props } = useRpcQuery(
                 runExtensionMethod,
                 {

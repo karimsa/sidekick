@@ -20,6 +20,7 @@
     "jsx": "preserve"
   },
   "include": [
+    "extension.d.ts",
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx"

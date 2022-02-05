@@ -13,10 +13,11 @@ import { ConfigManager } from '../services/config';
 
 const debug = createDebug('sidekick:exec');
 
-type RunOptions = childProcess.ExecOptions & {
+type RunOptions = Omit<childProcess.ExecOptions, 'env'> & {
     stdin?: string;
     onStdout?: (chunk: string) => void;
     abortController?: AbortController;
+    env?: Record<string, string>;
 };
 
 export class ExecUtils {

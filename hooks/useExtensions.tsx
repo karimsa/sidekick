@@ -5,19 +5,31 @@ import { getExtensions, runExtensionMethod } from '../pages/api/extensions';
 import octicons from '@primer/octicons';
 import { loadModule } from '../utils/load-module';
 import toast from 'react-hot-toast';
+import { UseQueryOptions } from 'react-query';
 
 function createExtensionHelpers(extensionPath: string) {
     return {
-        useQuery(methodName: string, params: any[]) {
+        useQuery(
+            methodName: string,
+            params: any[],
+            options?: {
+                queryOptions?: Omit<UseQueryOptions, 'queryFn' | 'queryKey' | 'queryHash' | 'queryKeyHashFn'>;
+                targetEnvironment?: string;
+                environment?: Record<string, string>;
+            }
+        ) {
             const { data, ...props } = useRpcQuery(
                 runExtensionMethod,
                 {
                     extensionPath,
                     methodName,
-                    params
+                    params,
+                    targetEnvironment: options?.targetEnvironment,
+                    environment: options?.environment
                 },
                 {
-                    retry: false
+                    retry: false,
+                    ...(options?.queryOptions ?? {})
                 }
             );
             return { ...props, data: data?.result };

@@ -42,7 +42,7 @@ export function useRpcQuery<InputType, OutputType>(
     // this is the type of the handler at compile-time
     handler: RpcHandler<InputType, OutputType>,
     data: InputType,
-    options?: UseQueryOptions<OutputType>
+    options?: UseQueryOptions<any>
 ): UseQueryResult<OutputType, Error> {
     return useRpcQueryInternal(handler as any, data, options) as any;
 }

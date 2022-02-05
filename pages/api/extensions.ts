@@ -27,16 +27,26 @@ export const getExtensions = createRpcMethod(t.interface({}), async function () 
 });
 
 export const runExtensionMethod = createRpcMethod(
-    t.interface({
-        extensionPath: t.string,
-        methodName: t.string,
-        params: t.array(t.unknown)
-    }),
-    async ({ extensionPath, methodName, params }) => {
-        const config = await ConfigManager.loadProjectOverrides();
-        if (!config.extensions.includes(extensionPath)) {
+    t.intersection([
+        t.interface({
+            extensionPath: t.string,
+            methodName: t.string,
+            params: t.array(t.unknown)
+        }),
+        t.partial({
+            targetEnvironment: t.string,
+            environment: t.record(t.string, t.string)
+        })
+    ]),
+    async ({ extensionPath, methodName, params, targetEnvironment, environment }) => {
+        const sidekickConfig = await ConfigManager.loadProjectOverrides();
+        if (!sidekickConfig.extensions.includes(extensionPath)) {
             throw new Error(`No extension found at: ${extensionPath}`);
         }
+
+        const config = await ConfigManager.createProvider();
+        const targetEnvironments = await config.getValue('environments');
+        const targetEnvironmentVars = targetEnvironment ? targetEnvironments[targetEnvironment] : {};
 
         const projectPath = await ConfigManager.getProjectPath();
         const { server } = await ExtensionBuilder.getExtension(extensionPath);
@@ -55,7 +65,11 @@ export const runExtensionMethod = createRpcMethod(
             },
             { server, methodName, params },
             {
-                cwd: path.resolve(projectPath, path.dirname(extensionPath))
+                cwd: path.resolve(projectPath, path.dirname(extensionPath)),
+                env: {
+                    ...environment,
+                    ...targetEnvironmentVars
+                }
             }
         );
         return { result };

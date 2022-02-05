@@ -1,15 +1,17 @@
 import * as React from 'react';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useRpcQuery } from './useQuery';
 import { getExtensions, runExtensionMethod } from '../pages/api/extensions';
 import octicons from '@primer/octicons';
 import { loadModule } from '../utils/load-module';
 import toast from 'react-hot-toast';
-import { UseQueryOptions } from 'react-query';
+import { UseMutationOptions, UseQueryOptions } from 'react-query';
 import * as t from 'io-ts';
 import { getConfig, updateConfig } from '../pages/api/config';
 import { useRpcMutation } from './useMutation';
 import { validate } from '../utils/http';
+import * as ReactDOM from 'react-dom';
+import { useRouter } from 'next/router';
 
 function createExtensionHelpers(extensionId: string, extensionPath: string) {
     return {
@@ -41,6 +43,45 @@ function createExtensionHelpers(extensionId: string, extensionPath: string) {
             return { ...props, data: data?.result };
         },
 
+        useMutation(
+            methodName: string,
+            options?: {
+                mutationOptions?: Omit<UseMutationOptions, 'mutationFn' | 'mutationKey'>;
+            }
+        ) {
+            const { data, mutate, ...props } = useRpcMutation(runExtensionMethod, options?.mutationOptions);
+            const mutateWrapper = useCallback(
+                (
+                    params: any[],
+                    options?: {
+                        nodeOptions?: string[];
+                        targetEnvironment?: string;
+                        environment?: Record<string, string>;
+                    },
+                    mutationOptions?: Omit<UseMutationOptions, 'mutationFn' | 'mutationKey'>
+                ) => {
+                    mutate(
+                        {
+                            extensionPath,
+                            methodName,
+                            params,
+                            targetEnvironment: options?.targetEnvironment,
+                            environment: options?.environment,
+                            nodeOptions: options?.nodeOptions
+                        },
+                        mutationOptions as any
+                    );
+                },
+                [methodName, mutate]
+            );
+
+            return {
+                ...props,
+                data: data?.result,
+                mutate: mutateWrapper
+            };
+        },
+
         useConfig<T extends Record<string, unknown>>(
             schema: t.Type<T>
         ): {
@@ -61,12 +102,8 @@ function createExtensionHelpers(extensionId: string, extensionPath: string) {
                 isLoading: isUpdatingConfig,
                 mutate: performUpdate
             } = useRpcMutation(updateConfig);
-
-            return {
-                data: extensionConfig,
-                error: errFetchingConfig || errUpdatingConfig,
-                isLoading: isLoadingConfig || isUpdatingConfig,
-                updateConfig(updates: T) {
+            const updateConfigWrapper = useCallback(
+                (updates: T) => {
                     performUpdate({
                         ...config,
                         extensions: {
@@ -74,8 +111,24 @@ function createExtensionHelpers(extensionId: string, extensionPath: string) {
                             [extensionId]: validate(schema, updates)
                         }
                     });
-                }
+                },
+                [config, performUpdate, schema]
+            );
+
+            return {
+                data: extensionConfig,
+                error: errFetchingConfig || errUpdatingConfig,
+                isLoading: isLoadingConfig || isUpdatingConfig,
+                updateConfig: updateConfigWrapper
             };
+        },
+
+        useTargetEnvironments(): { data?: string[]; error?: Error; isLoading: boolean } {
+            const { data: config, error, isLoading } = useRpcQuery(getConfig, {});
+            const targetEnvs = useMemo(() => {
+                return config ? Object.keys(config.environments) : undefined;
+            }, [config]);
+            return { data: targetEnvs, error, isLoading };
         }
     };
 }
@@ -85,7 +138,7 @@ export function useExtensions() {
     const { data: extensions, error: errLoadingExtensions } = useMemo(() => {
         try {
             return {
-                data: data?.flatMap(({ id, extensionPath, code }) => {
+                data: data?.flatMap(({ extensionPath, code }) => {
                     try {
                         const helpers = {};
                         const { config, Page } = loadModule(code, {
@@ -94,10 +147,14 @@ export function useExtensions() {
                                 switch (modName) {
                                     case 'react':
                                         return React;
+                                    case 'react-dom':
+                                        return ReactDOM;
+                                    case 'next/router':
+                                        return { useRouter };
                                     case 'sidekick/extension':
                                         return helpers;
                                     default:
-                                        throw new Error(`Failed to bundle '${modName}' (source: ${id})`);
+                                        throw new Error(`Failed to bundle '${modName}'`);
                                 }
                             }
                         }) as any;
@@ -115,7 +172,7 @@ export function useExtensions() {
                         }
 
                         Object.assign(helpers, createExtensionHelpers(config.id, extensionPath));
-                        return [{ id, icon: icon.toSVG(), config, Page }];
+                        return [{ id: config.id, icon: icon.toSVG(), config, Page }];
                     } catch (error: any) {
                         toast.error(`Failed to load extension from ${extensionPath}: ${String(error)}`, {
                             id: `load-extension-${extensionPath}`

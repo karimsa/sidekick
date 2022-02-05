@@ -41,7 +41,7 @@ export class ExecUtils {
                 'resolve'
             )}').sync
             const root = process.cwd()
-            const fakeRequire = p => require(resolve(p, { basedir: 'projectDir' }))
+            const fakeRequire = p => require(resolve(p, { basedir: '${projectDir}' }))
             const entryPoint = ${remoteFn}
 
             const writeResult = result => fs.writeFileSync('${outputSocket}', JSON.stringify(result))

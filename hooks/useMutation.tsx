@@ -31,7 +31,7 @@ function useRpcMutationInternal<InputType, OutputType>(
 export function useRpcMutation<InputType, OutputType>(
     // this is the type of the handler at compile-time
     handler: RpcHandler<InputType, OutputType>,
-    options?: UseMutationOptions<OutputType, unknown, InputType>
+    options?: UseMutationOptions<any, unknown, any>
 ): UseMutationResult<OutputType, Error, InputType> {
     return useRpcMutationInternal(handler as any, options) as any;
 }

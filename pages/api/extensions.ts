@@ -1,5 +1,4 @@
 import * as t from 'io-ts';
-import slugify from 'slugify';
 import * as path from 'path';
 
 import { createRpcMethod } from '../../utils/http';
@@ -11,15 +10,13 @@ export const getExtensions = createRpcMethod(t.interface({}), async function () 
     const config = await ConfigManager.loadProjectOverrides();
     return Promise.all(
         config.extensions.map(async extensionPath => {
-            const extensionId = slugify(path.basename(extensionPath));
             try {
-                const { client } = await ExtensionBuilder.getExtension(extensionPath);
-                return { id: extensionId, extensionPath, code: client };
+                const client = await ExtensionBuilder.getExtensionClient(extensionPath);
+                return { extensionPath, code: client };
             } catch (error: any) {
                 return {
-                    id: extensionId,
                     extensionPath,
-                    code: `throw new Error(${JSON.stringify(String(error))})`
+                    code: `throw new Error(${JSON.stringify(`${String(error)} (failed to build)`)})`
                 };
             }
         })
@@ -50,7 +47,7 @@ export const runExtensionMethod = createRpcMethod(
         const targetEnvironmentVars = targetEnvironment ? targetEnvironments[targetEnvironment] : {};
 
         const projectPath = await ConfigManager.getProjectPath();
-        const { server } = await ExtensionBuilder.getExtension(extensionPath);
+        const server = await ExtensionBuilder.getExtensionServer(extensionPath);
         const result = await ExecUtils.runJS(
             async function (require, { server, methodName, params }) {
                 const modulePolyfill = { exports: {} as any };

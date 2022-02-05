@@ -16,6 +16,12 @@ const ConfigTypes = t.interface({
 });
 type ConfigTypes = t.TypeOf<typeof ConfigTypes>;
 
+export const SidekickConfigOverrides = t.partial({
+    defaultConfig: ConfigTypes,
+    extensions: t.array(t.string)
+});
+export type SidekickConfigOverrides = t.TypeOf<typeof SidekickConfigOverrides>;
+
 const validateConfig = (config: any) =>
     validate(
         ConfigTypes,
@@ -147,16 +153,10 @@ export class ConfigManager {
         }
 
         const { config } = loadModule(result.outputFiles[0].text);
-        return validate(
-            t.partial({
-                defaultConfig: ConfigTypes,
-                extensions: t.array(t.string)
-            }),
-            {
-                ...config,
-                defaultConfig: validateConfig(config.defaultConfig ?? {})
-            }
-        );
+        return validate(SidekickConfigOverrides, {
+            ...config,
+            defaultConfig: validateConfig(config.defaultConfig ?? {})
+        });
     }
 
     static async createProvider() {

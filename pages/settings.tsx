@@ -1,6 +1,7 @@
 import * as React from 'react';
 import Editor, { DiffEditor, useMonaco } from '@monaco-editor/react';
 import Head from 'next/head';
+import toast from 'react-hot-toast';
 
 import { withSidebar } from '../components/Sidebar';
 import { useQueryInvalidator, useRpcQuery } from '../hooks/useQuery';
@@ -55,6 +56,7 @@ export default withSidebar(function Settings() {
         isLoading: isUpdating
     } = useRpcMutation(updateConfig, {
         onSuccess: () => {
+            toast.success('Settings updated successfully');
             invalidateQueries(getConfig);
         }
     });

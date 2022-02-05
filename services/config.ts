@@ -6,7 +6,7 @@ import { validate } from '../utils/http';
 import * as esbuild from 'esbuild';
 
 import SidekickPackageJson from '../package.json';
-import { ExecUtils } from '../utils/exec';
+import { loadModule } from '../utils/load-module';
 
 const ConfigTypes = t.interface({
     environments: t.record(t.string, t.record(t.string, t.string)),
@@ -143,17 +143,7 @@ export class ConfigManager {
             return {};
         }
 
-        const output = await ExecUtils.runCommand(`node`, [], {
-            cwd: projectPath,
-            stdin: `
-                    const modulePolyfill = { exports: {} };
-                    !function(module, exports){
-                        ${result.outputFiles[0].text}
-                    }(modulePolyfill, modulePolyfill.exports)
-                    console.log('\\0' + JSON.stringify(modulePolyfill.exports.config));
-                `
-        });
-        const config = JSON.parse(output.split('\0')[1]!);
+        const { config } = loadModule(result.outputFiles[0].text);
         return validate(
             t.partial({
                 defaultConfig: ConfigTypes,

@@ -18,6 +18,7 @@ import { fmt } from './fmt';
 import { ParserOptions } from '@babel/parser';
 
 const debug = createDebug('sidekick:extensions');
+const verbose = createDebug('sidekick:extensions:verbose');
 const resolveAsync = util.promisify(resolveModulePath);
 
 const BabelParserOptions: ParserOptions = {
@@ -40,7 +41,8 @@ export class ExtensionBuilder {
         await babel.traverse(fullAst, {
             CallExpression(path) {
                 const callee = path.get('callee');
-                if (callee.isIdentifier() && (callee.node.name === 'useQuery' || callee.node.name === 'useMutation')) {
+                if (callee.isIdentifier() && callee.node.name.match(/useQuery|useMutation/)) {
+                    //(callee.node.name === 'useQuery' || callee.node.name === 'useMutation')) {
                     const firstArg = path.get('arguments')[0];
                     if (!firstArg || !firstArg.isIdentifier()) {
                         throw firstArg.buildCodeFrameError(
@@ -65,6 +67,7 @@ export class ExtensionBuilder {
                 }
             }
         });
+        debug(fmt`Determined server-side exports: ${serverExports}`);
 
         const clientCode = await this.buildClientBundle({ serverExports, filePath, fullAst, code });
         debug(`built client extension ${filePath} in ${ms(Date.now() - buildStartTime)}`);
@@ -88,13 +91,35 @@ export class ExtensionBuilder {
         try {
             return await esbuild.build({
                 ...options,
-                logLevel: 'warning',
+                plugins: [
+                    ...options.plugins,
+                    {
+                        name: 'import-css',
+                        setup(build) {
+                            build.onLoad({ filter: /\.css$/ }, async args => {
+                                const css = await fs.promises.readFile(args.path, 'utf8');
+                                return {
+                                    contents: `!function(){
+                                        try { var d = document.documentElement }
+                                        catch (error) { return }
+
+                                        var style = document.createElement('style')
+                                        style.setAttribute('data-path', '${args.path}')
+                                        style.innerText = ${JSON.stringify(css)}
+                                        document.body.appendChild(style)
+                                    }()`
+                                };
+                            });
+                        }
+                    }
+                ],
+                logLevel: 'silent',
                 write: false
             });
         } catch (error: any) {
             if (error.errors) {
                 console.warn(`Build failed with ${error.errors.length} errors`);
-                throw error.errors[0].detail;
+                throw error.errors[0].detail || new Error(error.errors[0].text);
             }
             throw error;
         }
@@ -106,7 +131,7 @@ export class ExtensionBuilder {
         const rawCode = await fs.promises.readFile(filePath, 'utf8');
 
         const rolledUpCode = await this.rollupExtension({ filePath, code: rawCode });
-        debug(fmt`Rolled up extension: ${{ filePath, code: rolledUpCode }}`);
+        verbose(fmt`Rolled up extension: ${{ filePath, code: rolledUpCode }}`);
 
         return { filePath, code: rolledUpCode };
     }
@@ -165,7 +190,7 @@ export class ExtensionBuilder {
         try {
             const filename = path.basename(filePath);
             const serverCode = await this.removeExportsFromAst(fullAst, filename, code, ['Page']);
-            debug({ filePath, serverCode });
+            verbose({ filePath, serverCode });
             const result = await this.esbuild({
                 write: false,
                 stdin: {
@@ -218,7 +243,7 @@ export class ExtensionBuilder {
     }): Promise<string> {
         try {
             const clientCode = await this.removeExportsFromAst(fullAst, path.basename(filePath), code, serverExports);
-            debug({ filePath, clientCode });
+            verbose({ filePath, clientCode });
             const result = await this.esbuild({
                 write: false,
                 stdin: {

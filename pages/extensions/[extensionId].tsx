@@ -2,10 +2,12 @@ import { withSidebar } from '../../components/Sidebar';
 import { useExtensions } from '../../hooks/useExtensions';
 import { useRouter } from 'next/router';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert } from '../../components/Alert';
+import { Alert, AlertCard } from '../../components/AlertCard';
 import Head from 'next/head';
 import { ErrorBoundary, FallbackProps } from 'react-error-boundary';
 import { Button } from '../../components/Button';
+import { AlertFillIcon } from '@primer/octicons-react';
+import { Spinner } from '../../components/Spinner';
 
 export default withSidebar(function () {
     const router = useRouter();
@@ -20,7 +22,7 @@ export default withSidebar(function () {
             const [showStackTrace, setShowStackTrace] = useState(false);
 
             return (
-                <Alert title={`The extension has crashed.`}>
+                <AlertCard title={`The extension has crashed.`}>
                     <p>Sorry, but the extension with the ID &quot;{extensionId}&quot; has crashed.</p>
                     <code>
                         <pre className={'font-mono my-5 p-5 rounded bg-gray-300 break-all overflow-auto'}>
@@ -33,34 +35,46 @@ export default withSidebar(function () {
                     <Button variant={'secondary'} className={'ml-2'} onClick={() => setShowStackTrace(!showStackTrace)}>
                         {showStackTrace ? 'Hide' : 'Show'} stacktrace
                     </Button>
-                </Alert>
+                </AlertCard>
             );
         },
         [extensionId]
     );
 
     if (error) {
-        return <Alert title={'Failed to load extension'}>{String(error)}</Alert>;
+        return <AlertCard title={'Failed to load extension'}>{String(error)}</AlertCard>;
     }
     if (!selectedExtension && extensions) {
         return (
-            <Alert title={'Failed to load extension'}>
+            <AlertCard title={'Failed to load extension'}>
                 Cannot find an extension with the ID &quot;{extensionId}&quot;
-            </Alert>
+            </AlertCard>
         );
     }
     if (!selectedExtension) {
-        return <p>Loading ...</p>;
+        return (
+            <p className={'text-white flex items-center'}>
+                <Spinner className={'text-white mr-2'} />
+                Loading ...
+            </p>
+        );
     }
 
     const Content = selectedExtension.Page;
     return (
         <>
             <Head>
-                <title>{selectedExtension.config.title} | Sidekick</title>
+                <title>{selectedExtension.title} | Sidekick</title>
             </Head>
 
             <ErrorBoundary FallbackComponent={ExtensionFallback}>
+                {selectedExtension.warnings.map(warning => (
+                    <Alert key={warning} bgColor={'bg-yellow-500 mb-5'}>
+                        <AlertFillIcon className={'mr-2'} />
+                        {warning}
+                    </Alert>
+                ))}
+
                 <Content />
             </ErrorBoundary>
         </>

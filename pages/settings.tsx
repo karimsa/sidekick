@@ -7,7 +7,7 @@ import { withSidebar } from '../components/Sidebar';
 import { useQueryInvalidator, useRpcQuery } from '../hooks/useQuery';
 import { getConfig, updateConfig } from './api/config';
 import { useRpcMutation } from '../hooks/useMutation';
-import { Alert } from '../components/Alert';
+import { AlertCard } from '../components/AlertCard';
 import { Button } from '../components/Button';
 
 export default withSidebar(function Settings() {
@@ -73,9 +73,11 @@ export default withSidebar(function Settings() {
                 <div className={'bg-slate-900 rounded p-5 w-full-gah h-full flex flex-col'}>
                     <h1 className={'text-xl font-bold mb-5 text-white'}>Settings</h1>
 
-                    {errLoadingConfig && <Alert title={'Failed to load settings'}>{String(errLoadingConfig)}</Alert>}
+                    {errLoadingConfig && (
+                        <AlertCard title={'Failed to load settings'}>{String(errLoadingConfig)}</AlertCard>
+                    )}
                     {errUpdatingConfig && (
-                        <Alert title={'Failed to update settings'}>{String(errUpdatingConfig)}</Alert>
+                        <AlertCard title={'Failed to update settings'}>{String(errUpdatingConfig)}</AlertCard>
                     )}
 
                     {configOriginal && showDiff && (

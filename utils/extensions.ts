@@ -88,7 +88,7 @@ export class ExtensionBuilder {
         try {
             return await esbuild.build({
                 ...options,
-                logLevel: 'silent',
+                logLevel: 'warning',
                 write: false
             });
         } catch (error: any) {

@@ -43,13 +43,6 @@ export class ExtensionBuilder {
                 const callee = path.get('callee');
                 // it is possible that esbuild will rename the import, but it'll always be a variation of the original
                 if (callee.isIdentifier() && callee.node.name.match(/useQuery|useMutation/)) {
-                    const firstArg = path.get('arguments')[0];
-                    if (!firstArg || !firstArg.isIdentifier()) {
-                        throw firstArg.buildCodeFrameError(
-                            `The first argument to ${callee.node.name}() must be an identifier`
-                        );
-                    }
-
                     const helperBinding = path.scope.getBinding(callee.node.name);
                     if (
                         helperBinding &&
@@ -57,12 +50,15 @@ export class ExtensionBuilder {
                         helperBinding.path.parentPath.node.type === 'ImportDeclaration' &&
                         helperBinding.path.parentPath.node.source.value === 'sidekick/extension'
                     ) {
+                        const firstArg = path.get('arguments')[0];
+                        if (!firstArg || !firstArg.isIdentifier()) {
+                            throw new Error(
+                                `The first argument to ${callee.node.name}() must be an identifier (got ${firstArg.node.type})`
+                            );
+                        }
+
                         serverExports.push(firstArg.node.name);
                         firstArg.replaceWith(babel.types.stringLiteral(firstArg.node.name));
-                    } else {
-                        throw path.buildCodeFrameError(
-                            `Failed to find ${callee.node.name} imported from sidekick/extension`
-                        );
                     }
                 }
             }

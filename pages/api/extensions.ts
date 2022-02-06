@@ -28,6 +28,7 @@ export const getExtensions = createRpcMethod(t.interface({}), async function () 
 
                 return { extensionPath, warnings, code: client };
             } catch (error: any) {
+                console.error(error);
                 return {
                     extensionPath,
                     warnings: [],

@@ -12,6 +12,7 @@ import { fmt } from './fmt';
 import { ConfigManager } from '../services/config';
 
 const debug = createDebug('sidekick:exec');
+const verbose = createDebug('sidekick:exec:verbose');
 
 type RunOptions = Omit<childProcess.ExecOptions, 'env'> & {
     stdin?: string;
@@ -59,7 +60,7 @@ export class ExecUtils {
                 process.exit()
             }, 30e3);
             `;
-        debug(fmt`Script generated: ${script}`);
+        verbose(fmt`Script generated: ${script}`);
         await fs.promises.writeFile(tmpFilePath, script);
 
         // run script in the right project
@@ -70,11 +71,11 @@ export class ExecUtils {
             { ...options, cwd: projectDir }
         );
         const resData = await fs.promises.readFile(outputSocket, 'utf8');
-        debug(fmt`JS code returned: ${resData.slice(0, 50)}... (${outputSocket})`);
+        debug(fmt`JS code returned: ${resData.slice(0, 50)}... (${tmpFilePath})`);
 
         // act on result
         const { type, result, error } = JSON.parse(resData);
-        if (type === 'success') {
+        if (type === 'success' || !debug.enabled) {
             // delete temporary files
             await fs.promises.unlink(tmpFilePath);
             await fs.promises.unlink(outputSocket);

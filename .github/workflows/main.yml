@@ -37,3 +37,10 @@ jobs:
 
       - name: Build
         run: yarn build
+
+      # prerelease versions must have a '-' to be released
+      - name: Publish unstable
+        if: "startsWith(github.ref, 'refs/tags/v') && contains(github.ref, '-')"
+        run: |
+          npm whoami
+          npm publish --tag next

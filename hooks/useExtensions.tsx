@@ -144,6 +144,7 @@ function createExtensionHelpers(extensionId: string, extensionPath: string) {
 export interface CompiledExtension {
     id: string;
     icon: string;
+    code: string;
     warnings: string[];
     title: string;
     Page: React.FC;
@@ -156,12 +157,15 @@ export function useExtensions() {
 
     const extensions = useMemo<CompiledExtension[] | undefined>(() => {
         return data?.flatMap(({ extensionPath, code, warnings }) => {
-            if (extensionCache.has(extensionPath)) {
-                return extensionCache.get(extensionPath)!;
-            }
+            const cachedExtension = extensionCache.get(extensionPath);
+            if (cachedExtension) {
+                const updateWarning = `Your extension has changed. Please refresh to update.`;
+                if (code !== cachedExtension.code && !cachedExtension.warnings.includes(updateWarning)) {
+                    cachedExtension.warnings.push(updateWarning);
+                }
 
-            const compiledExt = {};
-            extensionCache.set(extensionPath, compiledExt as any);
+                return [cachedExtension];
+            }
 
             try {
                 console.log(`Loading extension: ${extensionPath}`);
@@ -201,11 +205,12 @@ export function useExtensions() {
                 const compiled: CompiledExtension = {
                     id: config.id,
                     icon: icon.toSVG(),
+                    code,
                     warnings,
                     title: config.title,
                     Page
                 };
-                Object.assign(compiledExt, compiled);
+                extensionCache.set(extensionPath, compiled);
                 return [compiled];
             } catch (error: any) {
                 toast.error(`Failed to load extension from ${extensionPath}: ${String(error)}`, {

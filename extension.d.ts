@@ -1,6 +1,7 @@
 import { UseMutationOptions, UseMutationResult, UseQueryOptions, UseQueryResult } from 'react-query';
 import { AxiosError } from 'axios';
 import * as t from 'io-ts';
+import { toast } from 'react-hot-toast';
 
 declare module 'sidekick/extension' {
     export function useQuery<Params, Result>(
@@ -44,4 +45,6 @@ declare module 'sidekick/extension' {
     };
 
     export function useTargetEnvironments(): { data?: string[]; error?: Error; isLoading: boolean };
+
+    export function useToaster(): { toast: typeof toast };
 }

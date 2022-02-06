@@ -158,6 +158,10 @@ function createExtensionHelpers(extensionId: string, extensionPath: string) {
                 return config ? Object.keys(config.environments) : undefined;
             }, [config]);
             return { data: targetEnvs, error, isLoading };
+        },
+
+        useToaster() {
+            return { toast };
         }
     };
 }

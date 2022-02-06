@@ -1,9 +1,8 @@
 import * as React from 'react';
 import { useCallback, useMemo } from 'react';
-import { useRpcQuery } from './useQuery';
+import { useQueryInvalidator, useRpcQuery } from './useQuery';
 import { getExtensions, runExtensionMethod } from '../pages/api/extensions';
 import octicons from '@primer/octicons';
-import { loadModule } from '../utils/load-module';
 import toast from 'react-hot-toast';
 import { UseMutationOptions, UseQueryOptions } from 'react-query';
 import * as t from 'io-ts';
@@ -12,6 +11,7 @@ import { useRpcMutation } from './useMutation';
 import { validate } from '../utils/http';
 import * as ReactDOM from 'react-dom';
 import { useRouter } from 'next/router';
+import { loadModule } from '../utils/load-module';
 
 function createExtensionHelpers(extensionId: string, extensionPath: string) {
     return {
@@ -41,6 +41,14 @@ function createExtensionHelpers(extensionId: string, extensionPath: string) {
                 }
             );
             return { ...props, data: data?.result };
+        },
+
+        // TODO: Allow selective invalidation
+        useQueryInvalidator() {
+            const invalidate = useQueryInvalidator();
+            return function () {
+                invalidate(runExtensionMethod);
+            };
         },
 
         useMutation(
@@ -133,57 +141,79 @@ function createExtensionHelpers(extensionId: string, extensionPath: string) {
     };
 }
 
+export interface CompiledExtension {
+    id: string;
+    icon: string;
+    warnings: string[];
+    title: string;
+    Page: React.FC;
+}
+
+const extensionCache = new Map<string, CompiledExtension>();
+
 export function useExtensions() {
-    const { data, error: errFetchingExtensions, ...props } = useRpcQuery(getExtensions, {});
-    const { data: extensions, error: errLoadingExtensions } = useMemo(() => {
-        try {
-            return {
-                data: data?.flatMap(({ extensionPath, code }) => {
-                    try {
-                        const helpers = {};
-                        const { config, Page } = loadModule(code, {
-                            // these cannot be bundled and must be loaded at runtime
-                            require(modName: string) {
-                                switch (modName) {
-                                    case 'react':
-                                        return React;
-                                    case 'react-dom':
-                                        return ReactDOM;
-                                    case 'next/router':
-                                        return { useRouter };
-                                    case 'sidekick/extension':
-                                        return helpers;
-                                    default:
-                                        throw new Error(`Failed to bundle '${modName}'`);
-                                }
-                            }
-                        }) as any;
+    const { data, ...props } = useRpcQuery(getExtensions, {});
 
-                        if (!config) {
-                            throw new Error(`Missing 'config' export`);
-                        }
-                        if (!config.id) {
-                            throw new Error(`Extension is missing an 'id' (export using config)`);
-                        }
+    const extensions = useMemo<CompiledExtension[] | undefined>(() => {
+        return data?.flatMap(({ extensionPath, code, warnings }) => {
+            if (extensionCache.has(extensionPath)) {
+                return extensionCache.get(extensionPath)!;
+            }
 
-                        const icon = octicons[config.icon];
-                        if (!icon) {
-                            throw new Error(`Unrecognized icon: ${config.icon}`);
-                        }
+            const compiledExt = {};
+            extensionCache.set(extensionPath, compiledExt as any);
 
-                        Object.assign(helpers, createExtensionHelpers(config.id, extensionPath));
-                        return [{ id: config.id, icon: icon.toSVG(), config, Page }];
-                    } catch (error: any) {
-                        toast.error(`Failed to load extension from ${extensionPath}: ${String(error)}`, {
-                            id: `load-extension-${extensionPath}`
-                        });
-                        return [];
+            try {
+                console.log(`Loading extension: ${extensionPath}`);
+                const helpers = {};
+
+                const { config, Page } = loadModule(code, {
+                    // these cannot be bundled and must be loaded at runtime
+                    require(modName: string) {
+                        switch (modName) {
+                            case 'react':
+                                return React;
+                            case 'react-dom':
+                                return ReactDOM;
+                            case 'next/router':
+                                return { useRouter };
+                            case 'sidekick/extension':
+                                return helpers;
+                            default:
+                                throw new Error(`Failed to bundle '${modName}'`);
+                        }
                     }
-                })
-            };
-        } catch (error: any) {
-            return { error };
-        }
+                });
+
+                if (!config) {
+                    throw new Error(`Missing 'config' export`);
+                }
+                if (!config.id) {
+                    throw new Error(`Extension is missing an 'id' (export using config)`);
+                }
+
+                const icon = octicons[config.icon];
+                if (!icon) {
+                    throw new Error(`Unrecognized icon: ${config.icon}`);
+                }
+
+                Object.assign(helpers, createExtensionHelpers(config.id, extensionPath));
+                const compiled: CompiledExtension = {
+                    id: config.id,
+                    icon: icon.toSVG(),
+                    warnings,
+                    title: config.title,
+                    Page
+                };
+                Object.assign(compiledExt, compiled);
+                return [compiled];
+            } catch (error: any) {
+                toast.error(`Failed to load extension from ${extensionPath}: ${String(error)}`, {
+                    id: `loading-${extensionPath}`
+                });
+                return [];
+            }
+        });
     }, [data]);
-    return { extensions, error: errFetchingExtensions || errLoadingExtensions, ...props };
+    return { extensions, ...props };
 }

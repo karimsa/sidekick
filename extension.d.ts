@@ -14,6 +14,8 @@ declare module 'sidekick/extension' {
         }
     ): UseQueryResult<Result, AxiosError | Error>;
 
+    export function useQueryInvalidator(): (method: (...args: Params) => Promise<Result>) => void;
+
     export function useMutation<Params, Result>(
         method: (...args: Params) => Promise<Result>,
         options?: {

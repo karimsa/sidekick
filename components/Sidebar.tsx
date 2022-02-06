@@ -23,7 +23,7 @@ export const Sidebar: React.FC<{ isOpen: boolean; setOpen(open: boolean): void }
             ...(extensions ?? []).map(extension => ({
                 icon: <span style={{ fill: 'white' }} dangerouslySetInnerHTML={{ __html: extension.icon }} />,
                 href: `/extensions/${extension.id}`,
-                label: extension.config.title
+                label: extension.title
             })),
             {
                 icon: <ToolsIcon />,

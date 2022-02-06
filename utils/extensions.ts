@@ -1,5 +1,6 @@
 import * as babel from '@babel/core';
 import * as esbuild from 'esbuild';
+import { BuildOptions } from 'esbuild';
 import * as path from 'path';
 import { ConfigManager } from '../services/config';
 import resolveModulePath from 'resolve/async';
@@ -83,6 +84,22 @@ export class ExtensionBuilder {
         return serverCode;
     }
 
+    private static async esbuild(options: BuildOptions) {
+        try {
+            return await esbuild.build({
+                ...options,
+                logLevel: 'silent',
+                write: false
+            });
+        } catch (error: any) {
+            if (error.errors) {
+                console.warn(`Build failed with ${error.errors.length} errors`);
+                throw error.errors[0].detail;
+            }
+            throw error;
+        }
+    }
+
     private static async getRawExtension(extensionPath: string) {
         const projectPath = await ConfigManager.getProjectPath();
         const filePath = path.resolve(projectPath, extensionPath);
@@ -96,7 +113,7 @@ export class ExtensionBuilder {
 
     private static async rollupExtension({ filePath, code }: { filePath: string; code: string }) {
         const filename = path.basename(filePath);
-        const result = await esbuild.build({
+        const result = await this.esbuild({
             write: false,
             stdin: {
                 contents: code,
@@ -149,7 +166,7 @@ export class ExtensionBuilder {
             const filename = path.basename(filePath);
             const serverCode = await this.removeExportsFromAst(fullAst, filename, code, ['Page']);
             debug({ filePath, serverCode });
-            const result = await esbuild.build({
+            const result = await this.esbuild({
                 write: false,
                 stdin: {
                     contents: serverCode,
@@ -202,7 +219,7 @@ export class ExtensionBuilder {
         try {
             const clientCode = await this.removeExportsFromAst(fullAst, path.basename(filePath), code, serverExports);
             debug({ filePath, clientCode });
-            const result = await esbuild.build({
+            const result = await this.esbuild({
                 write: false,
                 stdin: {
                     contents: clientCode,

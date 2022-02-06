@@ -41,8 +41,8 @@ export class ExtensionBuilder {
         await babel.traverse(fullAst, {
             CallExpression(path) {
                 const callee = path.get('callee');
+                // it is possible that esbuild will rename the import, but it'll always be a variation of the original
                 if (callee.isIdentifier() && callee.node.name.match(/useQuery|useMutation/)) {
-                    //(callee.node.name === 'useQuery' || callee.node.name === 'useMutation')) {
                     const firstArg = path.get('arguments')[0];
                     if (!firstArg || !firstArg.isIdentifier()) {
                         throw firstArg.buildCodeFrameError(

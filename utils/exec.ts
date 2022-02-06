@@ -63,11 +63,12 @@ export class ExecUtils {
         verbose(fmt`Script generated: ${script}`);
         await fs.promises.writeFile(tmpFilePath, script);
 
+        // TODO: Handle node versioning
         // run script in the right project
         const nodeOptions = options?.nodeOptions ?? [];
         await ExecUtils.runCommand(
-            `/Users/karimsa/.nvm/versions/node/v12.22.7/bin/node`,
-            [...nodeOptions, tmpFilePath],
+            process.env.SHELL,
+            ['-c', `source ~/.nvm/nvm.sh && nvm use 12.22.7 && node ${nodeOptions} ${tmpFilePath}`],
             { ...options, cwd: projectDir }
         );
         const resData = await fs.promises.readFile(outputSocket, 'utf8');

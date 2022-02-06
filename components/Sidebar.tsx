@@ -59,9 +59,9 @@ export const Sidebar: React.FC<{ isOpen: boolean; setOpen(open: boolean): void }
                         </Link>
                     </li>
                 ))}
-                <li className={classNames('p-5 hover:bg-slate-700')}>
+                <li>
                     <a
-                        className={'inline-flex items-center'}
+                        className={classNames('flex items-center p-5 hover:bg-slate-700')}
                         href={'#'}
                         onClick={evt => {
                             evt.preventDefault();

@@ -43,7 +43,7 @@ export const runExtensionMethod = createRpcMethod(
         t.interface({
             extensionPath: t.string,
             methodName: t.string,
-            params: t.array(t.unknown)
+            params: t.unknown
         }),
         t.partial({
             targetEnvironment: t.string,
@@ -74,7 +74,7 @@ export const runExtensionMethod = createRpcMethod(
                     throw new Error(`Failed to find exported extension method '${methodName}'`);
                 }
 
-                return method.apply(this, params);
+                return method(params);
             },
             { server, methodName, params },
             {
@@ -82,7 +82,8 @@ export const runExtensionMethod = createRpcMethod(
                 nodeOptions,
                 env: {
                     ...environment,
-                    ...targetEnvironmentVars
+                    ...targetEnvironmentVars,
+                    PROJECT_PATH: projectPath
                 }
             }
         );

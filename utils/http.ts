@@ -102,6 +102,9 @@ export type RpcHandler<InputType, OutputType> = RouteHandler<InputType, OutputTy
     __outputType: OutputType;
 };
 
+export type RpcInputType<Handler> = Handler extends RpcHandler<infer InputType, any> ? InputType : never;
+export type RpcOutputType<Handler> = Handler extends RpcHandler<any, infer OutputType> ? OutputType : never;
+
 export function createRpcMethod<InputType, ReturnType>(
     inputType: t.Type<InputType>,
     handler: (data: InputType, req: ApiRequest<InputType>, res: NextApiResponse) => Promise<ReturnType>

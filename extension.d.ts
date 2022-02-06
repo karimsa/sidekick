@@ -4,27 +4,31 @@ import * as t from 'io-ts';
 
 declare module 'sidekick/extension' {
     export function useQuery<Params, Result>(
-        method: (...args: Params) => Promise<Result>,
+        method: (params: Params) => Promise<Result>,
         params: Params,
         options?: {
-            queryOptions?: Omit<UseQueryOptions, 'queryFn' | 'queryKey' | 'queryHash' | 'queryKeyHashFn'>;
+            queryOptions?: Omit<
+                UseQueryOptions<Result, Error, Params>,
+                'queryFn' | 'queryKey' | 'queryHash' | 'queryKeyHashFn'
+            >;
             nodeOptions?: string[];
             targetEnvironment?: string;
             environment?: Record<string, string>;
         }
     ): UseQueryResult<Result, AxiosError | Error>;
 
-    export function useQueryInvalidator(): (method: (...args: Params) => Promise<Result>) => void;
+    export function useQueryInvalidator(): (method: (args: Params) => Promise<Result>) => void;
 
     export function useMutation<Params, Result>(
-        method: (...args: Params) => Promise<Result>,
+        method: (params: Params) => Promise<Result>,
         options?: {
-            mutationOptions?: Omit<UseMutationOptions, 'mutationFn' | 'mutationKey'>;
+            mutationOptions?: Omit<UseMutationOptions<Result, Error, Params>, 'mutationFn' | 'mutationKey'>;
         }
     ): Omit<UseMutationResult<Result, Error, never>, 'mutate'> & {
         mutate(
-            Params,
-            {}: {
+            params: Params,
+            options?: {
+                mutationOptions?: Omit<UseMutationOptions<Result, Error, Params>, 'mutationFn' | 'mutationKey'>;
                 nodeOptions?: string[];
                 targetEnvironment?: string;
                 environment?: Record<string, string>;

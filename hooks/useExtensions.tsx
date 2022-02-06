@@ -8,16 +8,17 @@ import { UseMutationOptions, UseQueryOptions } from 'react-query';
 import * as t from 'io-ts';
 import { getConfig, updateConfig } from '../pages/api/config';
 import { useRpcMutation } from './useMutation';
-import { validate } from '../utils/http';
+import { RpcInputType, RpcOutputType, validate } from '../utils/http';
 import * as ReactDOM from 'react-dom';
 import { useRouter } from 'next/router';
 import { loadModule } from '../utils/load-module';
+import omit from 'lodash/omit';
 
 function createExtensionHelpers(extensionId: string, extensionPath: string) {
     return {
         useQuery(
             methodName: string,
-            params: any[],
+            params: any,
             options?: {
                 queryOptions?: Omit<UseQueryOptions, 'queryFn' | 'queryKey' | 'queryHash' | 'queryKeyHashFn'>;
                 nodeOptions?: string[];
@@ -51,34 +52,54 @@ function createExtensionHelpers(extensionId: string, extensionPath: string) {
             };
         },
 
-        useMutation(
+        useMutation<Params, Result>(
             methodName: string,
             options?: {
-                mutationOptions?: Omit<UseMutationOptions, 'mutationFn' | 'mutationKey'>;
+                mutationOptions?: Omit<UseMutationOptions<Result, Error, Params>, 'mutationFn' | 'mutationKey'>;
             }
         ) {
-            const { data, mutate, ...props } = useRpcMutation(runExtensionMethod, options?.mutationOptions);
+            const wrappedOptions = useMemo(() => {
+                const mutationOpts: UseMutationOptions<
+                    RpcOutputType<typeof runExtensionMethod>,
+                    Error,
+                    RpcInputType<typeof runExtensionMethod>
+                > = omit(options?.mutationOptions ?? {}, ['onSuccess', 'onError', 'onMutate', 'onSettled']);
+                const { onSuccess, onError, onMutate, onSettled } = options?.mutationOptions ?? {};
+
+                if (onSuccess) {
+                    mutationOpts.onSuccess = (data, { params }, ctx) => onSuccess(data.result, params as Params, ctx);
+                }
+                if (onError) {
+                    mutationOpts.onError = (error, { params }, ctx) => onError(error, params as Params, ctx);
+                }
+                if (onMutate) {
+                    mutationOpts.onMutate = ({ params }) => onMutate(params as Params);
+                }
+                if (onSettled) {
+                    mutationOpts.onSettled = (data, error, { params }, ctx) =>
+                        onSettled(data?.result, error, params as Params, ctx);
+                }
+
+                return mutationOpts;
+            }, [options?.mutationOptions]);
+            const { data, mutate, ...props } = useRpcMutation(runExtensionMethod, wrappedOptions);
             const mutateWrapper = useCallback(
                 (
-                    params: any[],
+                    params: Params,
                     options?: {
                         nodeOptions?: string[];
                         targetEnvironment?: string;
                         environment?: Record<string, string>;
-                    },
-                    mutationOptions?: Omit<UseMutationOptions, 'mutationFn' | 'mutationKey'>
+                    }
                 ) => {
-                    mutate(
-                        {
-                            extensionPath,
-                            methodName,
-                            params,
-                            targetEnvironment: options?.targetEnvironment,
-                            environment: options?.environment,
-                            nodeOptions: options?.nodeOptions
-                        },
-                        mutationOptions as any
-                    );
+                    mutate({
+                        extensionPath,
+                        methodName,
+                        params,
+                        targetEnvironment: options?.targetEnvironment,
+                        environment: options?.environment,
+                        nodeOptions: options?.nodeOptions
+                    });
                 },
                 [methodName, mutate]
             );

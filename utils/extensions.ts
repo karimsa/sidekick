@@ -29,12 +29,15 @@ const BabelParserOptions: ParserOptions = {
 export class ExtensionBuilder {
     static async getExtensionClient(extensionPath: string) {
         const buildStartTime = Date.now();
+        const { code, filePath, fullAst } = await this.getRawExtension(extensionPath);
+        const clientCode = await this.buildClientBundle({ filePath, fullAst, code });
+        debug(`built client extension ${filePath} in ${ms(Date.now() - buildStartTime)}`);
+        return clientCode;
+    }
 
-        const { code, filePath } = await this.getRawExtension(extensionPath);
-
-        const fullAst = await babel.parseAsync(code, {
-            parserOpts: BabelParserOptions
-        });
+    static async getExtensionServer(extensionPath: string) {
+        const buildStartTime = Date.now();
+        const { code, filePath, fullAst } = await this.getRawExtension(extensionPath);
 
         // First determine all the server-side exports
         const serverExports: string[] = [];
@@ -65,20 +68,7 @@ export class ExtensionBuilder {
         });
         debug(fmt`Determined server-side exports: ${serverExports}`);
 
-        const clientCode = await this.buildClientBundle({ serverExports, filePath, fullAst, code });
-        debug(`built client extension ${filePath} in ${ms(Date.now() - buildStartTime)}`);
-        return clientCode;
-    }
-
-    static async getExtensionServer(extensionPath: string) {
-        const buildStartTime = Date.now();
-
-        const { code, filePath } = await this.getRawExtension(extensionPath);
-        const fullAst = await babel.parseAsync(code, {
-            parserOpts: BabelParserOptions
-        });
-
-        const serverCode = await this.buildServerBundle({ filePath, fullAst, code });
+        const serverCode = await this.buildServerBundle({ filePath, fullAst, serverExports, code });
         debug(`built server extension ${filePath} in ${ms(Date.now() - buildStartTime)}`);
         return serverCode;
     }
@@ -129,7 +119,11 @@ export class ExtensionBuilder {
         const rolledUpCode = await this.rollupExtension({ filePath, code: rawCode });
         verbose(fmt`Rolled up extension: ${{ filePath, code: rolledUpCode }}`);
 
-        return { filePath, code: rolledUpCode };
+        const fullAst = await babel.parseAsync(rolledUpCode, {
+            parserOpts: BabelParserOptions
+        });
+
+        return { filePath, fullAst, code: rolledUpCode };
     }
 
     private static async rollupExtension({ filePath, code }: { filePath: string; code: string }) {
@@ -177,15 +171,17 @@ export class ExtensionBuilder {
     private static async buildServerBundle({
         fullAst,
         filePath,
-        code
+        code,
+        serverExports
     }: {
         fullAst: babel.Node;
         filePath: string;
         code: string;
+        serverExports: string[];
     }): Promise<string> {
         try {
             const filename = path.basename(filePath);
-            const serverCode = await this.removeExportsFromAst(fullAst, filename, code, ['Page']);
+            const serverCode = await this.cleanupExportsFromAst(fullAst, filename, code, serverExports);
             verbose({ filePath, serverCode });
             const result = await this.esbuild({
                 write: false,
@@ -227,18 +223,19 @@ export class ExtensionBuilder {
     }
 
     private static async buildClientBundle({
-        serverExports,
         fullAst,
         filePath,
         code
     }: {
-        serverExports: string[];
         fullAst: babel.Node;
         filePath: string;
         code: string;
     }): Promise<string> {
         try {
-            const clientCode = await this.removeExportsFromAst(fullAst, path.basename(filePath), code, serverExports);
+            const clientCode = await this.cleanupExportsFromAst(fullAst, path.basename(filePath), code, [
+                'config',
+                'Page'
+            ]);
             verbose({ filePath, clientCode });
 
             const config = await ConfigManager.createProvider();
@@ -306,13 +303,13 @@ export class ExtensionBuilder {
         }
     }
 
-    private static async removeExportsFromAst(
+    private static async cleanupExportsFromAst(
         inputAst: babel.Node,
         filename: string,
         code: string,
-        exportNames: string[]
+        allowedExports: string[]
     ) {
-        const removedExports: string[] = [];
+        const discoveredExports: string[] = [];
         const { code: exportsRemovedCode } = await babel.transformFromAstAsync(inputAst, code, {
             filename,
             plugins: [
@@ -333,7 +330,9 @@ export class ExtensionBuilder {
                                     }
 
                                     const name = specifier.node.local.name;
-                                    if (exportNames.includes(name)) {
+                                    if (allowedExports.includes(name)) {
+                                        discoveredExports.push(name);
+                                    } else {
                                         const binding = specifier.scope.getBinding(name);
                                         if (!binding) {
                                             throw specifier.buildCodeFrameError(
@@ -344,7 +343,6 @@ export class ExtensionBuilder {
                                         // perform removals after retrieving the binding, otherwise the scope gets detached
                                         specifier.remove();
                                         binding.path.remove();
-                                        removedExports.push(name);
                                     }
                                 }
 
@@ -354,29 +352,54 @@ export class ExtensionBuilder {
                             const exportDeclaration = path.get('declaration');
                             switch (exportDeclaration.node.type) {
                                 case 'FunctionDeclaration':
-                                    if (
-                                        exportDeclaration.node.id.type === 'Identifier' &&
-                                        exportNames.includes(exportDeclaration.node.id.name)
-                                    ) {
-                                        removedExports.push(exportDeclaration.node.id.name);
-                                        path.remove();
+                                    if (exportDeclaration.node.id.type === 'Identifier') {
+                                        if (allowedExports.includes(exportDeclaration.node.id.name)) {
+                                            discoveredExports.push(exportDeclaration.node.id.name);
+                                        } else {
+                                            path.remove();
+                                        }
                                     }
                                     break;
 
                                 case 'VariableDeclaration':
                                     for (const varDeclaration of exportDeclaration.node.declarations) {
-                                        if (
-                                            varDeclaration.id.type === 'Identifier' &&
-                                            exportNames.includes(varDeclaration.id.name)
-                                        ) {
-                                            removedExports.push(varDeclaration.id.name);
-                                            path.remove();
+                                        if (varDeclaration.id.type === 'Identifier') {
+                                            if (allowedExports.includes(varDeclaration.id.name)) {
+                                                discoveredExports.push(varDeclaration.id.name);
+                                            } else {
+                                                path.remove();
+                                            }
                                         }
                                     }
                                     break;
 
                                 default:
                                     throw path.buildCodeFrameError(`Unexpected export`);
+                            }
+                        }
+                    }
+                },
+                {
+                    visitor: {
+                        Program: {
+                            exit(path) {
+                                for (const exportId of allowedExports) {
+                                    if (!discoveredExports.includes(exportId)) {
+                                        const binding = path.scope.getBinding(exportId);
+                                        if (!binding) {
+                                            throw path.buildCodeFrameError(
+                                                `${exportId} was not exported, and cannot be force-exported because a binding was not found`
+                                            );
+                                        }
+
+                                        path.pushContainer(
+                                            'body',
+                                            babel.types.exportNamedDeclaration(null, [
+                                                babel.types.exportSpecifier(binding.identifier, binding.identifier)
+                                            ])
+                                        );
+                                    }
+                                }
                             }
                         }
                     }
@@ -406,11 +429,6 @@ export class ExtensionBuilder {
                 beautify: true
             }
         });
-        if (removedExports.length !== exportNames.length) {
-            throw new Error(
-                `Failed to find exports for: ${exportNames.filter(name => !removedExports.includes(name)).join(', ')}`
-            );
-        }
         return cleanedCode;
     }
 }

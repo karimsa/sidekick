@@ -1,6 +1,5 @@
 import * as t from 'io-ts';
 import * as path from 'path';
-import ms from 'ms';
 
 import { createRpcMethod } from '../../utils/http';
 import { ExtensionBuilder } from '../../utils/extensions';
@@ -12,21 +11,8 @@ export const getExtensions = createRpcMethod(t.interface({}), async function () 
     return Promise.all(
         config.extensions.map(async extensionPath => {
             try {
-                const buildStartTime = Date.now();
-                const client = await ExtensionBuilder.getExtensionClient(extensionPath);
-                const warnings: string[] = [];
-                const buildEndTime = Date.now();
-
-                const bundleSizeMb = Number((client.length / (1024 * 1024)).toFixed(1));
-                if (bundleSizeMb > 1) {
-                    warnings.push(
-                        `This extension has produced a ${bundleSizeMb} MB bundle, and took ${ms(
-                            buildEndTime - buildStartTime
-                        )} to build.`
-                    );
-                }
-
-                return { extensionPath, warnings, code: client };
+                const { clientCode, warnings } = await ExtensionBuilder.getExtensionClient(extensionPath);
+                return { extensionPath, warnings, code: clientCode };
             } catch (error: any) {
                 console.error(error);
                 return {

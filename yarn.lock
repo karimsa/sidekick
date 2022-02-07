@@ -498,6 +498,13 @@
     "@nodelib/fs.scandir" "2.1.5"
     fastq "^1.6.0"
 
+"@orthly/context@^0.4.0":
+  version "0.4.0"
+  resolved "https://registry.yarnpkg.com/@orthly/context/-/context-0.4.0.tgz#dd41170165a60de3b0c301d1d05b1f45a621235c"
+  integrity sha512-0ShIEnxf/spNOdeWLVx0+1OSnYm8W9EaRpLhJz7rYwC/0P/peyj6h9WhODnkbVRQOhd+s+YRHKjFvsPyccTA1g==
+  dependencies:
+    uuid "^8.3.2"
+
 "@popperjs/core@^2.9.0":
   version "2.11.2"
   resolved "https://registry.yarnpkg.com/@popperjs/core/-/core-2.11.2.tgz#830beaec4b4091a9e9398ac50f865ddea52186b9"

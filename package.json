@@ -24,6 +24,7 @@
     "@babel/preset-typescript": "^7.16.7",
     "@esbuild-plugins/node-modules-polyfill": "^0.1.4",
     "@monaco-editor/react": "^4.3.1",
+    "@orthly/context": "^0.4.0",
     "@primer/octicons": "^16.3.0",
     "@primer/octicons-react": "^16.3.0",
     "@tippyjs/react": "^4.2.6",

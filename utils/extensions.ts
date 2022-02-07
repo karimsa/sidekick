@@ -1,21 +1,22 @@
 import * as babel from '@babel/core';
 import * as esbuild from 'esbuild';
 import { BuildOptions } from 'esbuild';
-import * as path from 'path';
 import { ConfigManager } from '../services/config';
 import resolveModulePath from 'resolve/async';
 import * as util from 'util';
-import fs from 'fs';
 import { builtinModules } from 'module';
 import { minify } from 'terser';
 import babelPresetTypescript from '@babel/preset-typescript';
 import babelPresetReact from '@babel/preset-react';
 import babelPluginTransformModules from '@babel/plugin-transform-modules-commonjs';
 import createDebug from 'debug';
-import ms from 'ms';
 import EsbuildNodeModulesPolyfill from '@esbuild-plugins/node-modules-polyfill';
 import { fmt } from './fmt';
 import { ParserOptions } from '@babel/parser';
+import { OperationContext } from '@orthly/context';
+import * as fs from 'fs';
+import * as path from 'path';
+import ms from 'ms';
 
 const debug = createDebug('sidekick:extensions');
 const verbose = createDebug('sidekick:extensions:verbose');
@@ -28,52 +29,58 @@ const BabelParserOptions: ParserOptions = {
 
 export class ExtensionBuilder {
     static async getExtensionClient(extensionPath: string) {
-        const buildStartTime = Date.now();
-        const { code, filePath, fullAst } = await this.getRawExtension(extensionPath);
-        const clientCode = await this.buildClientBundle({ filePath, fullAst, code });
-        debug(`built client extension ${filePath} in ${ms(Date.now() - buildStartTime)}`);
-        return clientCode;
+        const ctx = new OperationContext();
+        const timer = ctx.startTimer('build client extension');
+        const { code, filePath, fullAst } = await this.getRawExtension(ctx, extensionPath);
+        ctx.setValues({ filePath });
+        const clientCode = await this.buildClientBundle(ctx, { filePath, fullAst, code });
+        timer.end();
+
+        const warnings: string[] = [];
+
+        const bundleSizeMb = Number((clientCode.length / (1024 * 1024)).toFixed(1));
+        if (bundleSizeMb > 1) {
+            let bundleWarning = `This extension has produced a ${bundleSizeMb} MB bundle, and took ${ms(
+                ctx.getDuration()
+            )} to build.`;
+            if (!(await this.isMinificationEnabled())) {
+                bundleWarning += ` Enabling minification might help reduce bundle size.`;
+            }
+
+            warnings.push(bundleWarning);
+        }
+
+        return { clientCode, warnings };
     }
 
     static async getExtensionServer(extensionPath: string) {
-        const buildStartTime = Date.now();
-        const { code, filePath, fullAst } = await this.getRawExtension(extensionPath);
-
-        // First determine all the server-side exports
-        const serverExports: string[] = [];
-        await babel.traverse(fullAst, {
-            CallExpression(path) {
-                const callee = path.get('callee');
-                // it is possible that esbuild will rename the import, but it'll always be a variation of the original
-                if (callee.isIdentifier() && callee.node.name.match(/useQuery|useMutation/)) {
-                    const helperBinding = path.scope.getBinding(callee.node.name);
-                    if (
-                        helperBinding &&
-                        helperBinding.path.node.type === 'ImportSpecifier' &&
-                        helperBinding.path.parentPath.node.type === 'ImportDeclaration' &&
-                        helperBinding.path.parentPath.node.source.value === 'sidekick/extension'
-                    ) {
-                        const firstArg = path.get('arguments')[0];
-                        if (!firstArg || !firstArg.isIdentifier()) {
-                            throw new Error(
-                                `The first argument to ${callee.node.name}() must be an identifier (got ${firstArg.node.type})`
-                            );
-                        }
-
-                        serverExports.push(firstArg.node.name);
-                        firstArg.replaceWith(babel.types.stringLiteral(firstArg.node.name));
-                    }
-                }
-            }
-        });
-        debug(fmt`Determined server-side exports: ${serverExports}`);
-
-        const serverCode = await this.buildServerBundle({ filePath, fullAst, serverExports, code });
-        debug(`built server extension ${filePath} in ${ms(Date.now() - buildStartTime)}`);
+        const ctx = new OperationContext();
+        const timer = ctx.startTimer('build server extension');
+        const { code, filePath, fullAst, serverExports } = await this.getRawExtension(ctx, extensionPath);
+        ctx.setValues({ filePath });
+        const serverCode = await this.buildServerBundle(ctx, { filePath, fullAst, serverExports, code });
+        timer.end();
         return serverCode;
     }
 
-    private static async esbuild(options: BuildOptions) {
+    private static async isMinificationEnabled() {
+        const config = await ConfigManager.createProvider();
+        return config.getValue('minifyExtensionClients');
+    }
+
+    private static createError(ctx: OperationContext, message: string) {
+        const error = ctx.createError(message);
+        try {
+            const debugFile = path.resolve(process.cwd(), `sidekick-error-${new Date().toISOString()}.json`);
+            fs.writeFileSync(debugFile, JSON.stringify(ctx.toJSON(), null, '\t'));
+            console.log(`Debug information saved in: ${debugFile}`);
+        } catch {
+            console.error(`Failed to write debug info to file`);
+        }
+        return error;
+    }
+
+    private static async esbuild(ctx: OperationContext, options: BuildOptions) {
         try {
             return await esbuild.build({
                 ...options,
@@ -111,24 +118,58 @@ export class ExtensionBuilder {
         }
     }
 
-    private static async getRawExtension(extensionPath: string) {
+    private static async getRawExtension(ctx: OperationContext, extensionPath: string) {
         const projectPath = await ConfigManager.getProjectPath();
         const filePath = path.resolve(projectPath, extensionPath);
         const rawCode = await fs.promises.readFile(filePath, 'utf8');
 
-        const rolledUpCode = await this.rollupExtension({ filePath, code: rawCode });
+        const rolledUpCode = await this.rollupExtension(ctx, { filePath, code: rawCode });
         verbose(fmt`Rolled up extension: ${{ filePath, code: rolledUpCode }}`);
 
         const fullAst = await babel.parseAsync(rolledUpCode, {
             parserOpts: BabelParserOptions
         });
 
-        return { filePath, fullAst, code: rolledUpCode };
+        // First determine all the server-side exports
+        const serverExports: string[] = [];
+        await babel.traverse(fullAst, {
+            CallExpression: path => {
+                const callee = path.get('callee');
+                // it is possible that esbuild will rename the import, but it'll always be a variation of the original
+                if (callee.isIdentifier() && callee.node.name.match(/useQuery|useMutation/)) {
+                    const helperBinding = path.scope.getBinding(callee.node.name);
+                    if (
+                        helperBinding &&
+                        helperBinding.path.node.type === 'ImportSpecifier' &&
+                        helperBinding.path.parentPath.node.type === 'ImportDeclaration' &&
+                        helperBinding.path.parentPath.node.source.value === 'sidekick/extension'
+                    ) {
+                        const firstArg = path.get('arguments')[0];
+                        if (!firstArg || !firstArg.isIdentifier()) {
+                            throw this.createError(
+                                ctx,
+                                `The first argument to ${callee.node.name}() must be an identifier (got ${firstArg.node.type})`
+                            );
+                        }
+
+                        serverExports.push(firstArg.node.name);
+                        firstArg.replaceWith(babel.types.stringLiteral(firstArg.node.name));
+                    }
+                }
+            }
+        });
+        ctx.setValues({ serverExports });
+        debug(fmt`Determined server-side exports: ${serverExports}`);
+
+        return { filePath, fullAst, code: rolledUpCode, serverExports };
     }
 
-    private static async rollupExtension({ filePath, code }: { filePath: string; code: string }) {
+    private static async rollupExtension(
+        ctx: OperationContext,
+        { filePath, code }: { filePath: string; code: string }
+    ) {
         const filename = path.basename(filePath);
-        const result = await this.esbuild({
+        const result = await this.esbuild(ctx, {
             write: false,
             stdin: {
                 contents: code,
@@ -168,22 +209,30 @@ export class ExtensionBuilder {
         return result.outputFiles[0].text;
     }
 
-    private static async buildServerBundle({
-        fullAst,
-        filePath,
-        code,
-        serverExports
-    }: {
-        fullAst: babel.Node;
-        filePath: string;
-        code: string;
-        serverExports: string[];
-    }): Promise<string> {
+    private static async buildServerBundle(
+        ctx: OperationContext,
+        {
+            fullAst,
+            filePath,
+            code,
+            serverExports
+        }: {
+            fullAst: babel.Node;
+            filePath: string;
+            code: string;
+            serverExports: string[];
+        }
+    ): Promise<string> {
         try {
             const filename = path.basename(filePath);
-            const serverCode = await this.cleanupExportsFromAst(fullAst, filename, code, serverExports);
-            verbose({ filePath, serverCode });
-            const result = await this.esbuild({
+            const serverCode = await this.cleanupExportsFromAst(ctx, {
+                ast: fullAst,
+                filename,
+                code,
+                allowedExports: serverExports
+            });
+            ctx.setValues({ serverCode });
+            const result = await this.esbuild(ctx, {
                 write: false,
                 stdin: {
                     contents: serverCode,
@@ -218,30 +267,35 @@ export class ExtensionBuilder {
             return result.outputFiles[0].text;
         } catch (error: any) {
             console.error(error.stack || error);
-            throw new Error(`Failed to build server bundle: ${error.message || error}`);
+            throw this.createError(ctx, `Failed to build server bundle: ${error.message || error}`);
         }
     }
 
-    private static async buildClientBundle({
-        fullAst,
-        filePath,
-        code
-    }: {
-        fullAst: babel.Node;
-        filePath: string;
-        code: string;
-    }): Promise<string> {
+    private static async buildClientBundle(
+        ctx: OperationContext,
+        {
+            fullAst,
+            filePath,
+            code
+        }: {
+            fullAst: babel.Node;
+            filePath: string;
+            code: string;
+        }
+    ): Promise<string> {
         try {
-            const clientCode = await this.cleanupExportsFromAst(fullAst, path.basename(filePath), code, [
-                'config',
-                'Page'
-            ]);
-            verbose({ filePath, clientCode });
+            const clientCode = await this.cleanupExportsFromAst(ctx, {
+                ast: fullAst,
+                filename: path.basename(filePath),
+                code,
+                allowedExports: ['config', 'Page']
+            });
+            ctx.setValues({ clientCode });
 
-            const config = await ConfigManager.createProvider();
-            const minifyExtensionClients = await config.getValue('minifyExtensionClients');
+            const minifyExtensionClients = await this.isMinificationEnabled();
+            ctx.setValues({ minifyExtensionClients });
 
-            const result = await this.esbuild({
+            const result = await this.esbuild(ctx, {
                 write: false,
                 stdin: {
                     contents: clientCode,
@@ -284,13 +338,28 @@ export class ExtensionBuilder {
                                     return { path: args.path, external: true };
                                 }
 
-                                return {
-                                    path: await resolveAsync(args.path, {
+                                try {
+                                    const resolvedPath = await resolveAsync(args.path, {
                                         basedir: args.resolveDir || path.dirname(filePath),
                                         extensions: ['.ts', '.tsx', '.js', '.jsx', '.json']
-                                    }),
-                                    external: false
-                                };
+                                    });
+                                    if (resolvedPath.endsWith('.node')) {
+                                        throw this.createError(
+                                            ctx,
+                                            `Client-side bundle is trying to import backend code - something has gone terribly wrong`
+                                        );
+                                    }
+
+                                    return {
+                                        path: resolvedPath,
+                                        external: false
+                                    };
+                                } catch (error: any) {
+                                    if (error.code === 'MODULE_NOT_FOUND') {
+                                        return { path: args.path, external: true };
+                                    }
+                                    throw error;
+                                }
                             });
                         }
                     }
@@ -299,17 +368,28 @@ export class ExtensionBuilder {
             return result.outputFiles[0].text;
         } catch (error: any) {
             console.error(error.stack || error);
-            throw new Error(`Failed to build client bundle: ${error.message || error}`);
+            throw this.createError(ctx, `Failed to build client bundle: ${error.message || error}`);
         }
     }
 
     private static async cleanupExportsFromAst(
-        inputAst: babel.Node,
-        filename: string,
-        code: string,
-        allowedExports: string[]
+        ctx: OperationContext,
+        {
+            ast: inputAst,
+            filename,
+            code,
+            allowedExports
+        }: {
+            ast: babel.Node;
+            filename: string;
+            code: string;
+            allowedExports: string[];
+        }
     ) {
+        ctx.setValues({ allowedExports });
+
         const discoveredExports: string[] = [];
+        const injectedExports: string[] = [];
         const { code: exportsRemovedCode } = await babel.transformFromAstAsync(inputAst, code, {
             filename,
             plugins: [
@@ -383,6 +463,8 @@ export class ExtensionBuilder {
                     visitor: {
                         Program: {
                             exit(path) {
+                                ctx.setValues({ discoveredExports });
+
                                 for (const exportId of allowedExports) {
                                     if (!discoveredExports.includes(exportId)) {
                                         const binding = path.scope.getBinding(exportId);
@@ -392,6 +474,7 @@ export class ExtensionBuilder {
                                             );
                                         }
 
+                                        injectedExports.push(exportId);
                                         path.pushContainer(
                                             'body',
                                             babel.types.exportNamedDeclaration(null, [
@@ -429,6 +512,8 @@ export class ExtensionBuilder {
                 beautify: true
             }
         });
+
+        ctx.setValues({ injectedExports, cleanedCode });
         return cleanedCode;
     }
 }

@@ -267,7 +267,7 @@ export class ExtensionBuilder {
                         name: 'resolve-sidekick-packages',
                         setup: build => {
                             build.onResolve(
-                                { filter: /^(react|react-dom|next\/router|sidekick\/extension)$/ },
+                                { filter: /^(react|react-dom|next\/router|sidekick\/extension|tslib)$/ },
                                 args => ({
                                     path: args.path,
                                     external: true

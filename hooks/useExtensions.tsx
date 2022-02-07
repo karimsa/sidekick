@@ -13,6 +13,7 @@ import * as ReactDOM from 'react-dom';
 import { useRouter } from 'next/router';
 import { loadModule } from '../utils/load-module';
 import omit from 'lodash/omit';
+import * as tslib from 'tslib';
 
 function createExtensionHelpers(extensionId: string, extensionPath: string) {
     return {
@@ -208,6 +209,8 @@ export function useExtensions() {
                                 return { useRouter };
                             case 'sidekick/extension':
                                 return helpers;
+                            case 'tslib':
+                                return tslib;
                             default:
                                 throw new Error(`Failed to bundle '${modName}'`);
                         }

@@ -212,7 +212,7 @@ export class ExtensionBuilder {
                                         ? undefined
                                         : 'sidekick'
                             }));
-                            build.onLoad({ filter: /^(next\/router|sidekick\/extension)$/ }, args => {
+                            build.onLoad({ filter: /^(next\/router|sidekick\/extension)$/ }, () => {
                                 return { contents: 'module.exports = {}' };
                             });
                         }
@@ -240,6 +240,10 @@ export class ExtensionBuilder {
         try {
             const clientCode = await this.removeExportsFromAst(fullAst, path.basename(filePath), code, serverExports);
             verbose({ filePath, clientCode });
+
+            const config = await ConfigManager.createProvider();
+            const minifyExtensionClients = await config.getValue('minifyExtensionClients');
+
             const result = await this.esbuild({
                 write: false,
                 stdin: {
@@ -250,7 +254,7 @@ export class ExtensionBuilder {
                 platform: 'browser',
                 target: ['firefox94', 'chrome95'],
                 format: 'cjs',
-                minify: true,
+                minify: minifyExtensionClients,
                 bundle: true,
                 absWorkingDir: path.dirname(filePath),
                 loader: {

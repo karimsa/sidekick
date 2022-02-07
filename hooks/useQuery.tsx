@@ -1,4 +1,4 @@
-import { QueryFunctionContext, useQuery, useQueryClient, UseQueryOptions, UseQueryResult } from 'react-query';
+import { useQuery, useQueryClient, UseQueryOptions, UseQueryResult } from 'react-query';
 
 import axios from 'axios';
 import type { RpcHandler } from '../utils/http';
@@ -12,10 +12,10 @@ function useRpcQueryInternal<InputType, OutputType>(
     return useQuery<OutputType>({
         ...options,
         queryKey: [handler, data],
-        async queryFn(inputData: QueryFunctionContext): Promise<OutputType> {
+        async queryFn(inputData): Promise<OutputType> {
             try {
                 const { data: resData } = await axios.post('/api/rpc', {
-                    methodName: inputData.queryKey[0],
+                    methodName: handler.methodName,
                     data: inputData.queryKey[1]
                 });
                 return resData;

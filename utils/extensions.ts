@@ -31,9 +31,15 @@ export class ExtensionBuilder {
     static async getExtensionClient(extensionPath: string) {
         const ctx = new OperationContext();
         const timer = ctx.startTimer('build client extension');
-        const { code, filePath, fullAst } = await this.getRawExtension(ctx, extensionPath);
+        const { code, filePath, fullAst } = await ctx.timePromise(
+            'extension rollup',
+            this.getRawExtension(ctx, extensionPath)
+        );
         ctx.setValues({ filePath });
-        const clientCode = await this.buildClientBundle(ctx, { filePath, fullAst, code });
+        const clientCode = await ctx.timePromise(
+            'bundle client',
+            this.buildClientBundle(ctx, { filePath, fullAst, code })
+        );
         timer.end();
 
         const warnings: string[] = [];
@@ -284,87 +290,93 @@ export class ExtensionBuilder {
         }
     ): Promise<string> {
         try {
-            const clientCode = await this.cleanupExportsFromAst(ctx, {
-                ast: fullAst,
-                filename: path.basename(filePath),
-                code,
-                allowedExports: ['config', 'Page']
-            });
+            const clientCode = await ctx.timePromise(
+                'cleanup exports',
+                this.cleanupExportsFromAst(ctx, {
+                    ast: fullAst,
+                    filename: path.basename(filePath),
+                    code,
+                    allowedExports: ['config', 'Page']
+                })
+            );
             ctx.setValues({ clientCode });
 
             const minifyExtensionClients = await this.isMinificationEnabled();
             ctx.setValues({ minifyExtensionClients });
 
-            const result = await this.esbuild(ctx, {
-                write: false,
-                stdin: {
-                    contents: clientCode,
-                    sourcefile: path.basename(filePath),
-                    loader: 'tsx'
-                },
-                platform: 'browser',
-                target: ['firefox94', 'chrome95'],
-                format: 'cjs',
-                minify: minifyExtensionClients,
-                bundle: true,
-                absWorkingDir: path.dirname(filePath),
-                loader: {
-                    '.png': 'base64',
-                    '.jpg': 'base64',
-                    '.jpeg': 'base64'
-                },
-                define: {
-                    'process.env': JSON.stringify(process.env)
-                },
-                plugins: [
-                    EsbuildNodeModulesPolyfill(),
-                    {
-                        name: 'resolve-sidekick-packages',
-                        setup: build => {
-                            build.onResolve(
-                                { filter: /^(react|react-dom|next\/router|sidekick\/extension|tslib)$/ },
-                                args => ({
-                                    path: args.path,
-                                    external: true
-                                })
-                            );
-                        }
+            const result = await ctx.timePromise(
+                'esbuild',
+                this.esbuild(ctx, {
+                    write: false,
+                    stdin: {
+                        contents: clientCode,
+                        sourcefile: path.basename(filePath),
+                        loader: 'tsx'
                     },
-                    {
-                        name: 'resolve-external',
-                        setup: build => {
-                            build.onResolve({ filter: /.*/ }, async args => {
-                                if (builtinModules.includes(args.path)) {
-                                    return { path: args.path, external: true };
-                                }
-
-                                try {
-                                    const resolvedPath = await resolveAsync(args.path, {
-                                        basedir: args.resolveDir || path.dirname(filePath),
-                                        extensions: ['.ts', '.tsx', '.js', '.jsx', '.json']
-                                    });
-                                    if (resolvedPath.endsWith('.node')) {
-                                        throw this.createError(
-                                            ctx,
-                                            `Client-side bundle is trying to import backend code - something has gone terribly wrong`
-                                        );
-                                    }
-
-                                    return {
-                                        path: resolvedPath,
-                                        external: false
-                                    };
-                                } catch (error: any) {
-                                    if (error.code === 'MODULE_NOT_FOUND') {
+                    platform: 'browser',
+                    target: ['firefox94', 'chrome95'],
+                    format: 'cjs',
+                    minify: minifyExtensionClients,
+                    bundle: true,
+                    absWorkingDir: path.dirname(filePath),
+                    loader: {
+                        '.png': 'base64',
+                        '.jpg': 'base64',
+                        '.jpeg': 'base64'
+                    },
+                    define: {
+                        'process.env': JSON.stringify(process.env)
+                    },
+                    plugins: [
+                        EsbuildNodeModulesPolyfill(),
+                        {
+                            name: 'resolve-sidekick-packages',
+                            setup: build => {
+                                build.onResolve(
+                                    { filter: /^(react|react-dom|next\/router|sidekick\/extension|tslib)$/ },
+                                    args => ({
+                                        path: args.path,
+                                        external: true
+                                    })
+                                );
+                            }
+                        },
+                        {
+                            name: 'resolve-external',
+                            setup: build => {
+                                build.onResolve({ filter: /.*/ }, async args => {
+                                    if (builtinModules.includes(args.path)) {
                                         return { path: args.path, external: true };
                                     }
-                                    throw error;
-                                }
-                            });
+
+                                    try {
+                                        const resolvedPath = await resolveAsync(args.path, {
+                                            basedir: args.resolveDir || path.dirname(filePath),
+                                            extensions: ['.ts', '.tsx', '.js', '.jsx', '.json']
+                                        });
+                                        if (resolvedPath.endsWith('.node')) {
+                                            throw this.createError(
+                                                ctx,
+                                                `Client-side bundle is trying to import backend code - something has gone terribly wrong`
+                                            );
+                                        }
+
+                                        return {
+                                            path: resolvedPath,
+                                            external: false
+                                        };
+                                    } catch (error: any) {
+                                        if (error.code === 'MODULE_NOT_FOUND') {
+                                            return { path: args.path, external: true };
+                                        }
+                                        throw error;
+                                    }
+                                });
+                            }
                         }
-                    }
-                ]
-            });
+                    ]
+                })
+            );
             return result.outputFiles[0].text;
         } catch (error: any) {
             console.error(error.stack || error);

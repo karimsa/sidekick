@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast';
 import Head from 'next/head';
 
 import '../styles/globals.scss';
+import 'tippy.js/dist/tippy.css';
 import { useRpcQuery } from '../hooks/useQuery';
 import { getConfig } from './api/config';
 

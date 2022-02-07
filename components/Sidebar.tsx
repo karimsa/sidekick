@@ -2,8 +2,8 @@ import * as React from 'react';
 import { useEffect, useMemo } from 'react';
 import { ArrowLeftIcon, ArrowRightIcon, PackageIcon, ToolsIcon } from '@primer/octicons-react';
 import { useRouter } from 'next/router';
-import Link from 'next/link';
 import classNames from 'classnames';
+import Tooltip from '@tippyjs/react';
 
 // import { InboxItems } from './InboxItems';
 import { useLocalState } from '../hooks/useLocalState';
@@ -29,9 +29,14 @@ export const Sidebar: React.FC<{ isOpen: boolean; setOpen(open: boolean): void }
                 icon: <ToolsIcon />,
                 href: '/settings',
                 label: 'Settings'
+            },
+            {
+                icon: isOpen ? <ArrowLeftIcon /> : <ArrowRightIcon />,
+                onClick: () => setOpen(!isOpen),
+                label: 'Close sidebar'
             }
         ],
-        [extensions]
+        [extensions, isOpen, setOpen]
     );
 
     useEffect(() => {
@@ -43,37 +48,30 @@ export const Sidebar: React.FC<{ isOpen: boolean; setOpen(open: boolean): void }
     return (
         <div className={'flex-initial bg-slate-900 text-white'}>
             <ul>
-                {links.map(({ icon, href, label }) => (
-                    <li key={href}>
-                        <Link href={href} passHref>
+                {links.map(({ icon, href, onClick, label }) => (
+                    <li key={label}>
+                        <Tooltip content={label} placement={'right'} disabled={!!isOpen}>
                             <a
+                                href={href || '#'}
+                                onClick={evt => {
+                                    evt.preventDefault();
+                                    if (href) {
+                                        router.push(href);
+                                    } else {
+                                        onClick();
+                                    }
+                                }}
                                 className={classNames('flex items-center p-5 hover:bg-slate-700', {
                                     'bg-emerald-900': href === router.asPath
                                 })}
                             >
-                                <span className={classNames('text-lg flex items-center', { 'pr-5': isOpen })}>
-                                    {icon}
-                                </span>
+                                {/* the h-7 makes the icon the same size as the text, so closing/opening the sidebar isn't jarring */}
+                                <span className={classNames('flex items-center h-7', { 'pr-5': isOpen })}>{icon}</span>
                                 {isOpen && <span className={'text-lg'}>{label}</span>}
                             </a>
-                        </Link>
+                        </Tooltip>
                     </li>
                 ))}
-                <li>
-                    <a
-                        className={classNames('flex items-center p-5 hover:bg-slate-700')}
-                        href={'#'}
-                        onClick={evt => {
-                            evt.preventDefault();
-                            setOpen(!isOpen);
-                        }}
-                    >
-                        <span className={classNames('text-lg flex items-center', { 'pr-5': isOpen })}>
-                            {isOpen ? <ArrowLeftIcon /> : <ArrowRightIcon />}
-                        </span>
-                        {isOpen && <span className={'text-lg'}>Close sidebar</span>}
-                    </a>
-                </li>
             </ul>
         </div>
     );

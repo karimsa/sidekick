@@ -45,11 +45,10 @@ function createExtensionHelpers(extensionId: string, extensionPath: string) {
             return { ...props, data: data?.result };
         },
 
-        // TODO: Allow selective invalidation
         useQueryInvalidator() {
             const invalidate = useQueryInvalidator();
-            return function () {
-                invalidate(runExtensionMethod);
+            return function (methodName: string) {
+                invalidate(runExtensionMethod, { methodName });
             };
         },
 

@@ -15,7 +15,7 @@ function useRpcQueryInternal<InputType, OutputType>(
         async queryFn(inputData: QueryFunctionContext): Promise<OutputType> {
             try {
                 const { data: resData } = await axios.post('/api/rpc', {
-                    ...handler,
+                    methodName: inputData.queryKey[0],
                     data: inputData.queryKey[1]
                 });
                 return resData;
@@ -32,9 +32,9 @@ function useRpcQueryInternal<InputType, OutputType>(
 
 export function useQueryInvalidator() {
     const queryClient = useQueryClient();
-    return function (handler: RpcHandler<any, any>) {
+    return function <InputType>(handler: RpcHandler<InputType, any>, input?: Partial<InputType>) {
         const { methodName } = handler as unknown as { methodName: string };
-        queryClient.invalidateQueries([{ methodName }]);
+        queryClient.invalidateQueries([{ methodName, data: input }]);
     };
 }
 

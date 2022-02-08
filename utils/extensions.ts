@@ -44,7 +44,7 @@ export class ExtensionBuilder {
         const warnings: string[] = [];
 
         const bundleSizeMb = Number((clientCode.length / (1024 * 1024)).toFixed(1));
-        if (bundleSizeMb > 1) {
+        if (bundleSizeMb > 1 && ctx.getDuration() > 1e3) {
             let bundleWarning = `This extension has produced a ${bundleSizeMb} MB bundle, and took ${ms(
                 ctx.getDuration()
             )} to build.`;

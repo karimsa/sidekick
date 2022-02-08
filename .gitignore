@@ -16,3 +16,4 @@
 .idea
 hooks/bridge-method-map.tsx
 sidekick-error-*.json
+*.dist.js

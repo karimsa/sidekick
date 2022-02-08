@@ -12,7 +12,7 @@ function useRpcMutationInternal<InputType, OutputType>(
         ...options,
         async mutationFn(inputData: InputType): Promise<OutputType> {
             try {
-                const { data: resData } = await axios.post('/api/rpc', {
+                const { data: resData } = await axios.post('http://localhost:9002/api/rpc', {
                     ...handler,
                     data: inputData
                 });

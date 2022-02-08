@@ -6,7 +6,6 @@ import treeKill from 'tree-kill';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as tmp from 'tmp-promise';
-import getNextConfig from 'next/config';
 import stripAnsi from 'strip-ansi';
 
 import { fmt } from './fmt';
@@ -28,7 +27,6 @@ export class ExecUtils {
         params?: Params,
         options?: RunOptions & { nodeOptions?: string[] }
     ): Promise<Result> {
-        const nextConfig = getNextConfig();
         const projectDir = options?.cwd ?? (await ConfigManager.getProjectPath());
 
         // generate script using function code
@@ -37,11 +35,7 @@ export class ExecUtils {
         const script = `
             const fs = require('fs')
             const path = require('path')
-            const resolve = require('${path.resolve(
-                nextConfig.serverRuntimeConfig.PROJECT_ROOT,
-                'node_modules',
-                'resolve'
-            )}').sync
+            const resolve = require('${path.resolve(__dirname, 'node_modules', 'resolve')}').sync
             const root = process.cwd()
             const fakeRequire = p => require(resolve(p, { basedir: '${projectDir}' }))
             const entryPoint = ${remoteFn}

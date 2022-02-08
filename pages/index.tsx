@@ -1,6 +1,6 @@
 import { withSidebar } from '../components/Sidebar';
 import { useRpcQuery } from '../hooks/useQuery';
-import { getConfig } from './api/config';
+import { getConfig } from '../server/controllers/config';
 
 export default withSidebar(function Home() {
     const { data: config } = useRpcQuery(getConfig, {});

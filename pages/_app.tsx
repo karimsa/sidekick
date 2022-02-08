@@ -8,7 +8,7 @@ import { Router } from 'next/router';
 import '../styles/globals.scss';
 import 'tippy.js/dist/tippy.css';
 import { useRpcQuery } from '../hooks/useQuery';
-import { getConfig } from './api/config';
+import { getConfig } from '../server/controllers/config';
 
 /**
  * Some toast decoration around next.js' async routing.

@@ -1,12 +1,12 @@
 import * as React from 'react';
 import { useCallback, useMemo } from 'react';
 import { useQueryInvalidator, useRpcQuery } from './useQuery';
-import { getExtensions, runExtensionMethod } from '../pages/api/extensions';
+import { getExtensions, runExtensionMethod } from '../server/controllers/extensions';
 import octicons from '@primer/octicons';
 import toast from 'react-hot-toast';
 import { UseMutationOptions, UseQueryOptions } from 'react-query';
 import * as t from 'io-ts';
-import { getConfig, updateConfig } from '../pages/api/config';
+import { getConfig, updateConfig } from '../server/controllers/config';
 import { useRpcMutation } from './useMutation';
 import { RpcInputType, RpcOutputType, validate } from '../utils/http';
 import * as ReactDOM from 'react-dom';

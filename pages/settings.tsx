@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 
 import { withSidebar } from '../components/Sidebar';
 import { useQueryInvalidator, useRpcQuery } from '../hooks/useQuery';
-import { getConfig, updateConfig } from './api/config';
+import { getConfig, updateConfig } from '../server/controllers/config';
 import { useRpcMutation } from '../hooks/useMutation';
 import { AlertCard } from '../components/AlertCard';
 import { Button } from '../components/Button';

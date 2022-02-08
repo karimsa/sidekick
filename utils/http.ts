@@ -1,16 +1,16 @@
 import * as t from 'io-ts';
-import type { NextApiRequest, NextApiResponse } from 'next';
+import express from 'express';
 import { PathReporter } from 'io-ts/lib/PathReporter';
 
 import { fmt } from './fmt';
 
-export type ApiRequest<ReqBodyType = never> = NextApiRequest & {
+export type ApiRequest<ReqBodyType = never> = express.Request & {
     body: ReqBodyType;
 };
 
 export type RouteHandler<ReqBodyType, ResBodyType> = (
     request: ApiRequest<ReqBodyType>,
-    response: NextApiResponse
+    response: express.Response
 ) => Promise<ResBodyType>;
 
 export const HTTPStatus = {
@@ -28,7 +28,7 @@ export class APIError extends Error {
     }
 }
 
-export function writeError(error: Partial<APIError>, res: NextApiResponse) {
+export function writeError(error: Partial<APIError>, res: express.Response) {
     const status = error.status || 500;
     console.error(fmt`Request failed with status code ${error.status}`, error);
 
@@ -107,7 +107,7 @@ export type RpcOutputType<Handler> = Handler extends RpcHandler<any, infer Outpu
 
 export function createRpcMethod<InputType, ReturnType>(
     inputType: t.Type<InputType>,
-    handler: (data: InputType, req: ApiRequest<InputType>, res: NextApiResponse) => Promise<ReturnType>
+    handler: (data: InputType, req: ApiRequest<InputType>, res: express.Response) => Promise<ReturnType>
 ): RpcHandler<InputType, ReturnType> {
     const wrapper: RouteHandler<{ data: unknown }, ReturnType> = async (req, res) => {
         const data = validate(inputType, req.body.data);

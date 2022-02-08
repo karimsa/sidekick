@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as tmp from 'tmp-promise';
 import getNextConfig from 'next/config';
+import stripAnsi from 'strip-ansi';
 
 import { fmt } from './fmt';
 import { ConfigManager } from '../services/config';
@@ -115,7 +116,7 @@ export class ExecUtils {
             });
             child.stdout!.on('data', chunk => {
                 const chunkStr = chunk.toString('utf8');
-                debug(fmt`stdout: ${chunkStr}`);
+                debug(fmt`stdout: ${stripAnsi(chunkStr)}`);
                 stdout += chunkStr;
                 options?.onStdout?.(chunkStr);
             });

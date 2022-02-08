@@ -4,7 +4,6 @@ import { BuildOptions } from 'esbuild';
 import { ConfigManager } from '../services/config';
 import resolveModulePath from 'resolve/async';
 import * as util from 'util';
-import { builtinModules } from 'module';
 import { minify } from 'terser';
 import babelPresetTypescript from '@babel/preset-typescript';
 import babelPresetReact from '@babel/preset-react';
@@ -86,7 +85,7 @@ export class ExtensionBuilder {
         return error;
     }
 
-    private static async esbuild(ctx: OperationContext, options: BuildOptions) {
+    private static async esbuild(_: OperationContext, options: BuildOptions) {
         try {
             return await esbuild.build({
                 ...options,
@@ -311,7 +310,8 @@ export class ExtensionBuilder {
                     stdin: {
                         contents: clientCode,
                         sourcefile: path.basename(filePath),
-                        loader: 'tsx'
+                        loader: 'tsx',
+                        resolveDir: path.dirname(filePath)
                     },
                     platform: 'browser',
                     target: ['firefox94', 'chrome95'],
@@ -339,39 +339,6 @@ export class ExtensionBuilder {
                                         external: true
                                     })
                                 );
-                            }
-                        },
-                        {
-                            name: 'resolve-external',
-                            setup: build => {
-                                build.onResolve({ filter: /.*/ }, async args => {
-                                    if (builtinModules.includes(args.path)) {
-                                        return { path: args.path, external: true };
-                                    }
-
-                                    try {
-                                        const resolvedPath = await resolveAsync(args.path, {
-                                            basedir: args.resolveDir || path.dirname(filePath),
-                                            extensions: ['.ts', '.tsx', '.js', '.jsx', '.json']
-                                        });
-                                        if (resolvedPath.endsWith('.node')) {
-                                            throw this.createError(
-                                                ctx,
-                                                `Client-side bundle is trying to import backend code - something has gone terribly wrong`
-                                            );
-                                        }
-
-                                        return {
-                                            path: resolvedPath,
-                                            external: false
-                                        };
-                                    } catch (error: any) {
-                                        if (error.code === 'MODULE_NOT_FOUND') {
-                                            return { path: args.path, external: true };
-                                        }
-                                        throw error;
-                                    }
-                                });
                             }
                         }
                     ]

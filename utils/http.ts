@@ -1,6 +1,7 @@
 import * as t from 'io-ts';
 import express from 'express';
 import { PathReporter } from 'io-ts/lib/PathReporter';
+import { AbortController } from 'node-abort-controller';
 
 import { fmt } from './fmt';
 
@@ -102,6 +103,15 @@ export type RpcHandler<InputType, OutputType> = RouteHandler<InputType, OutputTy
     __outputType: OutputType;
 };
 
+export type StreamingRpcHandler<InputType, OutputType> = ((
+    data: InputType,
+    abortController: AbortController
+) => AsyncGenerator<OutputType, void, unknown>) & {
+    __streaming: true;
+    __inputType: InputType;
+    __outputType: OutputType;
+};
+
 export type RpcInputType<Handler> = Handler extends RpcHandler<infer InputType, any> ? InputType : never;
 export type RpcOutputType<Handler> = Handler extends RpcHandler<any, infer OutputType> ? OutputType : never;
 
@@ -118,6 +128,17 @@ export function createRpcMethod<InputType, ReturnType>(
             }),
             res
         );
+    };
+    return wrapper as any;
+}
+
+export function createStreamingRpcMethod<InputType, OutputType>(
+    inputType: t.Type<InputType>,
+    handler: (data: InputType, abortController: AbortController) => AsyncGenerator<OutputType, void, unknown>
+): StreamingRpcHandler<InputType, OutputType> {
+    const wrapper = async function* (rawInput: unknown, abortController: AbortController) {
+        const validatedInput = validate(inputType, rawInput);
+        yield* handler(validatedInput, abortController);
     };
     return wrapper as any;
 }

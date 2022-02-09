@@ -9,6 +9,9 @@ import '../styles/globals.scss';
 import 'tippy.js/dist/tippy.css';
 import { useRpcQuery } from '../hooks/useQuery';
 import { getConfig } from '../server/controllers/config';
+import { useStreamingRpcQuery } from '../hooks/useStreamingQuery';
+import { getHeartbeat } from '../server/controllers/heartbeat';
+import { useEffect } from 'react';
 
 /**
  * Some toast decoration around next.js' async routing.
@@ -65,6 +68,22 @@ function QueryDevtools() {
 }
 
 export default function MyApp({ Component, pageProps }: AppProps) {
+    const { error } = useStreamingRpcQuery(
+        getHeartbeat,
+        {},
+        {
+            onResult() {},
+            onEnd() {
+                toast.error('Connection to sidekick server was lost unexpectedly', { id: 'ws-connect' });
+            }
+        }
+    );
+    useEffect(() => {
+        if (error) {
+            toast.error(`Connection to sidekick server was lost: ${error}`, { id: 'ws-connect' });
+        }
+    }, [error]);
+
     return (
         <>
             <Head>

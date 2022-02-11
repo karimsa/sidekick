@@ -1,7 +1,5 @@
 import * as React from 'react';
 import { useMemo, useState } from 'react';
-import Tooltip from '@tippyjs/react';
-import { AlertFillIcon } from '@primer/octicons-react';
 import Link from 'next/link';
 import { withSidebar } from '../../components/Sidebar';
 import { getServerHealth, getServers, getZombieProcessInfo, killProcesses } from '../../server/controllers/servers';
@@ -10,7 +8,6 @@ import { useRpcQuery } from '../../hooks/useQuery';
 import { toast } from 'react-hot-toast';
 import classNames from 'classnames';
 import { useRouter } from 'next/router';
-import { assertUnreachable } from '../../utils/util-types';
 import { useStreamingRpcQuery } from '../../hooks/useStreamingQuery';
 import { HealthStatus } from '../../utils/shared-types';
 import { RpcOutputType } from '../../utils/http';
@@ -20,59 +17,7 @@ import { Button } from '../../components/Button';
 import { useRpcMutation } from '../../hooks/useMutation';
 import { Spinner } from '../../components/Spinner';
 import { Code } from '../../components/Code';
-
-const ServiceStatusBadge: React.FC<{ status: HealthStatus }> = ({ status }) => {
-    switch (status) {
-        case HealthStatus.healthy:
-            return <div className={'w-2 h-2 rounded-full bg-emerald-700'} />;
-        case HealthStatus.zombie:
-            return (
-                <Tooltip content={'The dev server is running, but is not owned by sidekick.'} placement={'right'}>
-                    <span className={'text-orange-600'}>
-                        <AlertFillIcon />
-                    </span>
-                </Tooltip>
-            );
-        case HealthStatus.failing:
-            return (
-                <Tooltip content={'The dev server is failing to run.'} placement={'right'}>
-                    <span className={'text-red-600'}>
-                        <AlertFillIcon />
-                    </span>
-                </Tooltip>
-            );
-        case HealthStatus.none:
-            return null;
-        case HealthStatus.partial:
-            return (
-                <Tooltip content={'Some parts of this service are functional.'} placement={'right'}>
-                    <div className={'w-2 h-2 rounded-full bg-orange-700'} />
-                </Tooltip>
-            );
-        case HealthStatus.stale:
-            return (
-                <Tooltip
-                    content={'No dev server is running, but the compiled version of this package is now out-of-date.'}
-                    placement={'right'}
-                >
-                    <span className={'text-orange-700'}>{status}</span>
-                </Tooltip>
-            );
-        case HealthStatus.paused:
-            return (
-                <Tooltip content={'You have paused the dev servers.'} placement={'right'}>
-                    <span className={'text-orange-700'}>{status}</span>
-                </Tooltip>
-            );
-
-        case undefined:
-            return null;
-
-        default:
-            assertUnreachable(status);
-            return <span>{status}</span>;
-    }
-};
+import { ServiceStatusBadge } from '../../components/ServiceStatusBadge';
 
 function useServerName() {
     const router = useRouter();
@@ -228,8 +173,7 @@ const ZombieServiceControls: React.FC<{ serviceName: string }> = ({ serviceName 
 
 const ServiceControlPanel: React.FC<{
     serviceStatuses: Record<string, RpcOutputType<typeof getServerHealth>>;
-    setServiceStatuses(statuses: Record<string, RpcOutputType<typeof getServerHealth>>): void;
-}> = ({ serviceStatuses, setServiceStatuses }) => {
+}> = ({ serviceStatuses }) => {
     const selectedServerName = useServerName();
     const selectedServerStatus = serviceStatuses[selectedServerName] ?? {
         healthStatus: HealthStatus.none,
@@ -238,7 +182,12 @@ const ServiceControlPanel: React.FC<{
 
     return (
         <>
-            <h1 className={'text-2xl text-white font-bold mb-5'}>{selectedServerName}</h1>
+            <div className="flex items-center mb-5">
+                <h1 className={'text-2xl text-white font-bold'}>{selectedServerName}</h1>
+                <span className={'rounded bg-slate-700 text-xs text-white p-1 ml-2'}>
+                    v{String(selectedServerStatus.version)}
+                </span>
+            </div>
 
             {selectedServerStatus.healthStatus === HealthStatus.zombie && (
                 <ZombieServiceControls serviceName={selectedServerName} />
@@ -263,10 +212,7 @@ export default withSidebar(function Servers() {
                     </div>
 
                     <div className={'w-3/4 p-5'}>
-                        <ServiceControlPanel
-                            serviceStatuses={serviceStatuses}
-                            setServiceStatuses={setServiceStatuses}
-                        />
+                        <ServiceControlPanel serviceStatuses={serviceStatuses} />
                     </div>
                 </div>
             </div>

@@ -61,7 +61,7 @@ export class ServiceList {
         throw new Error(`Cannot find services`);
     }
 
-    private static async getPackageVersion(location: string) {
+    private static async getPackageJson(location: string) {
         const packageJson = await fs.promises.readFile(path.resolve(location, 'package.json'), 'utf8');
         return JSON.parse(packageJson);
     }
@@ -83,7 +83,7 @@ export class ServiceList {
         return Promise.all(
             objectEntries(workspaceConfig).map(async ([name, { location }]) => ({
                 name,
-                version: await this.getPackageVersion(path.resolve(projectPath, location)),
+                version: (await this.getPackageJson(path.resolve(projectPath, location))).version,
                 location: path.resolve(projectPath, location)
             }))
         );
@@ -120,9 +120,7 @@ export class ServiceList {
         location: string;
         version: string;
     }): Promise<ServiceConfig> {
-        const servicePackageJson = JSON.parse(
-            await fs.promises.readFile(path.resolve(location, 'package.json'), 'utf8')
-        );
+        const servicePackageJson = await this.getPackageJson(location);
 
         const { ports, actions, devServers } = validate(
             t.partial({

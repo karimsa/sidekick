@@ -26,7 +26,9 @@ function useServerName() {
     if (scopedName) {
         return `${serverName}/${scopedName}`;
     }
-    return String(serverName);
+    if (serverName) {
+        return String(serverName);
+    }
 }
 
 const ServiceListEntry: React.FC<{
@@ -198,6 +200,7 @@ const ServiceControlPanel: React.FC<{
 
 export default withSidebar(function Servers() {
     const [serviceStatuses, setServiceStatuses] = useState<Record<string, RpcOutputType<typeof getServerHealth>>>({});
+    const selectedServerName = useServerName();
 
     return (
         <>
@@ -211,9 +214,11 @@ export default withSidebar(function Servers() {
                         <ServiceList serviceStatuses={serviceStatuses} setServiceStatuses={setServiceStatuses} />
                     </div>
 
-                    <div className={'w-3/4 p-5'}>
-                        <ServiceControlPanel serviceStatuses={serviceStatuses} />
-                    </div>
+                    {selectedServerName && (
+                        <div className={'w-3/4 p-5'}>
+                            <ServiceControlPanel serviceStatuses={serviceStatuses} />
+                        </div>
+                    )}
                 </div>
             </div>
         </>

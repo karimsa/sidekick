@@ -19,6 +19,7 @@ type RunOptions = Omit<childProcess.ExecOptions, 'env'> & {
     onStdout?: (chunk: string) => void;
     abortController?: AbortController;
     env?: Record<string, string>;
+    ignoreExitCode?: boolean;
 };
 
 export class ExecUtils {
@@ -123,7 +124,7 @@ export class ExecUtils {
             });
             child.on('exit', code => {
                 debug(fmt`Process exited with code ${code}`);
-                if (code === 0) {
+                if (options?.ignoreExitCode || code === 0) {
                     resolve(stdout);
                 } else {
                     reject(new Error(stderr));

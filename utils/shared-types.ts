@@ -1,25 +1,3 @@
-interface BaseServiceConfig {
-    core?: boolean;
-    name: string;
-    directoryName?: string;
-    processes?: Record<string, string>;
-    env?: Record<string, string>;
-}
-
-export interface AppServiceConfig extends BaseServiceConfig {
-    type: 'backend' | 'frontend';
-    healthPath?: string;
-    port: number;
-    debugPort?: number;
-    dependencies?: string[];
-}
-
-export interface PackageServiceConfig extends BaseServiceConfig {
-    type: 'package';
-}
-
-export type ServiceConfig = AppServiceConfig | PackageServiceConfig;
-
 export enum HealthStatus {
     // Zombie indicates that we got a hit on the debug/http port, but
     // we don't own the process
@@ -45,23 +23,4 @@ export enum HealthStatus {
 
     // None indicates that no process was found running
     none = 'none'
-}
-
-export interface EventsourcedEvent {
-    id: number;
-    name: string;
-    data: object;
-    actor_id?: string;
-    actor: string;
-    created_at: string;
-}
-
-export interface EventsourcedTimelineEntry {
-    event: EventsourcedEvent;
-    remote?: EventsourcedTimelineEntry;
-    logs: string;
-    logsOverride: string;
-    stateBefore: null | object;
-    stateAfter: object;
-    stateAfterOverride: object;
 }

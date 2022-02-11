@@ -10,7 +10,7 @@ import { fmt } from '../utils/fmt';
 import { APIError, route, RpcHandler, StreamingRpcHandler, validate } from '../utils/http';
 import { getConfig, updateConfig } from './controllers/config';
 import { getExtensions, runExtensionMethod } from './controllers/extensions';
-import { getServers } from './controllers/servers';
+import { getServerHealth, getServers, getZombieProcessInfo } from './controllers/servers';
 import { getHeartbeat } from './controllers/heartbeat';
 
 const app = express();
@@ -22,11 +22,13 @@ const methods: Record<string, RpcHandler<any, any>> = {
     getExtensions,
     runExtensionMethod,
 
-    getServers
+    getServers,
+    getZombieProcessInfo
 };
 
 const streamingMethods: Record<string, StreamingRpcHandler<any, any>> = {
-    getHeartbeat
+    getHeartbeat,
+    getServerHealth
 };
 
 const corsConfig = { origin: ['http://localhost:9001'] };
@@ -86,8 +88,8 @@ io.on('connection', socket => {
                 socket.on('disconnect', () => {
                     abortController.abort();
                 });
-                socket.on('closeStream', ({ requestId }) => {
-                    if (requestId === requestId) {
+                socket.on('closeStream', ({ requestId: incomingRequestId }) => {
+                    if (incomingRequestId === requestId) {
                         abortController.abort();
                     }
                 });

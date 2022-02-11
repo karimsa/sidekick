@@ -112,8 +112,16 @@ export type StreamingRpcHandler<InputType, OutputType> = ((
     __outputType: OutputType;
 };
 
-export type RpcInputType<Handler> = Handler extends RpcHandler<infer InputType, any> ? InputType : never;
-export type RpcOutputType<Handler> = Handler extends RpcHandler<any, infer OutputType> ? OutputType : never;
+export type RpcInputType<Handler> = Handler extends RpcHandler<infer InputType, any>
+    ? InputType
+    : Handler extends StreamingRpcHandler<infer StreamingInputType, any>
+    ? StreamingInputType
+    : never;
+export type RpcOutputType<Handler> = Handler extends RpcHandler<any, infer OutputType>
+    ? OutputType
+    : Handler extends StreamingRpcHandler<any, infer StreamingOutputType>
+    ? StreamingOutputType
+    : never;
 
 export function createRpcMethod<InputType, ReturnType>(
     inputType: t.Type<InputType>,

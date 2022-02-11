@@ -4,7 +4,8 @@ import { Spinner } from './Spinner';
 
 const ButtonVariants = {
     primary: 'bg-emerald-900 hover:bg-emerald-800 text-white',
-    secondary: 'bg-slate-700 hover:bg-slate-600 text-white'
+    secondary: 'bg-slate-700 hover:bg-slate-600 text-white',
+    danger: 'bg-red-600 hover:bg-red-800 text-white'
 };
 
 const ButtonSizes = {

@@ -1,15 +1,15 @@
 import axios from 'axios';
 import net from 'net';
 
-export async function testHttp(url: string): Promise<boolean> {
+export async function testHttp(port: number): Promise<boolean> {
     // tslint:disable-next-line
     try {
-        await axios.get(url, {
+        await axios.get(`http://localhost:${port}`, {
             timeout: 1000
         });
         return true;
-    } catch {
-        return false;
+    } catch (error: any) {
+        return typeof error.response?.status === 'number';
     }
 }
 

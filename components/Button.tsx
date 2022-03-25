@@ -24,6 +24,7 @@ export interface ButtonProps {
     onClick?: () => void;
     loading?: boolean;
     disabled?: boolean;
+    icon?: React.ReactElement;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -33,6 +34,7 @@ export const Button: React.FC<ButtonProps> = ({
     size = 'md',
     className,
     type = 'button',
+    icon,
     children,
     onClick
 }) => {
@@ -50,6 +52,7 @@ export const Button: React.FC<ButtonProps> = ({
             disabled={loading || disabled}
         >
             {loading && <Spinner className={'text-white mr-2'} />}
+            {!loading && icon && <span className={'mr-2'}>{icon}</span>}
             {children}
         </button>
     );

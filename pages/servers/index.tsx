@@ -166,9 +166,8 @@ const ServiceStartButton: React.FC<{ serviceName: string }> = memo(({ serviceNam
 
     return (
         <DropdownContainer>
-            <Button variant={'primary'} disabled={!!error} onClick={() => setMenuOpen(!menuOpen)}>
-                <PlayIcon />
-                <span className={'ml-2'}>Start dev servers</span>
+            <Button variant={'primary'} disabled={!!error} icon={<PlayIcon />} onClick={() => setMenuOpen(!menuOpen)}>
+                Start dev servers
             </Button>
 
             <Dropdown show={menuOpen && !error}>
@@ -196,9 +195,8 @@ const ServiceStopButton: React.FC<{ serviceName: string }> = memo(({ serviceName
     });
 
     return (
-        <Button variant={'danger'} loading={isLoading} onClick={() => stop({ name: serviceName })}>
-            <StopIcon />
-            <span className={'ml-2'}>Stop servers</span>
+        <Button variant={'danger'} loading={isLoading} icon={<StopIcon />} onClick={() => stop({ name: serviceName })}>
+            Stop servers
         </Button>
     );
 });

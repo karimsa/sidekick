@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { HealthStatus } from '../utils/shared-types';
 import Tooltip from '@tippyjs/react';
-import { AlertFillIcon } from '@primer/octicons-react';
+import { AlertFillIcon, XCircleFillIcon } from '@primer/octicons-react';
 import { assertUnreachable } from '../utils/util-types';
 
 export const ServiceStatusBadge: React.FC<{ status: HealthStatus }> = ({ status }) => {
@@ -11,7 +11,7 @@ export const ServiceStatusBadge: React.FC<{ status: HealthStatus }> = ({ status 
         case HealthStatus.zombie:
             return (
                 <Tooltip content={'The dev server is running, but is not owned by sidekick.'} placement={'right'}>
-                    <span className={'text-orange-600'}>
+                    <span className={'text-orange-300'}>
                         <AlertFillIcon />
                     </span>
                 </Tooltip>
@@ -19,8 +19,8 @@ export const ServiceStatusBadge: React.FC<{ status: HealthStatus }> = ({ status 
         case HealthStatus.failing:
             return (
                 <Tooltip content={'The dev server is failing to run.'} placement={'right'}>
-                    <span className={'text-red-600'}>
-                        <AlertFillIcon />
+                    <span className={'text-red-500'}>
+                        <XCircleFillIcon />
                     </span>
                 </Tooltip>
             );

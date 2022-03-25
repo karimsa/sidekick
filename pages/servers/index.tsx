@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { withSidebar } from '../../components/Sidebar';
 import { getServerHealth, getServers, getZombieProcessInfo, killProcesses } from '../../server/controllers/servers';
@@ -18,6 +18,7 @@ import { useRpcMutation } from '../../hooks/useMutation';
 import { Spinner } from '../../components/Spinner';
 import { Code } from '../../components/Code';
 import { ServiceStatusBadge } from '../../components/ServiceStatusBadge';
+import { debugHooksChanged } from '../../hooks/debug-hooks';
 
 function useServerName() {
     const router = useRouter();
@@ -40,19 +41,30 @@ const ServiceListEntry: React.FC<{
     const selectedServerName = useServerName();
 
     // TODO: Auto restart the stream if it ends
-    useStreamingRpcQuery(
+    const { data, error } = useStreamingRpcQuery(
         getServerHealth,
         {
             name: serviceName
         },
-        {
-            onResult(result) {
-                onStatusUpdate(result);
+        useCallback((state, action) => {
+            switch (action.type) {
+                case 'data':
+                    return action.data;
+                case 'end':
+                    return { healthStatus: HealthStatus.none, version: state.version };
             }
-        }
+        }, []),
+        { healthStatus: HealthStatus.none, version: '(unknown)' }
     );
 
-    if (!showAllServices && selectedServerName !== serviceName && healthStatus === HealthStatus.none) {
+    const statusUpdateRef = useRef(onStatusUpdate);
+    statusUpdateRef.current = onStatusUpdate;
+
+    useEffect(() => {
+        statusUpdateRef.current(data);
+    }, [data]);
+
+    if (!showAllServices && !error && selectedServerName !== serviceName && healthStatus === HealthStatus.none) {
         return null;
     }
     return (
@@ -64,7 +76,7 @@ const ServiceListEntry: React.FC<{
                     })}
                 >
                     <span>{serviceName}</span>
-                    <ServiceStatusBadge status={healthStatus} />
+                    <ServiceStatusBadge status={error ? HealthStatus.failing : healthStatus} />
                 </a>
             </Link>
         </li>
@@ -94,6 +106,15 @@ const ServiceList: React.FC<{
     );
 
     const [showAllServices, setShowAllServices] = useState(false);
+
+    debugHooksChanged('ServiceList', {
+        serviceStatuses,
+        setServiceStatuses,
+        services,
+        numHiddenServices,
+        showAllServices,
+        setShowAllServices
+    });
 
     return (
         <ul

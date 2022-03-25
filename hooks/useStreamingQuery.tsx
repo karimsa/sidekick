@@ -1,5 +1,5 @@
 import type { StreamingRpcHandler } from '../utils/http';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useReducer, useState } from 'react';
 import { io } from 'socket.io-client';
 import { v4 as uuid } from 'uuid';
 import jsonStableStringify from 'json-stable-stringify';
@@ -8,14 +8,18 @@ const socket = io(`http://${global.location?.hostname}:9002/`, {
     autoConnect: !!global.window
 });
 
-function useStreamingRpcQueryInternal<InputType, OutputType>(
-    // this is the type of the handler at runtime
-    handler: { methodName: string },
+type StreamingRpcAction<Data> = { type: 'data'; data: Data } | { type: 'end' };
+
+export function useStreamingRpcQuery<InputType, OutputType, State>(
+    // this is the type of the handler at compile-time
+    rpcHandler: StreamingRpcHandler<InputType, OutputType>,
     data: InputType,
-    options: { onResult(result: OutputType): void; onEnd?: () => void; autoRestart?: boolean }
+    reducer: (state: State, action: StreamingRpcAction<OutputType>) => State,
+    initialState: State
 ) {
-    const optionsRef = useRef(options);
-    optionsRef.current = options;
+    // this is the type of the handler at runtime
+    const { methodName } = rpcHandler as unknown as { methodName: string };
+    const [state, dispatch] = useReducer(reducer, initialState);
 
     const [requestId, setRequestId] = useState(() => uuid());
     const [isStreaming, setIsStreaming] = useState(true);
@@ -29,28 +33,25 @@ function useStreamingRpcQueryInternal<InputType, OutputType>(
                 if (incomingRequestId === requestId) {
                     setError(error);
                     setIsStreaming(false);
-
-                    if (optionsRef.current.autoRestart) {
-                        setRequestId(uuid());
-                    }
+                    setRequestId(uuid());
                 }
             }
 
             function onStreamData({ requestId: incomingRequestId, data }) {
                 if (incomingRequestId === requestId) {
-                    optionsRef.current.onResult(data);
+                    dispatch({ type: 'data', data });
                 }
             }
 
             function onStreamEnd({ requestId: incomingRequestId }) {
                 if (incomingRequestId === requestId) {
-                    optionsRef.current.onEnd?.();
+                    dispatch({ type: 'end' });
                 }
             }
 
             function openStream() {
                 socket.emit('openStream', {
-                    methodName: handler.methodName,
+                    methodName,
                     params: data,
                     requestId
                 });
@@ -81,17 +82,8 @@ function useStreamingRpcQueryInternal<InputType, OutputType>(
             };
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [dataKey, handler.methodName, requestId]
+        [dataKey, methodName, requestId]
     );
 
-    return { error, isStreaming };
-}
-
-export function useStreamingRpcQuery<InputType, OutputType>(
-    // this is the type of the handler at compile-time
-    handler: StreamingRpcHandler<InputType, OutputType>,
-    data: InputType,
-    options: { onResult(result: OutputType): void; onEnd?: () => void }
-) {
-    return useStreamingRpcQueryInternal(handler as any, data, options);
+    return { data: state, error, isStreaming };
 }

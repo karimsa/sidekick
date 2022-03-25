@@ -16,33 +16,22 @@ export interface ServiceConfig {
     devServers: Record<string, string>;
 }
 
-const serviceListCache = new Map<string, ServiceConfig>();
-
 export class ServiceList {
     static async getServices() {
         return this.loadServicesFromPaths(await this.getServiceDefinitions());
     }
 
     static async getServiceNames() {
-        if (serviceListCache.size > 0) {
-            return [...serviceListCache.keys()];
-        }
         return (await this.getServiceDefinitions()).map(service => service.name);
     }
 
     static async getService(name: string) {
-        if (serviceListCache.has(name)) {
-            return serviceListCache.get(name)!;
-        }
-
         const definitions = await this.getServiceDefinitions();
         const serviceDefn = definitions.find(defn => defn.name === name);
         if (!serviceDefn) {
             throw new Error(`Could not find a service with the name: ${name}`);
         }
-        const defn = await this.loadServiceFromPath(serviceDefn);
-        serviceListCache.set(name, defn);
-        return defn;
+        return this.loadServiceFromPath(serviceDefn);
     }
 
     private static async getServiceDefinitions() {

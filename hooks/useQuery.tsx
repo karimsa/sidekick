@@ -14,10 +14,10 @@ function useRpcQueryInternal<InputType, OutputType>(
         queryKey: [handler, data],
         async queryFn(inputData): Promise<OutputType> {
             try {
-                const { data: resData } = await axios.post('http://localhost:9002/api/rpc', {
-                    methodName: handler.methodName,
-                    data: inputData.queryKey[1]
-                });
+                const { data: resData } = await axios.post(
+                    `http://localhost:9002/api/rpc/${handler.methodName}`,
+                    inputData.queryKey[1]
+                );
                 return resData;
             } catch (error: any) {
                 const decodedError = error.response?.data.error;

@@ -12,10 +12,10 @@ function useRpcMutationInternal<InputType, OutputType>(
         ...options,
         async mutationFn(inputData: InputType): Promise<OutputType> {
             try {
-                const { data: resData } = await axios.post('http://localhost:9002/api/rpc', {
-                    ...handler,
-                    data: inputData
-                });
+                const { data: resData } = await axios.post(
+                    `http://localhost:9002/api/rpc/${handler.methodName}`,
+                    inputData
+                );
                 return resData;
             } catch (error: any) {
                 const decodedError = error.response?.data.error;

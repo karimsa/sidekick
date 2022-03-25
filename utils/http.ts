@@ -128,7 +128,7 @@ export function createRpcMethod<InputType, ReturnType>(
     handler: (data: InputType, req: ApiRequest<InputType>, res: express.Response) => Promise<ReturnType>
 ): RpcHandler<InputType, ReturnType> {
     const wrapper: RouteHandler<{ data: unknown }, ReturnType> = async (req, res) => {
-        const data = validate(inputType, req.body.data);
+        const data = validate(inputType, req.body);
         return handler(
             data,
             Object.assign(req, {

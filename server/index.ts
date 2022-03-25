@@ -38,16 +38,10 @@ const corsConfig = { origin: ['http://localhost:9001'] };
 app.use(bodyParser.json({ limit: 1024 }));
 app.use(cors(corsConfig));
 app.post(
-    '/api/rpc',
+    '/api/rpc/:methodName',
     route(async (req, res) => {
-        const { methodName } = validate(
-            t.interface({
-                methodName: t.string,
-                data: t.unknown
-            }),
-            req.body
-        );
-        const method = methods[methodName];
+        const { methodName } = req.params;
+        const method = methods[String(methodName)];
         if (!method) {
             throw new APIError(`Unrecognized method name: ${methodName}`);
         }

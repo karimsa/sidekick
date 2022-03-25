@@ -93,14 +93,6 @@ export const getServerHealth = createStreamingRpcMethod(
 
             const numExpectedProcesses = Object.keys(serviceConfig.devServers).length;
 
-            // console.dir({
-            //     serviceConfig,
-            //     portStatuses,
-            //     numExpectedProcesses,
-            //     numRunningProcesses,
-            //     numSuspendedProcesses
-            // });
-
             // If we have the right number of running processes, and all the ports are
             // responding as expected, we are healthy
             if (

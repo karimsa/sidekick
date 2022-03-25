@@ -76,7 +76,7 @@ const ServiceListEntry: React.FC<{
                     })}
                 >
                     <span>{serviceName}</span>
-                    <ServiceStatusBadge status={error ? HealthStatus.failing : healthStatus} />
+                    <ServiceStatusBadge status={error ? HealthStatus.failing : healthStatus} error={String(error)} />
                 </a>
             </Link>
         </li>

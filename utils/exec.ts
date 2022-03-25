@@ -120,7 +120,7 @@ export class ExecUtils {
                 process.stderr.write(chunk);
             });
             child.on('error', error => {
-                reject(error); // i thought i did too
+                reject(error);
             });
             child.on('exit', code => {
                 debug(fmt`Process exited with code ${code}`);

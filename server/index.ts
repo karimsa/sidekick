@@ -60,6 +60,8 @@ const io = new SocketServer(server, {
 });
 
 function sendError(socket: Socket, requestId: string, error: any) {
+    console.error(`Socket stream encountered an error: ${error.stack || error}`);
+    process.exit(1);
     socket.emit('streamError', { requestId, error: String(error) });
 }
 function sendResult(socket: Socket, requestId: string, data: any) {

@@ -109,7 +109,9 @@ export class ProcessManager {
 
     static async isProcessRunning(name: string): Promise<boolean> {
         try {
-            process.kill(await this.getPID(name), 0);
+            const pid = await this.getPID(name);
+            process.kill(pid, 0);
+            debug(fmt`Found ${name} running at ${pid}`);
             return true;
         } catch (error: any) {
             // ENOENT means the pidfile wasn't found

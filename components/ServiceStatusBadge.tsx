@@ -4,7 +4,7 @@ import Tooltip from '@tippyjs/react';
 import { AlertFillIcon, XCircleFillIcon } from '@primer/octicons-react';
 import { assertUnreachable } from '../utils/util-types';
 
-export const ServiceStatusBadge: React.FC<{ status: HealthStatus }> = ({ status }) => {
+export const ServiceStatusBadge: React.FC<{ status: HealthStatus; error?: string }> = ({ status, error }) => {
     switch (status) {
         case HealthStatus.healthy:
             return <div className={'w-2 h-2 rounded-full bg-emerald-700'} />;
@@ -18,7 +18,7 @@ export const ServiceStatusBadge: React.FC<{ status: HealthStatus }> = ({ status 
             );
         case HealthStatus.failing:
             return (
-                <Tooltip content={'The dev server is failing to run.'} placement={'right'}>
+                <Tooltip content={error || 'The dev server is failing to run.'} placement={'right'}>
                     <span className={'text-red-500'}>
                         <XCircleFillIcon />
                     </span>

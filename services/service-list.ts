@@ -5,6 +5,9 @@ import { ConfigManager } from './config';
 import * as fs from 'fs';
 import * as t from 'io-ts';
 import * as path from 'path';
+import * as execa from 'execa';
+import { parseJson } from '../utils/json';
+import { z } from 'zod';
 
 export interface ServiceConfig {
     name: string;
@@ -57,16 +60,15 @@ export class ServiceList {
 
     private static async getServicesWithYarnWorkspaces() {
         const projectPath = await ConfigManager.getProjectPath();
-        const infoOutput = await ExecUtils.runCommand(`yarn`, ['workspaces', 'info', '--json'], { cwd: projectPath });
-
-        const workspaceConfig = validate(
-            t.record(
-                t.string,
-                t.interface({
-                    location: t.string
+        const { stdout } = await execa.command('yarn workspaces info --json', { cwd: projectPath, stderr: 'pipe' });
+        const workspaceConfig = parseJson(
+            z.record(
+                z.string(),
+                z.object({
+                    location: z.string({ required_error: 'Location info was missing in yarn workspaces output' })
                 })
             ),
-            JSON.parse(infoOutput)
+            stdout
         );
 
         return Promise.all(

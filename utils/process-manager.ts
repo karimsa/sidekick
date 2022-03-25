@@ -9,6 +9,7 @@ import createDebug from 'debug';
 import { ConfigManager } from '../services/config';
 import { ExecUtils } from './exec';
 import { fmt } from './fmt';
+import { NvmUtil } from './nvm.util';
 
 const debug = createDebug('sidekick:process');
 
@@ -31,12 +32,16 @@ export class ProcessManager {
         return path.join(ProcessLogsDirectory, `${slugify(name)}.log`);
     }
 
-    static async start(name: string, cmd: string, options: childProcess.SpawnOptionsWithoutStdio) {
-        const child = childProcess.spawn(`/bin/bash`, ['-c', `${cmd} &> ${this.getProcessLogFile(name)}`], {
-            ...options,
-            detached: true,
-            stdio: 'ignore'
-        });
+    static async start(name: string, cmd: string, appDir: string, options: childProcess.SpawnOptionsWithoutStdio) {
+        const child = childProcess.spawn(
+            `/bin/bash`,
+            ['-c', `${await NvmUtil.wrapVersionedCommand(appDir, cmd)} &> ${this.getProcessLogFile(name)}`],
+            {
+                ...options,
+                detached: true,
+                stdio: 'ignore'
+            }
+        );
         child.unref();
         const pid = child.pid;
         console.warn(fmt`started '${name}' with pid ${pid}: ${cmd}`);
@@ -62,7 +67,7 @@ export class ProcessManager {
     }
 
     static async stop(name: string) {
-        if (await this.isProcessRunning(name)) {
+        if (await this.isProcessCreated(name)) {
             await ExecUtils.treeKill(await this.getPID(name), os.constants.signals.SIGKILL);
             await Promise.all([
                 fs.promises.unlink(this.getProcessPidFile(name)).catch(error => {

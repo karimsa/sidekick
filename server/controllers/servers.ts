@@ -170,10 +170,27 @@ export const startService = createRpcMethod(
 
         await Promise.all(
             objectEntries(serviceConfig.devServers).map(([devServerName, runCommand]) => {
-                return ProcessManager.start(`${name}-${devServerName}`, runCommand, {
+                return ProcessManager.start(`${name}-${devServerName}`, runCommand, serviceConfig.location, {
                     cwd: serviceConfig.location,
                     env: envVars as any
                 });
+            })
+        );
+
+        return { ok: true };
+    }
+);
+
+export const stopService = createRpcMethod(
+    t.interface({
+        name: t.string
+    }),
+    async ({ name }) => {
+        const serviceConfig = await ServiceList.getService(name);
+
+        await Promise.all(
+            objectEntries(serviceConfig.devServers).map(([devServerName]) => {
+                return ProcessManager.stop(`${name}-${devServerName}`);
             })
         );
 

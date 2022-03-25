@@ -1,8 +1,10 @@
+/* eslint-disable react/display-name */
+
 import * as React from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { withSidebar } from '../../components/Sidebar';
-import { getServerHealth, getServers, startService } from '../../server/controllers/servers';
+import { getServerHealth, getServers, startService, stopService } from '../../server/controllers/servers';
 import Head from 'next/head';
 import { useRpcQuery } from '../../hooks/useQuery';
 import { toast } from 'react-hot-toast';
@@ -16,7 +18,7 @@ import { ServiceStatusBadge } from '../../components/ServiceStatusBadge';
 import { debugHooksChanged } from '../../hooks/debug-hooks';
 import { ZombieServiceControls } from '../../components/ZombieServiceControls';
 import { Button } from '../../components/Button';
-import { PlayIcon } from '@primer/octicons-react';
+import { PlayIcon, StopIcon } from '@primer/octicons-react';
 import { Dropdown, DropdownButton, DropdownContainer } from '../../components/Dropdown';
 import { getConfig } from '../../server/controllers/config';
 import { useRpcMutation } from '../../hooks/useMutation';
@@ -78,7 +80,10 @@ const ServiceListEntry: React.FC<{
                     })}
                 >
                     <span>{serviceName}</span>
-                    <ServiceStatusBadge status={error ? HealthStatus.failing : healthStatus} error={String(error)} />
+                    <ServiceStatusBadge
+                        status={error ? HealthStatus.failing : healthStatus}
+                        error={error ? String(error) : undefined}
+                    />
                 </a>
             </Link>
         </li>
@@ -183,6 +188,21 @@ const ServiceStartButton: React.FC<{ serviceName: string }> = memo(({ serviceNam
     );
 });
 
+const ServiceStopButton: React.FC<{ serviceName: string }> = memo(({ serviceName }) => {
+    const { mutate: stop, isLoading } = useRpcMutation(stopService, {
+        onError: error => {
+            toast.error(String(error));
+        }
+    });
+
+    return (
+        <Button variant={'danger'} loading={isLoading} onClick={() => stop({ name: serviceName })}>
+            <StopIcon />
+            <span className={'ml-2'}>Stop servers</span>
+        </Button>
+    );
+});
+
 const ServiceControlPanel: React.FC<{
     serviceStatuses: Record<string, RpcOutputType<typeof getServerHealth>>;
 }> = ({ serviceStatuses }) => {
@@ -204,6 +224,12 @@ const ServiceControlPanel: React.FC<{
             {(selectedServerStatus.healthStatus === HealthStatus.none ||
                 selectedServerStatus.healthStatus === HealthStatus.stale) && (
                 <ServiceStartButton serviceName={selectedServerName} />
+            )}
+
+            {(selectedServerStatus.healthStatus === HealthStatus.failing ||
+                selectedServerStatus.healthStatus === HealthStatus.healthy ||
+                selectedServerStatus.healthStatus === HealthStatus.paused) && (
+                <ServiceStopButton serviceName={selectedServerName} />
             )}
 
             {selectedServerStatus.healthStatus === HealthStatus.zombie && (

@@ -10,7 +10,7 @@ import { fmt } from '../utils/fmt';
 import { APIError, route, RpcHandler, StreamingRpcHandler, validate } from '../utils/http';
 import { getConfig, updateConfig } from './controllers/config';
 import { getExtensions, runExtensionMethod } from './controllers/extensions';
-import { getServerHealth, getServers, getZombieProcessInfo, startService } from './controllers/servers';
+import { getServerHealth, getServers, getZombieProcessInfo, startService, stopService } from './controllers/servers';
 import { getHeartbeat } from './controllers/heartbeat';
 
 const app = express();
@@ -24,7 +24,8 @@ const methods: Record<string, RpcHandler<any, any>> = {
 
     getServers,
     getZombieProcessInfo,
-    startService
+    startService,
+    stopService
 };
 
 const streamingMethods: Record<string, StreamingRpcHandler<any, any>> = {

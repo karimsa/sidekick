@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as childProcess from 'child_process';
+import slugify from 'slugify';
 
 import createDebug from 'debug';
 
@@ -24,10 +25,10 @@ Promise.all([
 
 export class ProcessManager {
     private static getProcessPidFile(name: string) {
-        return path.join(ProcessPidDirectory, name + '.pid');
+        return path.join(ProcessPidDirectory, `${slugify(name)}.pid`);
     }
     private static getProcessLogFile(name: string) {
-        return path.join(ProcessLogsDirectory, `${name}.log`);
+        return path.join(ProcessLogsDirectory, `${slugify(name)}.log`);
     }
 
     static async start(name: string, cmd: string, options: childProcess.SpawnOptionsWithoutStdio) {
@@ -38,7 +39,7 @@ export class ProcessManager {
         });
         child.unref();
         const pid = child.pid;
-        console.warn(`started '${name}' with pid ${pid}`);
+        console.warn(fmt`started '${name}' with pid ${pid}: ${cmd}`);
         if (!pid) {
             throw new Error(`Failed to get pid of child`);
         }
@@ -117,6 +118,19 @@ export class ProcessManager {
             // ENOENT means the pidfile wasn't found
             // ESRCH means the signal failed to send
             if (error.code === 'ENOENT' || error.code === 'ESRCH' || String(error).match(/Corrupted pid file/)) {
+                return false;
+            }
+            throw error;
+        }
+    }
+
+    static async isProcessCreated(name: string): Promise<boolean> {
+        try {
+            await this.getPID(name);
+            return true;
+        } catch (error: any) {
+            // ENOENT means the pidfile wasn't found
+            if (error.code === 'ENOENT' || String(error).match(/Corrupted pid file/)) {
                 return false;
             }
             throw error;

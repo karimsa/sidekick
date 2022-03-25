@@ -154,7 +154,9 @@ export class ExecUtils {
     }
 
     static async isSuspended(pid: number) {
-        const { stdout } = await execa.command(`ps -o stat= -p ${pid}`);
+        const { stdout } = await execa.command(`ps -o stat= -p ${pid}`).catch(error => {
+            return error;
+        });
         return String(stdout).includes('T');
     }
 

@@ -78,10 +78,14 @@ export const getServerHealth = createStreamingRpcMethod(
                 return sum + (portHealthy ? 1 : 0);
             }, 0);
 
+            let numCreatedProcesses = 0;
             let numRunningProcesses = 0;
             let numSuspendedProcesses = 0;
             await Promise.all(
                 objectKeys(serviceConfig.devServers).map(async devServer => {
+                    if (await ProcessManager.isProcessCreated(`${name}-${devServer}`)) {
+                        numCreatedProcesses++;
+                    }
                     if (await ProcessManager.isProcessRunning(`${name}-${devServer}`)) {
                         numRunningProcesses++;
                     }
@@ -110,7 +114,7 @@ export const getServerHealth = createStreamingRpcMethod(
             }
 
             // If there are no processes and no response, the service is not running
-            else if (numRunningProcesses === 0 && numPortsHealthy === 0) {
+            else if (numCreatedProcesses === 0 && numRunningProcesses === 0 && numPortsHealthy === 0) {
                 yield { healthStatus: HealthStatus.none, version: serviceConfig.version };
             }
 
@@ -122,7 +126,10 @@ export const getServerHealth = createStreamingRpcMethod(
 
             // If all the expected processes are running, but we are not receiving any response on ports,
             // the service is completely failing
-            else if (numRunningProcesses === numExpectedProcesses && numPortsHealthy === 0) {
+            else if (
+                (numRunningProcesses === numExpectedProcesses && numPortsHealthy === 0) ||
+                numCreatedProcesses > numRunningProcesses
+            ) {
                 yield { healthStatus: HealthStatus.failing, version: serviceConfig.version };
             }
 
@@ -169,5 +176,7 @@ export const startService = createRpcMethod(
                 });
             })
         );
+
+        return { ok: true };
     }
 );

@@ -1,8 +1,8 @@
 import * as React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { withSidebar } from '../../components/Sidebar';
-import { getServerHealth, getServers, getZombieProcessInfo, killProcesses } from '../../server/controllers/servers';
+import { getServerHealth, getServers, startService } from '../../server/controllers/servers';
 import Head from 'next/head';
 import { useRpcQuery } from '../../hooks/useQuery';
 import { toast } from 'react-hot-toast';
@@ -12,13 +12,15 @@ import { useStreamingRpcQuery } from '../../hooks/useStreamingQuery';
 import { HealthStatus } from '../../utils/shared-types';
 import { RpcOutputType } from '../../utils/http';
 import { Toggle } from '../../components/Toggle';
-import { Alert, AlertCard } from '../../components/AlertCard';
-import { Button } from '../../components/Button';
-import { useRpcMutation } from '../../hooks/useMutation';
-import { Spinner } from '../../components/Spinner';
-import { Code } from '../../components/Code';
 import { ServiceStatusBadge } from '../../components/ServiceStatusBadge';
 import { debugHooksChanged } from '../../hooks/debug-hooks';
+import { ZombieServiceControls } from '../../components/ZombieServiceControls';
+import { Button } from '../../components/Button';
+import { PlayIcon } from '@primer/octicons-react';
+import { Dropdown, DropdownButton, DropdownContainer } from '../../components/Dropdown';
+import { getConfig } from '../../server/controllers/config';
+import { useRpcMutation } from '../../hooks/useMutation';
+import Tooltip from '@tippyjs/react';
 
 function useServerName() {
     const router = useRouter();
@@ -86,7 +88,7 @@ const ServiceListEntry: React.FC<{
 const ServiceList: React.FC<{
     serviceStatuses: Record<string, RpcOutputType<typeof getServerHealth>>;
     setServiceStatuses(statuses: Record<string, RpcOutputType<typeof getServerHealth>>): void;
-}> = ({ serviceStatuses, setServiceStatuses }) => {
+}> = memo(({ serviceStatuses, setServiceStatuses }) => {
     const { data: services } = useRpcQuery(
         getServers,
         {},
@@ -149,50 +151,37 @@ const ServiceList: React.FC<{
             ))}
         </ul>
     );
-};
+});
 
-const ZombieServiceControls: React.FC<{ serviceName: string }> = ({ serviceName }) => {
-    const { data: processInfo, error: errLoadingProcessInfo } = useRpcQuery(getZombieProcessInfo, {
-        name: serviceName
-    });
-    const { mutate: performKill, isLoading: isKilling } = useRpcMutation(killProcesses);
+const ServiceStartButton: React.FC<{ serviceName: string }> = memo(({ serviceName }) => {
+    const [menuOpen, setMenuOpen] = useState(false);
+    const { data: config, error } = useRpcQuery(getConfig, {});
+    const { mutate: start } = useRpcMutation(startService);
+    console.dir(config?.environments);
 
     return (
-        <AlertCard title={`'${serviceName}' is in an undefined state`} borderColor={'border-orange-600'}>
-            <p>
-                Sidekick has detected a process running and responding on this service&apos;s ports, but the process is
-                not owned by sidekick.
-            </p>
-            {!errLoadingProcessInfo && !processInfo && (
-                <p className={'flex items-center mt-5'}>
-                    <Spinner className={'text-black mr-2'} />
-                    <span>Locating zombie processes ...</span>
-                </p>
-            )}
-            {errLoadingProcessInfo && (
-                <Alert className={'mt-5'}>Failed to load process info: {String(errLoadingProcessInfo)}</Alert>
-            )}
-            {processInfo && (
-                <>
-                    <Code>{JSON.stringify(processInfo, null, '\t')}</Code>
+        <DropdownContainer>
+            <Button variant={'primary'} disabled={!!error} onClick={() => setMenuOpen(!menuOpen)}>
+                <PlayIcon />
+                <span className={'ml-2'}>Start dev servers</span>
+            </Button>
 
-                    <Button
-                        className={'mt-5'}
-                        loading={isKilling}
-                        onClick={() => {
-                            performKill({
-                                pids: processInfo.map(info => info.pid)
-                            });
-                        }}
-                        variant={'danger'}
-                    >
-                        Force kill these processes
-                    </Button>
-                </>
-            )}
-        </AlertCard>
+            <Dropdown show={menuOpen && !error}>
+                {config &&
+                    Object.keys(config.environments).map(env => (
+                        <Tooltip key={env} content={String(error)} disabled={!error}>
+                            <DropdownButton
+                                className={'text-sm'}
+                                onClick={() => start({ name: serviceName, targetEnvironment: env, environment: {} })}
+                            >
+                                Start in {env}
+                            </DropdownButton>
+                        </Tooltip>
+                    ))}
+            </Dropdown>
+        </DropdownContainer>
     );
-};
+});
 
 const ServiceControlPanel: React.FC<{
     serviceStatuses: Record<string, RpcOutputType<typeof getServerHealth>>;
@@ -211,6 +200,11 @@ const ServiceControlPanel: React.FC<{
                     v{String(selectedServerStatus.version)}
                 </span>
             </div>
+
+            {(selectedServerStatus.healthStatus === HealthStatus.none ||
+                selectedServerStatus.healthStatus === HealthStatus.stale) && (
+                <ServiceStartButton serviceName={selectedServerName} />
+            )}
 
             {selectedServerStatus.healthStatus === HealthStatus.zombie && (
                 <ZombieServiceControls serviceName={selectedServerName} />

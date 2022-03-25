@@ -1,4 +1,3 @@
-import { ExecUtils } from '../utils/exec';
 import { validate } from '../utils/http';
 import { objectEntries } from '../utils/util-types';
 import { ConfigManager } from './config';
@@ -39,13 +38,18 @@ export class ServiceList {
 
     private static async getServiceDefinitions() {
         const projectPath = await ConfigManager.getProjectPath();
-        const rootFiles = await fs.promises.readdir(projectPath);
-        const packageJson = JSON.parse(await fs.promises.readFile(path.resolve(projectPath, 'package.json'), 'utf8'));
+        const packageJson = parseJson(
+            z.object({
+                workspaces: z.any().optional()
+            }),
+            await fs.promises.readFile(path.resolve(projectPath, 'package.json'), 'utf8')
+        );
 
         if (packageJson.workspaces) {
             return this.getServicesWithYarnWorkspaces();
         }
 
+        const rootFiles = await fs.promises.readdir(projectPath);
         if (rootFiles.includes('lerna.json')) {
             return this.getServicesWithLerna();
         }
@@ -82,18 +86,17 @@ export class ServiceList {
 
     private static async getServicesWithLerna() {
         const projectPath = await ConfigManager.getProjectPath();
+        const { stdout: listOutput } = await execa.command(`lerna list --all --json`, { cwd: projectPath });
 
-        const listOutput = await ExecUtils.runCommand(`lerna`, ['list', '--all', '--json'], { cwd: projectPath });
-
-        const lernaList = validate(
-            t.array(
-                t.interface({
-                    name: t.string,
-                    location: t.string,
-                    version: t.string
+        const lernaList = parseJson(
+            z.array(
+                z.object({
+                    name: z.string(),
+                    location: z.string(),
+                    version: z.string()
                 })
             ),
-            JSON.parse(listOutput)
+            listOutput
         );
         return lernaList.map(({ name, location, version }) => ({
             name,

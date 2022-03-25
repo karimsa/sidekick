@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as tmp from 'tmp-promise';
 import stripAnsi from 'strip-ansi';
+import * as execa from 'execa';
 
 import { fmt } from './fmt';
 import { ConfigManager } from '../services/config';
@@ -82,6 +83,9 @@ export class ExecUtils {
         throw new Error(error);
     }
 
+    /**
+     * @deprecated
+     */
     static async runCommand(cmdPath: string, args: string[], options?: RunOptions): Promise<string> {
         return new Promise<string>((resolve, reject) => {
             let stdout = '';
@@ -150,7 +154,8 @@ export class ExecUtils {
     }
 
     static async isSuspended(pid: number) {
-        return String(await this.runCommand('ps', ['-o', 'stat=', '-p', String(pid)])).includes('T');
+        const { stdout } = await execa.command(`ps -o stat= -p ${pid}`);
+        return String(stdout).includes('T');
     }
 
     static treeKill(pid: number, signal: number) {

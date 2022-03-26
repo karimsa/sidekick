@@ -57,7 +57,6 @@ const io = new SocketServer(server, {
 
 function sendError(socket: Socket, requestId: string, error: any) {
     console.error(`Socket stream encountered an error: ${error.stack || error}`);
-    process.exit(1);
     socket.emit('streamError', { requestId, error: String(error) });
 }
 function sendResult(socket: Socket, requestId: string, data: any) {
@@ -76,13 +75,13 @@ io.on('connection', socket => {
                 data
             );
 
+            const abortController = new AbortController();
             try {
                 const method = streamingMethods[methodName];
                 if (!method) {
                     throw new Error(`Unrecognized method name: ${methodName}`);
                 }
 
-                const abortController = new AbortController();
                 socket.on('disconnect', () => {
                     abortController.abort();
                 });
@@ -101,6 +100,7 @@ io.on('connection', socket => {
                 });
             } catch (error) {
                 sendError(socket, requestId, error);
+                abortController.abort();
             }
         } catch (error) {
             sendError(socket, '', error);

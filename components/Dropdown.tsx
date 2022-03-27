@@ -1,18 +1,35 @@
 import * as React from 'react';
-import { AnchorHTMLAttributes } from 'react';
+import { AnchorHTMLAttributes, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import classNames from 'classnames';
+import { isElmWithinTarget } from '../utils/isElmWithTarget';
 
-export const DropdownContainer: React.FC = ({ children }) => {
-    return <div className={'inline-flex flex-col'}>{children}</div>;
+export const DropdownContainer: React.FC<{ className?: string }> = ({ className, children }) => {
+    return <div className={classNames(className, 'relative inline-flex flex-col')}>{children}</div>;
 };
 
 export const Dropdown: React.FC<{
     show: boolean;
-}> = ({ show, children }) => {
+    onClose(): void;
+}> = ({ show, onClose, children }) => {
+    const dropdownRef = useRef<HTMLUListElement | null>(null);
+    useEffect(() => {
+        if (show) {
+            const onClickAnywhere = (evt: MouseEvent) => {
+                if (!isElmWithinTarget(evt.target as any, dropdownRef.current)) {
+                    onClose();
+                }
+            };
+
+            document.documentElement.addEventListener('click', onClickAnywhere);
+            return () => document.documentElement.removeEventListener('click', onClickAnywhere);
+        }
+    }, [onClose, show]);
+
     return (
         <ul
-            className={classNames('flex-col py-1 rounded-b bg-slate-300', {
+            ref={dropdownRef}
+            className={classNames('dropdown absolute w-full flex-col py-1 rounded bg-slate-300', {
                 'inline-flex': show,
                 hidden: !show
             })}

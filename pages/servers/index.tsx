@@ -17,12 +17,15 @@ import { Toggle } from '../../components/Toggle';
 import { ServiceStatusBadge } from '../../components/ServiceStatusBadge';
 import { debugHooksChanged } from '../../hooks/debug-hooks';
 import { ZombieServiceControls } from '../../components/ZombieServiceControls';
-import { Button } from '../../components/Button';
-import { PlayIcon, StopIcon } from '@primer/octicons-react';
+import { Button, IconButton } from '../../components/Button';
+import { PlayIcon, StopIcon, TrashIcon } from '@primer/octicons-react';
 import { Dropdown, DropdownButton, DropdownContainer } from '../../components/Dropdown';
 import { getConfig } from '../../server/controllers/config';
 import { useRpcMutation } from '../../hooks/useMutation';
 import Tooltip from '@tippyjs/react';
+import { Modal, ModalBody, ModalTitle } from '../../components/Modal';
+import { Select } from '../../components/Select';
+import { Input } from '../../components/Input';
 
 function useServerName() {
     const router = useRouter();
@@ -162,28 +165,98 @@ const ServiceStartButton: React.FC<{ serviceName: string }> = memo(({ serviceNam
     const [menuOpen, setMenuOpen] = useState(false);
     const { data: config, error } = useRpcQuery(getConfig, {});
     const { mutate: start } = useRpcMutation(startService);
+
+    const [modalOpen, setModalOpen] = useState(false);
+    const [targetEnvironment, setTargetEnvironment] = useState('');
+
     console.dir(config?.environments);
 
     return (
-        <DropdownContainer>
-            <Button variant={'primary'} disabled={!!error} icon={<PlayIcon />} onClick={() => setMenuOpen(!menuOpen)}>
-                Start dev servers
-            </Button>
+        <>
+            <DropdownContainer>
+                <Button
+                    variant={'primary'}
+                    disabled={!!error}
+                    icon={<PlayIcon />}
+                    onClick={() => setMenuOpen(!menuOpen)}
+                >
+                    Start dev servers
+                </Button>
 
-            <Dropdown show={menuOpen && !error}>
-                {config &&
-                    Object.keys(config.environments).map(env => (
-                        <Tooltip key={env} content={String(error)} disabled={!error}>
-                            <DropdownButton
-                                className={'text-sm'}
-                                onClick={() => start({ name: serviceName, targetEnvironment: env, environment: {} })}
-                            >
-                                Start in {env}
-                            </DropdownButton>
-                        </Tooltip>
-                    ))}
-            </Dropdown>
-        </DropdownContainer>
+                <Dropdown show={menuOpen && !error} onClose={() => setMenuOpen(false)}>
+                    {config &&
+                        Object.keys(config.environments).map(env => (
+                            <Tooltip key={env} content={String(error)} disabled={!error}>
+                                <DropdownButton
+                                    className={'text-sm'}
+                                    onClick={() =>
+                                        start({ name: serviceName, targetEnvironment: env, environment: {} })
+                                    }
+                                >
+                                    Start in {env}
+                                </DropdownButton>
+                            </Tooltip>
+                        ))}
+                    <DropdownButton className={'text-sm'} onClick={() => setModalOpen(true)}>
+                        More options
+                    </DropdownButton>
+                </Dropdown>
+            </DropdownContainer>
+
+            <Modal show={modalOpen} onClose={() => setModalOpen(false)}>
+                <ModalTitle>
+                    Start <span className={'bg-slate-400 rounded p-1'}>{serviceName}</span> dev servers
+                </ModalTitle>
+                <ModalBody>
+                    <form
+                        className={'flex flex-col space-y-5'}
+                        onSubmit={evt => {
+                            evt.preventDefault();
+                        }}
+                    >
+                        <div>
+                            <label htmlFor={'targetEnvironment'} className={'mr-2 w-full block mb-3'}>
+                                Target environment:
+                            </label>
+                            <Select
+                                className={'w-full'}
+                                id={'targetEnvironment'}
+                                disabled={!config}
+                                options={
+                                    config
+                                        ? Object.keys(config.environments).map(env => ({
+                                              label: env,
+                                              value: env
+                                          }))
+                                        : []
+                                }
+                                value={targetEnvironment}
+                                onChange={setTargetEnvironment}
+                            />
+                        </div>
+
+                        <div>
+                            <label htmlFor={'targetEnvironment'} className={'mr-2 w-full block mb-3'}>
+                                Environment variables:
+                            </label>
+                            <div className={'flex space-x-5'}>
+                                <Input className={'w-1/2'} value={'NODE_ENV'} />
+                                <Input className={'w-1/2'} value={'development'} />
+                                <IconButton variant={'danger'} onClick={() => {}}>
+                                    <TrashIcon />
+                                </IconButton>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-center">
+                            <Button type={'submit'} variant={'primary'} icon={<PlayIcon />}>
+                                Start dev servers
+                            </Button>
+                        </div>
+                    </form>
+                </ModalBody>
+            </Modal>
+        </>
     );
 });
 

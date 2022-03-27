@@ -240,6 +240,7 @@ export function useExtensions() {
                 extensionCache.set(extensionPath, compiled);
                 return [compiled];
             } catch (error: any) {
+                console.dir({ error, code });
                 toast.error(`Failed to load extension from ${extensionPath}: ${String(error)}`, {
                     id: `loading-${extensionPath}`
                 });

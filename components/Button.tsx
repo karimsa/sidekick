@@ -57,3 +57,11 @@ export const Button: React.FC<ButtonProps> = ({
         </button>
     );
 };
+
+export const IconButton: React.FC<Omit<ButtonProps, 'icon'>> = ({ className, children, ...props }) => {
+    return (
+        <Button className={classNames(className, 'px-3')} {...props}>
+            {children}
+        </Button>
+    );
+};

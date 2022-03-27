@@ -29,7 +29,7 @@ export const Dropdown: React.FC<{
     return (
         <ul
             ref={dropdownRef}
-            className={classNames('dropdown absolute w-full flex-col py-1 rounded bg-slate-300', {
+            className={classNames('dropdown absolute w-full flex-col py-1 rounded bg-slate-300 z-20', {
                 'inline-flex': show,
                 hidden: !show
             })}
@@ -65,6 +65,7 @@ export const DropdownButton: React.FC<{ onClick(): void; className?: string }> =
     return (
         <li>
             <button
+                type={'button'}
                 className={`bg-slate-300 hover:bg-slate-400 p-2 block w-full text-left ${className}`}
                 onClick={onClick}
                 {...props}

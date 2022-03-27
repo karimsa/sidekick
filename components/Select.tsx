@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import classNames from 'classnames';
 import { Dropdown, DropdownButton, DropdownContainer } from './Dropdown';
+import { TriangleDownIcon } from '@primer/octicons-react';
 
 interface SelectProps {
     id: string;
@@ -24,12 +25,17 @@ export const Select: React.FC<SelectProps> = ({ id, className, disabled, value, 
     return (
         <DropdownContainer className={'w-full'}>
             <div
-                className={classNames(className, 'bg-white p-3 rounded cursor-pointer w-full', {
-                    'pointer-events-none cursor-not-allowed': disabled
-                })}
+                className={classNames(
+                    className,
+                    'bg-white border p-3 rounded cursor-pointer w-full flex items-center justify-between',
+                    {
+                        'pointer-events-none cursor-not-allowed': disabled
+                    }
+                )}
                 onClick={() => setOpen(!isOpen)}
             >
-                {value}
+                <span>{value}</span>
+                <TriangleDownIcon />
             </div>
 
             <Dropdown show={isOpen} onClose={() => setOpen(false)}>
@@ -42,6 +48,7 @@ export const Select: React.FC<SelectProps> = ({ id, className, disabled, value, 
                         }}
                     >
                         {option.label}
+                        {option.value === value ? '*' : ''}
                     </DropdownButton>
                 ))}
             </Dropdown>

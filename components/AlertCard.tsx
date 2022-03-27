@@ -1,5 +1,6 @@
 import * as React from 'react';
 import classNames from 'classnames';
+import { XCircleFillIcon } from '@primer/octicons-react';
 
 export const AlertCard: React.FC<{ title: string; borderColor?: string; children: React.ReactNode }> = ({
     title,
@@ -8,7 +9,10 @@ export const AlertCard: React.FC<{ title: string; borderColor?: string; children
 }) => {
     return (
         <div className={classNames('p-5 border-t-4 bg-white rounded', borderColor)}>
-            <p className={'text-red-600 mb-5'}>{title}</p>
+            <p className={'text-red-600 mb-5 flex items-center'}>
+                <XCircleFillIcon />
+                <span className={'ml-2'}>{title}</span>
+            </p>
             {children}
         </div>
     );

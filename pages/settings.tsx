@@ -1,5 +1,5 @@
 import * as React from 'react';
-import Editor, { DiffEditor, useMonaco } from '@monaco-editor/react';
+import { useMonaco } from '@monaco-editor/react';
 import Head from 'next/head';
 import toast from 'react-hot-toast';
 
@@ -9,6 +9,7 @@ import { getConfig, updateConfig } from '../server/controllers/config';
 import { useRpcMutation } from '../hooks/useMutation';
 import { AlertCard } from '../components/AlertCard';
 import { Button } from '../components/Button';
+import { Monaco } from '../components/Monaco';
 
 export default withSidebar(function Settings() {
     const monaco = useMonaco();
@@ -80,21 +81,9 @@ export default withSidebar(function Settings() {
                         <AlertCard title={'Failed to update settings'}>{String(errUpdatingConfig)}</AlertCard>
                     )}
 
-                    {configOriginal && showDiff && (
-                        <DiffEditor
-                            theme={'vs-dark'}
-                            height={'100%'}
-                            language={'json'}
-                            original={configOriginalJSON}
-                            modified={configUpdates}
-                            onMount={onDiffEditorMount}
-                        />
-                    )}
-
-                    {configOriginal && !showDiff && (
-                        <Editor
-                            theme={'vs-dark'}
-                            height={'100%'}
+                    {configOriginal && (
+                        <Monaco
+                            diff={showDiff}
                             language={'json'}
                             defaultValue={configOriginalJSON}
                             value={configUpdates}

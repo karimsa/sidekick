@@ -52,8 +52,8 @@ export const Button: React.FC<ButtonProps> = ({
             disabled={loading || disabled}
         >
             {loading && <Spinner className={'text-white mr-2'} />}
-            {!loading && icon && <span className={'mr-2'}>{icon}</span>}
-            {children}
+            {!loading && icon && <span className={'mr-2 inline-flex items-center'}>{icon}</span>}
+            <span>{children}</span>
         </button>
     );
 };

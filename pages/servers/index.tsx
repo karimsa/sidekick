@@ -17,15 +17,15 @@ import { Toggle } from '../../components/Toggle';
 import { ServiceStatusBadge } from '../../components/ServiceStatusBadge';
 import { debugHooksChanged } from '../../hooks/debug-hooks';
 import { ZombieServiceControls } from '../../components/ZombieServiceControls';
-import { Button, IconButton } from '../../components/Button';
-import { PlayIcon, StopIcon, TrashIcon } from '@primer/octicons-react';
+import { Button } from '../../components/Button';
+import { PlayIcon, StopIcon, XCircleFillIcon } from '@primer/octicons-react';
 import { Dropdown, DropdownButton, DropdownContainer } from '../../components/Dropdown';
 import { getConfig } from '../../server/controllers/config';
 import { useRpcMutation } from '../../hooks/useMutation';
 import Tooltip from '@tippyjs/react';
 import { Modal, ModalBody, ModalTitle } from '../../components/Modal';
 import { Select } from '../../components/Select';
-import { Input } from '../../components/Input';
+import { Monaco } from '../../components/Monaco';
 
 function useServerName() {
     const router = useRouter();
@@ -164,12 +164,19 @@ const ServiceList: React.FC<{
 const ServiceStartButton: React.FC<{ serviceName: string }> = memo(({ serviceName }) => {
     const [menuOpen, setMenuOpen] = useState(false);
     const { data: config, error } = useRpcQuery(getConfig, {});
-    const { mutate: start } = useRpcMutation(startService);
+    const { mutate: start, isLoading: isStarting } = useRpcMutation(startService);
 
     const [modalOpen, setModalOpen] = useState(false);
     const [targetEnvironment, setTargetEnvironment] = useState('');
-
-    console.dir(config?.environments);
+    const [envOverrides, setEnvOverrides] = useState('{}');
+    const isEnvOverridesValid = useMemo(() => {
+        try {
+            JSON.parse(envOverrides);
+            return true;
+        } catch {
+            return false;
+        }
+    }, [envOverrides]);
 
     return (
         <>
@@ -177,6 +184,7 @@ const ServiceStartButton: React.FC<{ serviceName: string }> = memo(({ serviceNam
                 <Button
                     variant={'primary'}
                     disabled={!!error}
+                    loading={isStarting}
                     icon={<PlayIcon />}
                     onClick={() => setMenuOpen(!menuOpen)}
                 >
@@ -189,15 +197,22 @@ const ServiceStartButton: React.FC<{ serviceName: string }> = memo(({ serviceNam
                             <Tooltip key={env} content={String(error)} disabled={!error}>
                                 <DropdownButton
                                     className={'text-sm'}
-                                    onClick={() =>
-                                        start({ name: serviceName, targetEnvironment: env, environment: {} })
-                                    }
+                                    onClick={() => {
+                                        start({ name: serviceName, targetEnvironment: env, environment: {} });
+                                        setMenuOpen(false);
+                                    }}
                                 >
                                     Start in {env}
                                 </DropdownButton>
                             </Tooltip>
                         ))}
-                    <DropdownButton className={'text-sm'} onClick={() => setModalOpen(true)}>
+                    <DropdownButton
+                        className={'text-sm'}
+                        onClick={() => {
+                            setModalOpen(true);
+                            setMenuOpen(false);
+                        }}
+                    >
                         More options
                     </DropdownButton>
                 </Dropdown>
@@ -212,6 +227,12 @@ const ServiceStartButton: React.FC<{ serviceName: string }> = memo(({ serviceNam
                         className={'flex flex-col space-y-5'}
                         onSubmit={evt => {
                             evt.preventDefault();
+                            start({
+                                name: serviceName,
+                                targetEnvironment,
+                                environment: JSON.parse(envOverrides)
+                            });
+                            setModalOpen(false);
                         }}
                     >
                         <div>
@@ -237,19 +258,26 @@ const ServiceStartButton: React.FC<{ serviceName: string }> = memo(({ serviceNam
 
                         <div>
                             <label htmlFor={'targetEnvironment'} className={'mr-2 w-full block mb-3'}>
-                                Environment variables:
+                                Environment overrides:
                             </label>
-                            <div className={'flex space-x-5'}>
-                                <Input className={'w-1/2'} value={'NODE_ENV'} />
-                                <Input className={'w-1/2'} value={'development'} />
-                                <IconButton variant={'danger'} onClick={() => {}}>
-                                    <TrashIcon />
-                                </IconButton>
+                            <div className={'h-24'}>
+                                <Monaco language={'json'} value={envOverrides} onChange={setEnvOverrides} />
                             </div>
+                            {!isEnvOverridesValid && (
+                                <p className={'text-xs text-red-700 flex items-center pt-2'}>
+                                    <XCircleFillIcon />
+                                    <span className={'ml-1'}>Invalid JSON.</span>
+                                </p>
+                            )}
                         </div>
 
                         <div className="flex justify-center">
-                            <Button type={'submit'} variant={'primary'} icon={<PlayIcon />}>
+                            <Button
+                                type={'submit'}
+                                variant={'primary'}
+                                icon={<PlayIcon />}
+                                disabled={!isEnvOverridesValid}
+                            >
                                 Start dev servers
                             </Button>
                         </div>
@@ -299,7 +327,8 @@ const ServiceControlPanel: React.FC<{
 
             {(selectedServerStatus.healthStatus === HealthStatus.failing ||
                 selectedServerStatus.healthStatus === HealthStatus.healthy ||
-                selectedServerStatus.healthStatus === HealthStatus.paused) && (
+                selectedServerStatus.healthStatus === HealthStatus.paused ||
+                selectedServerStatus.healthStatus === HealthStatus.partial) && (
                 <ServiceStopButton serviceName={selectedServerName} />
             )}
 

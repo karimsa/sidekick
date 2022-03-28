@@ -1,6 +1,8 @@
 #!/bin/bash
 set -eo pipefail
 
+mkdir -p "$HOME/.sidekick"
+
 case "$1" in
   start)
     PROJECT_PATH="$PWD"

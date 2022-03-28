@@ -21,7 +21,7 @@
     "build-server": "NODE_ENV=production node esbuild",
     "start": "npm-run-all -p start-",
     "start-web": "next start",
-    "start-api": "nodemon -x 'node server.dist.js || true'",
+    "start-api": "nodemon -x '(node server.dist.js 2>&1 | tee ~/.sidekick/server.log) || true'",
     "lint": "next lint"
   },
   "dependencies": {

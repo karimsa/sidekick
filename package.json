@@ -2,10 +2,17 @@
   "private": true,
   "name": "sidekick",
   "version": "0.0.0",
+  "scripts": {
+    "syncpack": "syncpack set-semver-ranges -r ''"
+  },
   "engines": {
     "node": "14"
   },
   "workspaces": [
     "./packages/*"
-  ]
+  ],
+  "devDependencies": {
+    "lerna": "4.0.0",
+    "syncpack": "6.2.0"
+  }
 }

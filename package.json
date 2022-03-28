@@ -18,7 +18,9 @@
     "dev-api": "nodemon -x 'kill-port 9002 && node server.dist.js 2>&1 | tee server.log'",
     "build": "next build",
     "build:server": "node esbuild",
-    "start": "next start",
+    "start": "npm-run-all -p start-",
+    "start-web": "next start",
+    "start-api": "nodemon -x 'node server.dist.js || true'",
     "lint": "next lint"
   },
   "dependencies": {

@@ -7,14 +7,14 @@ export class NvmUtil {
 	static async safeLoadPackageJson(targetDir: string) {
 		try {
 			return await fs.promises.readFile(targetDir + '/package.json', 'utf8');
-		} catch (error) {
+		} catch (error: any) {
 			if (error.code !== 'ENOENT') {
 				throw error;
 			}
 		}
 	}
 
-	static async detectNodeVersion(targetDir: string) {
+	static async detectNodeVersion(targetDir: string): Promise<string> {
 		// If no node version is found, default to sidekick's node version
 		if (targetDir === '/') {
 			return process.version;
@@ -49,7 +49,7 @@ export class NvmUtil {
 		try {
 			await fs.promises.readFile(process.env.HOME + '/.nvm/nvm.sh');
 			return true;
-		} catch (error) {
+		} catch (error: any) {
 			if (error.code !== 'ENOENT') {
 				throw error;
 			}

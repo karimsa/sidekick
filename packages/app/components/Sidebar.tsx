@@ -54,7 +54,9 @@ export const Sidebar: React.FC<{
 
 	useEffect(() => {
 		for (const { href } of links) {
-			router.prefetch(href);
+			if (href) {
+				router.prefetch(href);
+			}
 		}
 	}, [links, router]);
 
@@ -63,15 +65,17 @@ export const Sidebar: React.FC<{
 			<ul>
 				{links.map(({ icon, href, onClick, label }) => (
 					<li key={label}>
-						<Tooltip content={label} placement={'right'} disabled={!!isOpen}>
+						<Tooltip content={label} placement={'right'} disabled={isOpen}>
 							<a
 								href={href || '#'}
 								onClick={(evt) => {
 									evt.preventDefault();
 									if (href) {
 										router.push(href);
-									} else {
+									} else if (onClick) {
 										onClick();
+									} else {
+										throw new Error(`No action assigned to sidebar link`);
 									}
 								}}
 								className={classNames(
@@ -106,7 +110,7 @@ export function withSidebar<T>(Main: React.FC<T>): React.FC<T> {
 		return (
 			<>
 				{/* Avoid rendering sidebar on the server, because we need localStorage to correctly render */}
-				{global.window && <Sidebar isOpen={isOpen} setOpen={setOpen} />}
+				{global.window && <Sidebar isOpen={!!isOpen} setOpen={setOpen} />}
 				<main
 					className={'flex flex-col flex-auto p-5 bg-slate-700 overflow-auto'}
 				>

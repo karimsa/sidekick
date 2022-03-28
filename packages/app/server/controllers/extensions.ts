@@ -11,7 +11,7 @@ export const getExtensions = createRpcMethod(
 	async function () {
 		const config = await ConfigManager.loadProjectOverrides();
 		return Promise.all(
-			config.extensions.map(async (extensionPath) => {
+			config.extensions?.map(async (extensionPath) => {
 				try {
 					const { clientCode, warnings } =
 						await ExtensionBuilder.getExtensionClient(extensionPath);
@@ -26,7 +26,7 @@ export const getExtensions = createRpcMethod(
 						)})`,
 					};
 				}
-			}),
+			}) ?? [],
 		);
 	},
 );
@@ -53,7 +53,7 @@ export const runExtensionMethod = createRpcMethod(
 		nodeOptions,
 	}) => {
 		const sidekickConfig = await ConfigManager.loadProjectOverrides();
-		if (!sidekickConfig.extensions.includes(extensionPath)) {
+		if (!sidekickConfig.extensions?.includes(extensionPath)) {
 			throw new Error(`No extension found at: ${extensionPath}`);
 		}
 

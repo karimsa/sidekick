@@ -207,7 +207,7 @@ export const getServerHealth = createStreamingRpcMethod(
 			}
 
 			await new Promise<void>((resolve) => {
-				// setTimeout(() => resolve(), 5e3);
+				setTimeout(() => resolve(), 5e3);
 			});
 		}
 	},

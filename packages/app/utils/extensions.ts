@@ -2,11 +2,15 @@ import * as babel from '@babel/core';
 import * as esbuild from 'esbuild';
 import { BuildOptions } from 'esbuild';
 import { ConfigManager } from '../services/config';
+// @ts-ignore
 import resolveModulePath from 'resolve/async';
 import * as util from 'util';
 import { minify } from 'terser';
+// @ts-ignore
 import babelPresetTypescript from '@babel/preset-typescript';
+// @ts-ignore
 import babelPresetReact from '@babel/preset-react';
+// @ts-ignore
 import babelPluginTransformModules from '@babel/plugin-transform-modules-commonjs';
 import createDebug from 'debug';
 import EsbuildNodeModulesPolyfill from '@esbuild-plugins/node-modules-polyfill';
@@ -94,7 +98,11 @@ export class ExtensionBuilder {
 		return error;
 	}
 
-	private static async esbuild(_: OperationContext, options: BuildOptions) {
+	private static async esbuild(
+		_: OperationContext,
+		options: Omit<BuildOptions, 'plugins'> &
+			Required<Pick<BuildOptions, 'plugins'>>,
+	) {
 		try {
 			return await esbuild.build({
 				...options,
@@ -148,9 +156,9 @@ export class ExtensionBuilder {
 		});
 		verbose(fmt`Rolled up extension: ${{ filePath, code: rolledUpCode }}`);
 
-		const fullAst = await babel.parseAsync(rolledUpCode, {
+		const fullAst = (await babel.parseAsync(rolledUpCode, {
 			parserOpts: BabelParserOptions,
-		});
+		}))!;
 
 		// First determine all the server-side exports
 		const serverExports: string[] = [];
@@ -166,8 +174,8 @@ export class ExtensionBuilder {
 					if (
 						helperBinding &&
 						helperBinding.path.node.type === 'ImportSpecifier' &&
-						helperBinding.path.parentPath.node.type === 'ImportDeclaration' &&
-						helperBinding.path.parentPath.node.source.value ===
+						helperBinding.path.parentPath?.node.type === 'ImportDeclaration' &&
+						helperBinding.path.parentPath?.node.source.value ===
 							'sidekick/extension'
 					) {
 						const firstArg = path.get('arguments')[0];
@@ -405,7 +413,7 @@ export class ExtensionBuilder {
 
 		const discoveredExports: string[] = [];
 		const injectedExports: string[] = [];
-		const { code: exportsRemovedCode } = await babel.transformFromAstAsync(
+		const { code: exportsRemovedCode } = (await babel.transformFromAstAsync(
 			inputAst,
 			code,
 			{
@@ -454,9 +462,9 @@ export class ExtensionBuilder {
 								}
 
 								const exportDeclaration = path.get('declaration');
-								switch (exportDeclaration.node.type) {
+								switch (exportDeclaration.node?.type) {
 									case 'FunctionDeclaration':
-										if (exportDeclaration.node.id.type === 'Identifier') {
+										if (exportDeclaration.node?.id?.type === 'Identifier') {
 											if (
 												allowedExports.includes(exportDeclaration.node.id.name)
 											) {
@@ -521,8 +529,8 @@ export class ExtensionBuilder {
 				],
 				presets: [babelPresetTypescript, babelPresetReact],
 			},
-		);
-		const { code: cleanedCode } = await minify(exportsRemovedCode, {
+		))!;
+		const { code: cleanedCode } = await minify(exportsRemovedCode!, {
 			compress: {
 				defaults: false,
 				dead_code: true,
@@ -545,6 +553,6 @@ export class ExtensionBuilder {
 		});
 
 		ctx.setValues({ injectedExports, cleanedCode });
-		return cleanedCode;
+		return cleanedCode!;
 	}
 }

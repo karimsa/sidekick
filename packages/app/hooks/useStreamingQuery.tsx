@@ -32,7 +32,13 @@ export function useStreamingRpcQuery<InputType, OutputType, State>(
 
 	useEffect(
 		() => {
-			function onStreamError({ requestId: incomingRequestId, error }) {
+			function onStreamError({
+				requestId: incomingRequestId,
+				error,
+			}: {
+				requestId: string;
+				error: string;
+			}) {
 				if (incomingRequestId === requestId) {
 					dispatch({ type: 'error', error });
 					setIsStreaming(false);
@@ -40,13 +46,23 @@ export function useStreamingRpcQuery<InputType, OutputType, State>(
 				}
 			}
 
-			function onStreamData({ requestId: incomingRequestId, data }) {
+			function onStreamData({
+				requestId: incomingRequestId,
+				data,
+			}: {
+				requestId: string;
+				data: OutputType;
+			}) {
 				if (incomingRequestId === requestId) {
 					dispatch({ type: 'data', data });
 				}
 			}
 
-			function onStreamEnd({ requestId: incomingRequestId }) {
+			function onStreamEnd({
+				requestId: incomingRequestId,
+			}: {
+				requestId: string;
+			}) {
 				if (incomingRequestId === requestId) {
 					dispatch({ type: 'end' });
 				}

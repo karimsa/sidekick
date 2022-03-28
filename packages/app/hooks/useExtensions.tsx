@@ -5,6 +5,7 @@ import {
 	getExtensions,
 	runExtensionMethod,
 } from '../server/controllers/extensions';
+// @ts-ignore
 import octicons from '@primer/octicons';
 import toast from 'react-hot-toast';
 import { UseMutationOptions, UseQueryOptions } from 'react-query';
@@ -101,7 +102,7 @@ function createExtensionHelpers(extensionId: string, extensionPath: string) {
 			}, [options?.mutationOptions]);
 			const { data, mutate, ...props } = useRpcMutation(
 				runExtensionMethod,
-				wrappedOptions,
+				wrappedOptions as any,
 			);
 			const mutateWrapper = useCallback(
 				(
@@ -135,7 +136,7 @@ function createExtensionHelpers(extensionId: string, extensionPath: string) {
 			schema: t.Type<T>,
 		): {
 			data?: T;
-			error: Error;
+			error?: Error;
 			isLoading: boolean;
 			updateConfig(updates: T): void;
 		} {
@@ -157,6 +158,11 @@ function createExtensionHelpers(extensionId: string, extensionPath: string) {
 			} = useRpcMutation(updateConfig);
 			const updateConfigWrapper = useCallback(
 				(updates: T) => {
+					if (!config) {
+						throw new Error(
+							`Config has not loaded yet, cannot perform an update`,
+						);
+					}
 					performUpdate({
 						...config,
 						extensions: {
@@ -170,7 +176,7 @@ function createExtensionHelpers(extensionId: string, extensionPath: string) {
 
 			return {
 				data: extensionConfig,
-				error: errFetchingConfig || errUpdatingConfig,
+				error: (errFetchingConfig || errUpdatingConfig) ?? undefined,
 				isLoading: isLoadingConfig || isUpdatingConfig,
 				updateConfig: updateConfigWrapper,
 			};
@@ -185,7 +191,7 @@ function createExtensionHelpers(extensionId: string, extensionPath: string) {
 			const targetEnvs = useMemo(() => {
 				return config ? Object.keys(config.environments) : undefined;
 			}, [config]);
-			return { data: targetEnvs, error, isLoading };
+			return { data: targetEnvs, error: error ?? undefined, isLoading };
 		},
 
 		useToaster() {

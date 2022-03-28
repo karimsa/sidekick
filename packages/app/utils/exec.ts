@@ -23,7 +23,7 @@ type RunOptions = Omit<childProcess.ExecOptions, 'env'> & {
 };
 
 export class ExecUtils {
-	static async runJS<Result, Params = {}>(
+	static async runJS<Result, Params = Record<string, unknown>>(
 		remoteFn: (
 			require: <T>(path: string) => T,
 			params: Params,
@@ -70,7 +70,7 @@ export class ExecUtils {
 		// run script in the right project
 		const nodeOptions = options?.nodeOptions ?? [];
 		await ExecUtils.runCommand(
-			process.env.SHELL,
+			process.env.SHELL!,
 			[
 				'-c',
 				`source ~/.nvm/nvm.sh && nvm use 12.22.7 && node ${nodeOptions} ${tmpFilePath}`,

@@ -5,9 +5,12 @@
  * @returns true if {current} exists within the {target}
  */
 export function isElmWithinTarget(
-	current: HTMLElement,
-	target: HTMLElement,
+	current: Element,
+	target: Element | null,
 ): boolean {
+	if (!target) {
+		return false;
+	}
 	if (target === current) {
 		return true;
 	}

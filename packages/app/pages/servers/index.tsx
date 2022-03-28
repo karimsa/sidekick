@@ -64,28 +64,38 @@ const ServiceListEntry: React.FC<{
 		{
 			name: serviceName,
 		},
-		useCallback((state, action) => {
-			switch (action.type) {
-				case 'open':
-					return { ...(state as any), error: null };
-				case 'data':
-					return { ...action.data, error: null };
-				case 'error':
-					return {
-						healthStatus: HealthStatus.failing,
-						version: state.version ?? '(unknown)',
-						error: action.error,
-					};
-				case 'end':
-					return {
-						healthStatus: HealthStatus.none,
-						version: state.version,
-						error: null,
-					};
-				default:
-					assertUnreachable(action);
-			}
-		}, []),
+		useCallback(
+			(
+				state: {
+					healthStatus: HealthStatus;
+					version: string;
+					error: string | null;
+				},
+				action,
+			) => {
+				switch (action.type) {
+					case 'open':
+						return { ...(state as any), error: null };
+					case 'data':
+						return { ...action.data, error: null };
+					case 'error':
+						return {
+							healthStatus: HealthStatus.failing,
+							version: state.version ?? '(unknown)',
+							error: action.error,
+						};
+					case 'end':
+						return {
+							healthStatus: HealthStatus.none,
+							version: state.version,
+							error: null,
+						};
+					default:
+						assertUnreachable(action);
+				}
+			},
+			[],
+		),
 		{ healthStatus: HealthStatus.none, version: '(unknown)', error: null },
 	);
 
@@ -115,7 +125,10 @@ const ServiceListEntry: React.FC<{
 					)}
 				>
 					<span>{serviceName}</span>
-					<ServiceStatusBadge status={healthStatus} error={data.error} />
+					<ServiceStatusBadge
+						status={healthStatus}
+						error={data.error ?? undefined}
+					/>
 				</a>
 			</Link>
 		</li>
@@ -317,7 +330,7 @@ const ServiceStartButton: React.FC<{ serviceName: string }> = memo(
 									<Monaco
 										language={'json'}
 										value={envOverrides}
-										onChange={setEnvOverrides}
+										onChange={(value) => setEnvOverrides(value ?? '{}')}
 									/>
 								</div>
 								{!isEnvOverridesValid && (
@@ -377,7 +390,7 @@ const ServiceLogs: React.FC<{
 			name: serviceName,
 			devServer: devServerName,
 		},
-		useCallback((state, action) => {
+		useCallback((state: string, action) => {
 			switch (action.type) {
 				case 'open':
 					return '';
@@ -398,7 +411,7 @@ const ServiceLogs: React.FC<{
 const ServiceControlPanel: React.FC<{
 	serviceStatuses: Record<string, RpcOutputType<typeof getServerHealth>>;
 }> = ({ serviceStatuses }) => {
-	const selectedServerName = useServerName();
+	const selectedServerName = useServerName()!;
 	const selectedServerStatus = serviceStatuses[selectedServerName] ?? {
 		healthStatus: HealthStatus.none,
 		version: '(unknown)',

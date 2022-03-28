@@ -134,6 +134,9 @@ export class ConfigManager {
 
 	static async getProjectPath() {
 		const projectPath = process.env.PROJECT_PATH;
+		if (!projectPath) {
+			throw new Error(`$PROJECT_PATH is missing from the env`);
+		}
 
 		// TODO: Move this check into the CLI, so we only do it on startup
 		try {
@@ -149,7 +152,7 @@ export class ConfigManager {
 		return projectPath;
 	}
 
-	static async loadProjectOverrides() {
+	static async loadProjectOverrides(): Promise<SidekickConfigOverrides> {
 		const projectPath = await this.getProjectPath();
 		const buildConfig: esbuild.BuildOptions = {
 			entryPoints: [path.resolve(projectPath, 'sidekick.config.ts')],

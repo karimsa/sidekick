@@ -28,7 +28,7 @@ Router.events.on('routeChangeStart', (_, { shallow }) => {
 				toast.dismiss(toastId);
 			}
 		};
-		const onError = (err) => {
+		const onError = (err: { cancelled: boolean }) => {
 			unload();
 			if (err.cancelled) {
 				toast.dismiss(toastId);

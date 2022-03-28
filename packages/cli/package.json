@@ -18,7 +18,9 @@
     "lint": "npm-run-all -p lint-*",
     "lint-eslint": "eslint src",
     "lint-tsc": "tsc",
-    "lint-prettier": "prettier --check src"
+    "lint-prettier": "prettier --check src",
+    "deploy:unstable": "npm publish --tag next",
+    "deploy:stable": "npm publish"
   },
   "dependencies": {
     "commander": "^9.1.0",

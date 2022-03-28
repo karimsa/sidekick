@@ -22,11 +22,11 @@
   },
   "include": [
     "extension.d.ts",
-    "next-env.d.ts",
+    "packages/app/next-env.d.ts",
     "**/*.ts",
     "**/*.tsx"
   ],
   "exclude": [
-    "node_modules"
+    "../../node_modules"
   ]
 }

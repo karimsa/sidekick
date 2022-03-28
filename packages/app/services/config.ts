@@ -6,7 +6,7 @@ import { validate } from '../utils/http';
 import * as esbuild from 'esbuild';
 import omit from 'lodash/omit';
 
-import SidekickPackageJson from '../package.json';
+import SidekickPackageJson from '../packages/web/package.json';
 import { loadModule } from '../utils/load-module';
 
 const ConfigTypes = t.interface({

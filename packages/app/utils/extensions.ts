@@ -13,7 +13,7 @@ import EsbuildNodeModulesPolyfill from '@esbuild-plugins/node-modules-polyfill';
 import { fmt } from './fmt';
 import { ParserOptions } from '@babel/parser';
 import { OperationContext } from '@orthly/context';
-import * as fs from 'fs';
+import * as fs from 'utils/fs';
 import * as path from 'path';
 import ms from 'ms';
 

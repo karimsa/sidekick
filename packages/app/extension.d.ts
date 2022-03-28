@@ -3,7 +3,7 @@ import { AxiosError } from 'axios';
 import * as t from 'io-ts';
 import { toast } from 'react-hot-toast';
 
-declare module 'sidekick/extension' {
+declare module 'extension' {
     export function useQuery<Params, Result>(
         method: (params: Params) => Promise<Result>,
         params: Params,

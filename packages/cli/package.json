@@ -1,0 +1,17 @@
+{
+  "name": "@karimsa/sidekick",
+  "version": "0.0.1-2",
+  "main": "./cli.dist.js",
+  "bin": {
+    "sidekick": "./cli.dist.js"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">= 12"
+  },
+  "scripts": {
+    "build": "node esbuild"
+  }
+}

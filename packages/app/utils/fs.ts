@@ -1,4 +1,4 @@
-import fs from 'fs';
+import fs from 'utils/fs';
 import path from 'path';
 
 export async function getLatestUpdatedFile(directory: string): Promise<[string, number] | null> {

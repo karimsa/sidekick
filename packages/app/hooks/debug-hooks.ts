@@ -10,32 +10,34 @@ const debugHookVals = new Map();
  * @param {Object} object an object containing all your hook values to watch
  */
 function _debugHooksChanged(fnId: string, values: { [k: string]: any }) {
-    if (!debugHookVals.has(fnId)) {
-        debugHookVals.set(fnId, new Map());
-    }
+	if (!debugHookVals.has(fnId)) {
+		debugHookVals.set(fnId, new Map());
+	}
 
-    React.useEffect(() => {
-        console.log(`${fnId} mounted`);
-        return () => console.log(`${fnId} unmounted`);
-    }, [fnId]);
+	React.useEffect(() => {
+		console.log(`${fnId} mounted`);
+		return () => console.log(`${fnId} unmounted`);
+	}, [fnId]);
 
-    let firstRender = false;
-    const changed = [];
-    const hookVals = debugHookVals.get(fnId);
-    for (const [key, val] of Object.entries(values)) {
-        firstRender = !hookVals.has(key);
-        if (hookVals.get(key) !== val) {
-            changed.push(key);
-        }
-        hookVals.set(key, val);
-    }
+	let firstRender = false;
+	const changed = [];
+	const hookVals = debugHookVals.get(fnId);
+	for (const [key, val] of Object.entries(values)) {
+		firstRender = !hookVals.has(key);
+		if (hookVals.get(key) !== val) {
+			changed.push(key);
+		}
+		hookVals.set(key, val);
+	}
 
-    if (firstRender) {
-        console.debug(`${fnId} initial render`);
-    } else if (changed.length) {
-        console.log(`${fnId} Hooks changed: [${changed}]`);
-    }
+	if (firstRender) {
+		console.debug(`${fnId} initial render`);
+	} else if (changed.length) {
+		console.log(`${fnId} Hooks changed: [${changed}]`);
+	}
 }
 
 export const debugHooksChanged =
-    process.env.NODE_ENV === 'production' ? /* #__PURE__ */ function () {} : _debugHooksChanged;
+	process.env.NODE_ENV === 'production'
+		? /* #__PURE__ */ function () {}
+		: _debugHooksChanged;

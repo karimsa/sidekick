@@ -12,107 +12,119 @@ import { Button } from '../components/Button';
 import { Monaco } from '../components/Monaco';
 
 export default withSidebar(function Settings() {
-    const monaco = useMonaco();
-    React.useEffect(() => {
-        if (monaco) {
-            monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
-                allowComments: true
-            });
-        }
-    }, [monaco]);
+	const monaco = useMonaco();
+	React.useEffect(() => {
+		if (monaco) {
+			monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
+				allowComments: true,
+			});
+		}
+	}, [monaco]);
 
-    // Load config
-    const { data: configOriginal, error: errLoadingConfig } = useRpcQuery(getConfig, {});
-    const configOriginalJSON = React.useMemo(() => JSON.stringify(configOriginal, null, '\t'), [configOriginal]);
+	// Load config
+	const { data: configOriginal, error: errLoadingConfig } = useRpcQuery(
+		getConfig,
+		{},
+	);
+	const configOriginalJSON = React.useMemo(
+		() => JSON.stringify(configOriginal, null, '\t'),
+		[configOriginal],
+	);
 
-    // Reset updates when config is loaded
-    const [configUpdates, setConfigUpdates] = React.useState<string>('{}');
-    React.useEffect(() => {
-        if (configOriginalJSON) {
-            setConfigUpdates(configOriginalJSON);
-        }
-    }, [configOriginalJSON]);
+	// Reset updates when config is loaded
+	const [configUpdates, setConfigUpdates] = React.useState<string>('{}');
+	React.useEffect(() => {
+		if (configOriginalJSON) {
+			setConfigUpdates(configOriginalJSON);
+		}
+	}, [configOriginalJSON]);
 
-    const onDiffEditorMount = React.useCallback(
-        editor => {
-            editor.getModifiedEditor().onDidChangeModelContent(function () {
-                setConfigUpdates(editor.getModifiedEditor().getValue());
-            });
-        },
-        [setConfigUpdates]
-    );
-    const onEditorMount = React.useCallback(
-        editor => {
-            editor.onDidChangeModelContent(function () {
-                setConfigUpdates(editor.getValue());
-            });
-        },
-        [setConfigUpdates]
-    );
+	const onDiffEditorMount = React.useCallback(
+		(editor) => {
+			editor.getModifiedEditor().onDidChangeModelContent(function () {
+				setConfigUpdates(editor.getModifiedEditor().getValue());
+			});
+		},
+		[setConfigUpdates],
+	);
+	const onEditorMount = React.useCallback(
+		(editor) => {
+			editor.onDidChangeModelContent(function () {
+				setConfigUpdates(editor.getValue());
+			});
+		},
+		[setConfigUpdates],
+	);
 
-    const invalidateQueries = useQueryInvalidator();
-    const {
-        mutate: performUpdate,
-        error: errUpdatingConfig,
-        isLoading: isUpdating
-    } = useRpcMutation(updateConfig, {
-        onSuccess: () => {
-            toast.success('Settings updated successfully');
-            invalidateQueries(getConfig);
-        }
-    });
+	const invalidateQueries = useQueryInvalidator();
+	const {
+		mutate: performUpdate,
+		error: errUpdatingConfig,
+		isLoading: isUpdating,
+	} = useRpcMutation(updateConfig, {
+		onSuccess: () => {
+			toast.success('Settings updated successfully');
+			invalidateQueries(getConfig);
+		},
+	});
 
-    const [showDiff, setShowDiff] = React.useState(false);
+	const [showDiff, setShowDiff] = React.useState(false);
 
-    return (
-        <>
-            <Head>
-                <title>Settings | Sidekick</title>
-            </Head>
+	return (
+		<>
+			<Head>
+				<title>Settings | Sidekick</title>
+			</Head>
 
-            <div className={'flex-auto'}>
-                <div className={'bg-slate-900 rounded p-5 w-full-gah h-full flex flex-col'}>
-                    <h1 className={'text-xl font-bold mb-5 text-white'}>Settings</h1>
+			<div className={'flex-auto'}>
+				<div
+					className={'bg-slate-900 rounded p-5 w-full-gah h-full flex flex-col'}
+				>
+					<h1 className={'text-xl font-bold mb-5 text-white'}>Settings</h1>
 
-                    {errLoadingConfig && (
-                        <AlertCard title={'Failed to load settings'}>{String(errLoadingConfig)}</AlertCard>
-                    )}
-                    {errUpdatingConfig && (
-                        <AlertCard title={'Failed to update settings'}>{String(errUpdatingConfig)}</AlertCard>
-                    )}
+					{errLoadingConfig && (
+						<AlertCard title={'Failed to load settings'}>
+							{String(errLoadingConfig)}
+						</AlertCard>
+					)}
+					{errUpdatingConfig && (
+						<AlertCard title={'Failed to update settings'}>
+							{String(errUpdatingConfig)}
+						</AlertCard>
+					)}
 
-                    {configOriginal && (
-                        <Monaco
-                            diff={showDiff}
-                            language={'json'}
-                            defaultValue={configOriginalJSON}
-                            value={configUpdates}
-                            onMount={onEditorMount}
-                        />
-                    )}
+					{configOriginal && (
+						<Monaco
+							diff={showDiff}
+							language={'json'}
+							defaultValue={configOriginalJSON}
+							value={configUpdates}
+							onMount={showDiff ? onDiffEditorMount : onEditorMount}
+						/>
+					)}
 
-                    {configOriginal && (
-                        <div className={'w-full flex justify-end mt-5'}>
-                            <Button
-                                variant={'secondary'}
-                                style={{ marginRight: 16 }}
-                                onClick={() => setShowDiff(!showDiff)}
-                            >
-                                {showDiff ? 'Disable' : 'Enable'} diff view
-                            </Button>
+					{configOriginal && (
+						<div className={'w-full flex justify-end mt-5'}>
+							<Button
+								variant={'secondary'}
+								style={{ marginRight: 16 }}
+								onClick={() => setShowDiff(!showDiff)}
+							>
+								{showDiff ? 'Disable' : 'Enable'} diff view
+							</Button>
 
-                            <Button
-                                variant={'primary'}
-                                className={'ml-5'}
-                                loading={isUpdating}
-                                onClick={() => performUpdate(JSON.parse(configUpdates))}
-                            >
-                                Update config
-                            </Button>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </>
-    );
+							<Button
+								variant={'primary'}
+								className={'ml-5'}
+								loading={isUpdating}
+								onClick={() => performUpdate(JSON.parse(configUpdates))}
+							>
+								Update config
+							</Button>
+						</div>
+					)}
+				</div>
+			</div>
+		</>
+	);
 });

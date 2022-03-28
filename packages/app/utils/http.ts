@@ -6,147 +6,182 @@ import { AbortController } from 'node-abort-controller';
 import { fmt } from './fmt';
 
 export type ApiRequest<ReqBodyType = never> = express.Request & {
-    body: ReqBodyType;
+	body: ReqBodyType;
 };
 
 export type RouteHandler<ReqBodyType, ResBodyType> = (
-    request: ApiRequest<ReqBodyType>,
-    response: express.Response
+	request: ApiRequest<ReqBodyType>,
+	response: express.Response,
 ) => Promise<ResBodyType>;
 
 export const HTTPStatus = {
-    BadRequest: 400,
-    Unauthorized: 401,
-    PaymentRequired: 402,
-    Forbidden: 403,
-    NotFound: 404,
-    TooManyRequests: 429
+	BadRequest: 400,
+	Unauthorized: 401,
+	PaymentRequired: 402,
+	Forbidden: 403,
+	NotFound: 404,
+	TooManyRequests: 429,
 };
 
 export class APIError extends Error {
-    constructor(message: string, readonly status = 500, readonly displayMessage?: string, readonly meta: any = {}) {
-        super(message);
-    }
+	constructor(
+		message: string,
+		readonly status = 500,
+		readonly displayMessage?: string,
+		readonly meta: any = {},
+	) {
+		super(message);
+	}
 }
 
 export function writeError(error: Partial<APIError>, res: express.Response) {
-    const status = error.status || 500;
-    console.error(fmt`Request failed with status code ${error.status}`, error);
+	const status = error.status || 500;
+	console.error(fmt`Request failed with status code ${error.status}`, error);
 
-    res.status(status);
-    res.json({
-        ...(error.meta || {}),
-        error: String(
-            error.displayMessage || error.message || 'The application is currently unavailable. Please try again later.'
-        ),
-        displayMessage: Boolean(error.displayMessage)
-    });
+	res.status(status);
+	res.json({
+		...(error.meta || {}),
+		error: String(
+			error.displayMessage ||
+				error.message ||
+				'The application is currently unavailable. Please try again later.',
+		),
+		displayMessage: Boolean(error.displayMessage),
+	});
 }
 
 export const NO_RESPONSE = Symbol('NO_RESPONSE');
 
 export function route<ReqBodyType, ResBodyType>(
-    handler: RouteHandler<ReqBodyType, ResBodyType>
+	handler: RouteHandler<ReqBodyType, ResBodyType>,
 ): RouteHandler<ReqBodyType, void> {
-    return async (req, res) => {
-        try {
-            const body = (await handler(req, res)) as any;
-            if (body === NO_RESPONSE) {
-                res.status(204);
-                res.end();
-            } else {
-                if (typeof body === 'object' && body !== null) {
-                    res.json(body);
-                } else if (typeof body === 'string') {
-                    if (!res.hasHeader('Content-Type')) {
-                        res.setHeader('Content-Type', 'text/plain');
-                    }
-                    res.end(body);
-                } else {
-                    throw new Error(`Route did not return a valid body`);
-                }
-            }
-        } catch (error: any) {
-            writeError(error, res);
-        }
-    };
+	return async (req, res) => {
+		try {
+			const body = (await handler(req, res)) as any;
+			if (body === NO_RESPONSE) {
+				res.status(204);
+				res.end();
+			} else {
+				if (typeof body === 'object' && body !== null) {
+					res.json(body);
+				} else if (typeof body === 'string') {
+					if (!res.hasHeader('Content-Type')) {
+						res.setHeader('Content-Type', 'text/plain');
+					}
+					res.end(body);
+				} else {
+					throw new Error(`Route did not return a valid body`);
+				}
+			}
+		} catch (error: any) {
+			writeError(error, res);
+		}
+	};
 }
 
 export const qsNumber = new t.Type(
-    'querystringNumber',
-    (i): i is Number => typeof i === 'string' && !isNaN(Number(i)),
-    (i, ctx) => (typeof i === 'string' && !isNaN(Number(i)) ? t.success(Number(i)) : t.failure(i, ctx)),
-    Number
+	'querystringNumber',
+	(i): i is Number => typeof i === 'string' && !isNaN(Number(i)),
+	(i, ctx) =>
+		typeof i === 'string' && !isNaN(Number(i))
+			? t.success(Number(i))
+			: t.failure(i, ctx),
+	Number,
 );
 
 const BooleanString = (val: any) => val === 'true';
 export const qsBoolean = new t.Type(
-    'querystringBoolean',
-    (i): i is boolean => i === 'true' || i === 'false',
-    (i, ctx) => (i === 'true' || i === 'false' ? t.success(BooleanString(i)) : t.failure(i, ctx)),
-    BooleanString
+	'querystringBoolean',
+	(i): i is boolean => i === 'true' || i === 'false',
+	(i, ctx) =>
+		i === 'true' || i === 'false'
+			? t.success(BooleanString(i))
+			: t.failure(i, ctx),
+	BooleanString,
 );
 
 export function validate<T>(dataType: t.Type<T>, data: any) {
-    const result = dataType.decode(data);
-    if (result._tag === 'Left') {
-        const errors = PathReporter.report(result);
-        const error = new APIError(errors[0], HTTPStatus.BadRequest, errors[0]);
-        Error.captureStackTrace(error, validate);
-        throw error;
-    }
-    return result.right;
+	const result = dataType.decode(data);
+	if (result._tag === 'Left') {
+		const errors = PathReporter.report(result);
+		const error = new APIError(errors[0], HTTPStatus.BadRequest, errors[0]);
+		Error.captureStackTrace(error, validate);
+		throw error;
+	}
+	return result.right;
 }
 
-export type RpcHandler<InputType, OutputType> = RouteHandler<InputType, OutputType> & {
-    __inputType: InputType;
-    __outputType: OutputType;
+export type RpcHandler<InputType, OutputType> = RouteHandler<
+	InputType,
+	OutputType
+> & {
+	__inputType: InputType;
+	__outputType: OutputType;
 };
 
 export type StreamingRpcHandler<InputType, OutputType> = ((
-    data: InputType,
-    abortController: AbortController
+	data: InputType,
+	abortController: AbortController,
 ) => AsyncGenerator<OutputType, void, unknown>) & {
-    __streaming: true;
-    __inputType: InputType;
-    __outputType: OutputType;
+	__streaming: true;
+	__inputType: InputType;
+	__outputType: OutputType;
 };
 
-export type RpcInputType<Handler> = Handler extends RpcHandler<infer InputType, any>
-    ? InputType
-    : Handler extends StreamingRpcHandler<infer StreamingInputType, any>
-    ? StreamingInputType
-    : never;
-export type RpcOutputType<Handler> = Handler extends RpcHandler<any, infer OutputType>
-    ? OutputType
-    : Handler extends StreamingRpcHandler<any, infer StreamingOutputType>
-    ? StreamingOutputType
-    : never;
+export type RpcInputType<Handler> = Handler extends RpcHandler<
+	infer InputType,
+	any
+>
+	? InputType
+	: Handler extends StreamingRpcHandler<infer StreamingInputType, any>
+	? StreamingInputType
+	: never;
+export type RpcOutputType<Handler> = Handler extends RpcHandler<
+	any,
+	infer OutputType
+>
+	? OutputType
+	: Handler extends StreamingRpcHandler<any, infer StreamingOutputType>
+	? StreamingOutputType
+	: never;
 
 export function createRpcMethod<InputType, ReturnType>(
-    inputType: t.Type<InputType>,
-    handler: (data: InputType, req: ApiRequest<InputType>, res: express.Response) => Promise<ReturnType>
+	inputType: t.Type<InputType>,
+	handler: (
+		data: InputType,
+		req: ApiRequest<InputType>,
+		res: express.Response,
+	) => Promise<ReturnType>,
 ): RpcHandler<InputType, ReturnType> {
-    const wrapper: RouteHandler<{ data: unknown }, ReturnType> = async (req, res) => {
-        const data = validate(inputType, req.body);
-        return handler(
-            data,
-            Object.assign(req, {
-                body: data
-            }),
-            res
-        );
-    };
-    return wrapper as any;
+	const wrapper: RouteHandler<{ data: unknown }, ReturnType> = async (
+		req,
+		res,
+	) => {
+		const data = validate(inputType, req.body);
+		return handler(
+			data,
+			Object.assign(req, {
+				body: data,
+			}),
+			res,
+		);
+	};
+	return wrapper as any;
 }
 
 export function createStreamingRpcMethod<InputType, OutputType>(
-    inputType: t.Type<InputType>,
-    handler: (data: InputType, abortController: AbortController) => AsyncGenerator<OutputType, void, unknown>
+	inputType: t.Type<InputType>,
+	handler: (
+		data: InputType,
+		abortController: AbortController,
+	) => AsyncGenerator<OutputType, void, unknown>,
 ): StreamingRpcHandler<InputType, OutputType> {
-    const wrapper = async function* (rawInput: unknown, abortController: AbortController) {
-        const validatedInput = validate(inputType, rawInput);
-        yield* handler(validatedInput, abortController);
-    };
-    return wrapper as any;
+	const wrapper = async function* (
+		rawInput: unknown,
+		abortController: AbortController,
+	) {
+		const validatedInput = validate(inputType, rawInput);
+		yield* handler(validatedInput, abortController);
+	};
+	return wrapper as any;
 }

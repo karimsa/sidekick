@@ -12,6 +12,12 @@
     "node": ">= 12"
   },
   "scripts": {
-    "build": "node esbuild"
+    "dev": "node esbuild -w",
+    "build": "NODE_ENV=production node esbuild",
+    "format": "prettier --write src",
+    "lint": "npm-run-all -p lint-*",
+    "lint-eslint": "eslint src",
+    "lint-tsc": "tsc",
+    "lint-prettier": "prettier --check src"
   }
 }

@@ -12,7 +12,14 @@
     "./packages/*"
   ],
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^5.17.0",
+    "@typescript-eslint/parser": "^5.17.0",
+    "eslint": "^8.12.0",
+    "eslint-config-next": "12.0.10",
+    "eslint-config-prettier": "^8.5.0",
     "lerna": "4.0.0",
-    "syncpack": "6.2.0"
+    "prettier": "2.5.1",
+    "syncpack": "6.2.0",
+    "typescript": "^4.6.3"
   }
 }

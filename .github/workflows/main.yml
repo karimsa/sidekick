@@ -38,11 +38,13 @@ jobs:
       - name: Build
         run: yarn build
 
+      - name: Setup for deploy
+        if: "startsWith(github.ref, 'refs/tags/v')"
+        run: |
+          echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
+          npm whoami
+
       # prerelease versions must have a '-' to be released
       - name: Publish unstable
         if: "startsWith(github.ref, 'refs/tags/v') && contains(github.ref, '-')"
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          npm whoami
-          npm publish --tag next
+        run: npm publish --tag next

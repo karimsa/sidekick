@@ -3,12 +3,11 @@ import { SpawnOptionsWithStdioTuple } from 'child_process';
 import * as os from 'os';
 import createDebug from 'debug';
 import treeKill from 'tree-kill';
-import * as fs from 'utils/fs';
 import * as path from 'path';
 import * as tmp from 'tmp-promise';
 import stripAnsi from 'strip-ansi';
 import * as execa from 'execa';
-
+import * as fs from 'fs';
 import { fmt } from './fmt';
 import { ConfigManager } from '../services/config';
 

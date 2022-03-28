@@ -1,4 +1,4 @@
-import * as fs from 'utils/fs';
+import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as childProcess from 'child_process';

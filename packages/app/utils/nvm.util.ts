@@ -1,4 +1,4 @@
-import * as fs from 'utils/fs';
+import * as fs from 'fs';
 import { parseJson } from './json';
 import { z } from 'zod';
 import * as path from 'path';

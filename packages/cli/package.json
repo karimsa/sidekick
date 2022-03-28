@@ -19,5 +19,10 @@
     "lint-eslint": "eslint src",
     "lint-tsc": "tsc",
     "lint-prettier": "prettier --check src"
-  }
+  },
+  "dependencies": {
+    "commander": "^9.1.0",
+    "execa": "5"
+  },
+  "devDependencies": {}
 }

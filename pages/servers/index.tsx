@@ -1,5 +1,3 @@
-/* eslint-disable react/display-name */
-
 import * as React from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -112,7 +110,7 @@ const ServiceListEntry: React.FC<{
 const ServiceList: React.FC<{
     serviceStatuses: Record<string, RpcOutputType<typeof getServerHealth>>;
     setServiceStatuses(statuses: Record<string, RpcOutputType<typeof getServerHealth>>): void;
-}> = memo(({ serviceStatuses, setServiceStatuses }) => {
+}> = memo(function ServiceList({ serviceStatuses, setServiceStatuses }) {
     const { data: services } = useRpcQuery(
         getServers,
         {},
@@ -177,7 +175,7 @@ const ServiceList: React.FC<{
     );
 });
 
-const ServiceStartButton: React.FC<{ serviceName: string }> = memo(({ serviceName }) => {
+const ServiceStartButton: React.FC<{ serviceName: string }> = memo(function ServiceStartButton({ serviceName }) {
     const [menuOpen, setMenuOpen] = useState(false);
     const { data: config, error } = useRpcQuery(getConfig, {});
     const { mutate: start, isLoading: isStarting } = useRpcMutation(startService);
@@ -304,7 +302,7 @@ const ServiceStartButton: React.FC<{ serviceName: string }> = memo(({ serviceNam
     );
 });
 
-const ServiceStopButton: React.FC<{ serviceName: string }> = memo(({ serviceName }) => {
+const ServiceStopButton: React.FC<{ serviceName: string }> = memo(function ServiceStopButton({ serviceName }) {
     const { mutate: stop, isLoading } = useRpcMutation(stopService, {
         onError: error => {
             toast.error(String(error));

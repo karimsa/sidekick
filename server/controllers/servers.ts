@@ -8,6 +8,8 @@ import { testHttp, testTcp } from '../../utils/healthcheck';
 import { HealthStatus } from '../../utils/shared-types';
 import { ExecUtils } from '../../utils/exec';
 import * as os from 'os';
+import { EventEmitter, on } from 'events';
+import { AbortController } from 'node-abort-controller';
 
 export const getServers = createRpcMethod(t.interface({}), async function () {
     return ServiceList.getServiceNames();
@@ -83,13 +85,13 @@ export const getServerHealth = createStreamingRpcMethod(
             let numSuspendedProcesses = 0;
             await Promise.all(
                 objectKeys(serviceConfig.devServers).map(async devServer => {
-                    if (await ProcessManager.isProcessCreated(`${name}-${devServer}`)) {
+                    if (await ProcessManager.isProcessCreated(ProcessManager.getScopedName(name, devServer))) {
                         numCreatedProcesses++;
                     }
-                    if (await ProcessManager.isProcessRunning(`${name}-${devServer}`)) {
+                    if (await ProcessManager.isProcessRunning(ProcessManager.getScopedName(name, devServer))) {
                         numRunningProcesses++;
                     }
-                    if (await ProcessManager.isSuspended(`${name}-${devServer}`)) {
+                    if (await ProcessManager.isSuspended(ProcessManager.getScopedName(name, devServer))) {
                         numSuspendedProcesses++;
                     }
                 })
@@ -143,11 +145,15 @@ export const getServerHealth = createStreamingRpcMethod(
             }
 
             await new Promise<void>(resolve => {
-                setTimeout(() => resolve(), 1e3);
+                // setTimeout(() => resolve(), 5e3);
             });
         }
     }
 );
+
+export const getService = createRpcMethod(t.interface({ name: t.string }), async ({ name }) => {
+    return ServiceList.getService(name);
+});
 
 export const startService = createRpcMethod(
     t.interface({
@@ -170,10 +176,15 @@ export const startService = createRpcMethod(
 
         await Promise.all(
             objectEntries(serviceConfig.devServers).map(([devServerName, runCommand]) => {
-                return ProcessManager.start(`${name}-${devServerName}`, runCommand, serviceConfig.location, {
-                    cwd: serviceConfig.location,
-                    env: envVars as any
-                });
+                return ProcessManager.start(
+                    ProcessManager.getScopedName(name, devServerName),
+                    runCommand,
+                    serviceConfig.location,
+                    {
+                        cwd: serviceConfig.location,
+                        env: envVars as any
+                    }
+                );
             })
         );
 
@@ -190,10 +201,43 @@ export const stopService = createRpcMethod(
 
         await Promise.all(
             objectEntries(serviceConfig.devServers).map(([devServerName]) => {
-                return ProcessManager.stop(`${name}-${devServerName}`);
+                return ProcessManager.stop(ProcessManager.getScopedName(name, devServerName));
             })
         );
 
         return { ok: true };
+    }
+);
+
+export const getServiceLogs = createStreamingRpcMethod(
+    t.interface({ name: t.string, devServer: t.string }),
+    async function* ({ name, devServer }, abortController) {
+        const emitter = new EventEmitter();
+        const logsController = new AbortController();
+        let streamError = null;
+
+        ProcessManager.watchLogs({
+            name: ProcessManager.getScopedName(name, devServer),
+            abortController,
+            onLogEntry(chunk) {
+                emitter.emit('data', chunk);
+            }
+        }).then(
+            () => {
+                logsController.abort();
+            },
+            error => {
+                streamError = error;
+                logsController.abort();
+            }
+        );
+
+        yield* on(emitter, 'data', {
+            signal: logsController.signal
+        });
+
+        if (streamError) {
+            throw streamError;
+        }
     }
 );

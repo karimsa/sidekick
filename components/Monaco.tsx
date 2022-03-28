@@ -12,7 +12,7 @@ export const Monaco: React.FC<MonacoProps> = ({ diff, ...props }) => {
         );
     }
     return (
-        <div className={'rounded overflow-hidden h-full w-full'}>
+        <div className={'rounded overflow-hidden h-full w-full max-h-screen'}>
             <Editor theme={'vs-dark'} height={'100%'} language={'javascript'} {...props} />
         </div>
     );

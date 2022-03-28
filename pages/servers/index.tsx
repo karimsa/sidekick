@@ -4,14 +4,21 @@ import * as React from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { withSidebar } from '../../components/Sidebar';
-import { getServerHealth, getServers, startService, stopService } from '../../server/controllers/servers';
+import {
+    getServerHealth,
+    getServers,
+    getService,
+    getServiceLogs,
+    startService,
+    stopService
+} from '../../server/controllers/servers';
 import Head from 'next/head';
 import { useRpcQuery } from '../../hooks/useQuery';
 import { toast } from 'react-hot-toast';
 import classNames from 'classnames';
 import { useRouter } from 'next/router';
 import { useStreamingRpcQuery } from '../../hooks/useStreamingQuery';
-import { HealthStatus } from '../../utils/shared-types';
+import { HealthStatus, isActiveStatus } from '../../utils/shared-types';
 import { RpcOutputType } from '../../utils/http';
 import { Toggle } from '../../components/Toggle';
 import { ServiceStatusBadge } from '../../components/ServiceStatusBadge';
@@ -26,6 +33,10 @@ import Tooltip from '@tippyjs/react';
 import { Modal, ModalBody, ModalTitle } from '../../components/Modal';
 import { Select } from '../../components/Select';
 import { Monaco } from '../../components/Monaco';
+import { Tab, Tabs, TabView } from '../../components/Tabs';
+import { AlertCard } from '../../components/AlertCard';
+import { Code } from '../../components/Code';
+import { assertUnreachable } from '../../utils/util-types';
 
 function useServerName() {
     const router = useRouter();
@@ -46,22 +57,30 @@ const ServiceListEntry: React.FC<{
     onStatusUpdate(status: RpcOutputType<typeof getServerHealth>): void;
 }> = ({ serviceName, showAllServices, healthStatus, onStatusUpdate }) => {
     const selectedServerName = useServerName();
-
-    // TODO: Auto restart the stream if it ends
-    const { data, error } = useStreamingRpcQuery(
+    const { data } = useStreamingRpcQuery(
         getServerHealth,
         {
             name: serviceName
         },
         useCallback((state, action) => {
             switch (action.type) {
+                case 'open':
+                    return { ...(state as any), error: null };
                 case 'data':
-                    return action.data;
+                    return { ...action.data, error: null };
+                case 'error':
+                    return {
+                        healthStatus: HealthStatus.failing,
+                        version: state.version ?? '(unknown)',
+                        error: action.error
+                    };
                 case 'end':
-                    return { healthStatus: HealthStatus.none, version: state.version };
+                    return { healthStatus: HealthStatus.none, version: state.version, error: null };
+                default:
+                    assertUnreachable(action);
             }
         }, []),
-        { healthStatus: HealthStatus.none, version: '(unknown)' }
+        { healthStatus: HealthStatus.none, version: '(unknown)', error: null }
     );
 
     const statusUpdateRef = useRef(onStatusUpdate);
@@ -71,7 +90,7 @@ const ServiceListEntry: React.FC<{
         statusUpdateRef.current(data);
     }, [data]);
 
-    if (!showAllServices && !error && selectedServerName !== serviceName && healthStatus === HealthStatus.none) {
+    if (!showAllServices && selectedServerName !== serviceName && healthStatus === HealthStatus.none) {
         return null;
     }
     return (
@@ -83,10 +102,7 @@ const ServiceListEntry: React.FC<{
                     })}
                 >
                     <span>{serviceName}</span>
-                    <ServiceStatusBadge
-                        status={error ? HealthStatus.failing : healthStatus}
-                        error={error ? String(error) : undefined}
-                    />
+                    <ServiceStatusBadge status={healthStatus} error={data.error} />
                 </a>
             </Link>
         </li>
@@ -302,6 +318,34 @@ const ServiceStopButton: React.FC<{ serviceName: string }> = memo(({ serviceName
     );
 });
 
+const ServiceLogs: React.FC<{
+    serviceName: string;
+    devServerName: string;
+}> = ({ serviceName, devServerName }) => {
+    const { data } = useStreamingRpcQuery(
+        getServiceLogs,
+        {
+            name: serviceName,
+            devServer: devServerName
+        },
+        useCallback((state, action) => {
+            switch (action.type) {
+                case 'open':
+                    return '';
+                case 'data':
+                    return state + action.data;
+                case 'error':
+                    return `${state}\n\nLog stream errored out: ${action.error}`;
+                case 'end':
+                    return `${state}\n\nLogs disconnected.`;
+            }
+        }, []),
+        ''
+    );
+
+    return <Monaco language={'log'} value={data} />;
+};
+
 const ServiceControlPanel: React.FC<{
     serviceStatuses: Record<string, RpcOutputType<typeof getServerHealth>>;
 }> = ({ serviceStatuses }) => {
@@ -310,6 +354,14 @@ const ServiceControlPanel: React.FC<{
         healthStatus: HealthStatus.none,
         version: '(unknown)'
     };
+
+    const { data: serviceConfig, error } = useRpcQuery(
+        getService,
+        { name: selectedServerName },
+        {
+            enabled: isActiveStatus(selectedServerStatus.healthStatus)
+        }
+    );
 
     return (
         <>
@@ -320,21 +372,46 @@ const ServiceControlPanel: React.FC<{
                 </span>
             </div>
 
-            {(selectedServerStatus.healthStatus === HealthStatus.none ||
-                selectedServerStatus.healthStatus === HealthStatus.stale) && (
-                <ServiceStartButton serviceName={selectedServerName} />
+            <Tabs>
+                <Tab href={`/servers/${selectedServerName}`}>Controls</Tab>
+                {isActiveStatus(selectedServerStatus.healthStatus) &&
+                    serviceConfig &&
+                    Object.keys(serviceConfig.devServers).map(devServer => (
+                        <Tab key={devServer} href={`/servers/${selectedServerName}/logs/${devServer}`}>
+                            {devServer}
+                        </Tab>
+                    ))}
+            </Tabs>
+
+            {error && (
+                <AlertCard title={'Failed to load service info.'}>
+                    Sidekick failed to load the service information for {selectedServerName}.
+                    <Code>{String(error)}</Code>
+                </AlertCard>
             )}
 
-            {(selectedServerStatus.healthStatus === HealthStatus.failing ||
-                selectedServerStatus.healthStatus === HealthStatus.healthy ||
-                selectedServerStatus.healthStatus === HealthStatus.paused ||
-                selectedServerStatus.healthStatus === HealthStatus.partial) && (
-                <ServiceStopButton serviceName={selectedServerName} />
-            )}
+            <TabView href={`/servers/${selectedServerName}`}>
+                {(selectedServerStatus.healthStatus === HealthStatus.none ||
+                    selectedServerStatus.healthStatus === HealthStatus.stale) && (
+                    <ServiceStartButton serviceName={selectedServerName} />
+                )}
 
-            {selectedServerStatus.healthStatus === HealthStatus.zombie && (
-                <ZombieServiceControls serviceName={selectedServerName} />
-            )}
+                {isActiveStatus(selectedServerStatus.healthStatus) && (
+                    <ServiceStopButton serviceName={selectedServerName} />
+                )}
+
+                {selectedServerStatus.healthStatus === HealthStatus.zombie && (
+                    <ZombieServiceControls serviceName={selectedServerName} />
+                )}
+            </TabView>
+
+            {isActiveStatus(selectedServerStatus.healthStatus) &&
+                serviceConfig &&
+                Object.keys(serviceConfig.devServers).map(devServer => (
+                    <TabView key={devServer} href={`/servers/${selectedServerName}/logs/${devServer}`}>
+                        <ServiceLogs serviceName={selectedServerName} devServerName={devServer} />
+                    </TabView>
+                ))}
         </>
     );
 };

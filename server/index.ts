@@ -10,7 +10,15 @@ import { fmt } from '../utils/fmt';
 import { APIError, route, RpcHandler, StreamingRpcHandler, validate } from '../utils/http';
 import { getConfig, updateConfig } from './controllers/config';
 import { getExtensions, runExtensionMethod } from './controllers/extensions';
-import { getServerHealth, getServers, getZombieProcessInfo, startService, stopService } from './controllers/servers';
+import {
+    getServerHealth,
+    getServers,
+    getService,
+    getServiceLogs,
+    getZombieProcessInfo,
+    startService,
+    stopService
+} from './controllers/servers';
 import { getHeartbeat } from './controllers/heartbeat';
 
 const app = express();
@@ -24,13 +32,16 @@ const methods: Record<string, RpcHandler<any, any>> = {
 
     getServers,
     getZombieProcessInfo,
+
     startService,
-    stopService
+    stopService,
+    getService
 };
 
 const streamingMethods: Record<string, StreamingRpcHandler<any, any>> = {
     getHeartbeat,
-    getServerHealth
+    getServerHealth,
+    getServiceLogs
 };
 
 const corsConfig = { origin: ['http://localhost:9001'] };
@@ -50,6 +61,7 @@ app.post(
 );
 
 const server = http.createServer(app);
+const isProduction = process.env.NODE_ENV === 'production';
 
 const io = new SocketServer(server, {
     cors: corsConfig
@@ -59,8 +71,16 @@ function sendError(socket: Socket, requestId: string, error: any) {
     console.error(`Socket stream encountered an error: ${error.stack || error}`);
     socket.emit('streamError', { requestId, error: String(error) });
 }
-function sendResult(socket: Socket, requestId: string, data: any) {
-    socket.emit('streamData', { requestId, data });
+function sendResult(socket: Socket, methodName: string, requestId: string, data: any) {
+    if (isProduction) {
+        socket.emit('streamData', { requestId, data });
+    } else {
+        socket.emit('streamData', {
+            methodName,
+            requestId,
+            data
+        });
+    }
 }
 
 io.on('connection', socket => {
@@ -92,7 +112,7 @@ io.on('connection', socket => {
                 });
 
                 for await (const result of method(params, abortController)) {
-                    sendResult(socket, requestId, result);
+                    sendResult(socket, methodName, requestId, result);
                 }
 
                 socket.emit('streamEnd', {

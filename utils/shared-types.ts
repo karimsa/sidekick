@@ -24,3 +24,12 @@ export enum HealthStatus {
     // None indicates that no process was found running
     none = 'none'
 }
+
+export function isActiveStatus(healthStatus: HealthStatus) {
+    return (
+        healthStatus === HealthStatus.failing ||
+        healthStatus === HealthStatus.healthy ||
+        healthStatus === HealthStatus.paused ||
+        healthStatus === HealthStatus.partial
+    );
+}

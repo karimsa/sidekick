@@ -2,7 +2,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as childProcess from 'child_process';
-import slugify from 'slugify';
 
 import createDebug from 'debug';
 
@@ -26,10 +25,14 @@ Promise.all([
 
 export class ProcessManager {
     private static getProcessPidFile(name: string) {
-        return path.join(ProcessPidDirectory, `${slugify(name)}.pid`);
+        return path.join(ProcessPidDirectory, `${name}.pid`);
     }
     private static getProcessLogFile(name: string) {
-        return path.join(ProcessLogsDirectory, `${slugify(name)}.log`);
+        return path.join(ProcessLogsDirectory, `${name}.log`);
+    }
+
+    static getScopedName(serviceName: string, devServer: string) {
+        return (serviceName + '-' + devServer).replace(/\W+/g, '-').replace(/^-|-$/g, '');
     }
 
     static async start(name: string, cmd: string, appDir: string, options: childProcess.SpawnOptionsWithoutStdio) {

@@ -8,7 +8,11 @@ const socket = io(`http://${global.location?.hostname}:9002/`, {
     autoConnect: !!global.window
 });
 
-type StreamingRpcAction<Data> = { type: 'data'; data: Data } | { type: 'end' };
+type StreamingRpcAction<Data> =
+    | { type: 'open' }
+    | { type: 'data'; data: Data }
+    | { type: 'error'; error: string }
+    | { type: 'end' };
 
 export function useStreamingRpcQuery<InputType, OutputType, State>(
     // this is the type of the handler at compile-time
@@ -23,7 +27,6 @@ export function useStreamingRpcQuery<InputType, OutputType, State>(
 
     const [requestId, setRequestId] = useState(() => uuid());
     const [isStreaming, setIsStreaming] = useState(true);
-    const [error, setError] = useState<Error | undefined>();
 
     const dataKey = useMemo(() => jsonStableStringify(data), [data]);
 
@@ -31,9 +34,9 @@ export function useStreamingRpcQuery<InputType, OutputType, State>(
         () => {
             function onStreamError({ requestId: incomingRequestId, error }) {
                 if (incomingRequestId === requestId) {
-                    setError(error);
+                    dispatch({ type: 'error', error });
                     setIsStreaming(false);
-                    setRequestId(uuid());
+                    setTimeout(() => setRequestId(uuid()), 1e3);
                 }
             }
 
@@ -50,6 +53,7 @@ export function useStreamingRpcQuery<InputType, OutputType, State>(
             }
 
             function openStream() {
+                dispatch({ type: 'open' });
                 socket.emit('openStream', {
                     methodName,
                     params: data,
@@ -85,5 +89,5 @@ export function useStreamingRpcQuery<InputType, OutputType, State>(
         [dataKey, methodName, requestId]
     );
 
-    return { data: state, error, isStreaming };
+    return { data: state, isStreaming };
 }

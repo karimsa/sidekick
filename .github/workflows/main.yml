@@ -41,6 +41,8 @@ jobs:
       # prerelease versions must have a '-' to be released
       - name: Publish unstable
         if: "startsWith(github.ref, 'refs/tags/v') && contains(github.ref, '-')"
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm whoami
           npm publish --tag next

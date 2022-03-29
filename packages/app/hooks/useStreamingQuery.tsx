@@ -1,8 +1,9 @@
 import type { StreamingRpcHandler } from '../utils/http';
-import { useEffect, useMemo, useReducer, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import { io } from 'socket.io-client';
 import { v4 as uuid } from 'uuid';
 import jsonStableStringify from 'json-stable-stringify';
+import isEqual from 'lodash/isEqual';
 
 const socket = io(`http://${global.location?.hostname}:9002/`, {
 	autoConnect: !!global.window,
@@ -14,6 +15,8 @@ type StreamingRpcAction<Data> =
 	| { type: 'error'; error: string }
 	| { type: 'end' };
 
+// TODO: Limit retries, auto retry on network change
+
 export function useStreamingRpcQuery<InputType, OutputType, State>(
 	// this is the type of the handler at compile-time
 	rpcHandler: StreamingRpcHandler<InputType, OutputType>,
@@ -23,7 +26,17 @@ export function useStreamingRpcQuery<InputType, OutputType, State>(
 ) {
 	// this is the type of the handler at runtime
 	const { methodName } = rpcHandler as unknown as { methodName: string };
-	const [state, dispatch] = useReducer(reducer, initialState);
+	const reducerWrapper = useCallback(
+		(state: State, action: StreamingRpcAction<OutputType>) => {
+			const nextState = reducer(state, action);
+			if (isEqual(nextState, state)) {
+				return state;
+			}
+			return nextState;
+		},
+		[reducer],
+	);
+	const [state, dispatch] = useReducer(reducerWrapper, initialState);
 
 	const [requestId, setRequestId] = useState(() => uuid());
 	const [isStreaming, setIsStreaming] = useState(true);

@@ -20,7 +20,6 @@ import { HealthStatus, isActiveStatus } from '../../utils/shared-types';
 import { RpcOutputType } from '../../utils/http';
 import { Toggle } from '../../components/Toggle';
 import { ServiceStatusBadge } from '../../components/ServiceStatusBadge';
-import { debugHooksChanged } from '../../hooks/debug-hooks';
 import { ZombieServiceControls } from '../../components/ZombieServiceControls';
 import { Button } from '../../components/Button';
 import { PlayIcon, StopIcon, XCircleFillIcon } from '@primer/octicons-react';
@@ -39,6 +38,8 @@ import { Tab, Tabs, TabView } from '../../components/Tabs';
 import { AlertCard } from '../../components/AlertCard';
 import { Code } from '../../components/Code';
 import { assertUnreachable } from '../../utils/util-types';
+import { debugHooksChanged } from '../../hooks/debug-hooks';
+import isEqual from 'lodash/isEqual';
 
 function useServerName() {
 	const router = useRouter();
@@ -199,6 +200,7 @@ const ServiceList: React.FC<{
 						serviceStatuses[serviceName]?.healthStatus ?? HealthStatus.none
 					}
 					onStatusUpdate={(status) =>
+						!isEqual(serviceStatuses[serviceName], status) &&
 						setServiceStatuses({
 							...serviceStatuses,
 							[serviceName]: status,

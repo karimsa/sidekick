@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { memo } from 'react';
 import { HealthStatus } from '../utils/shared-types';
 import Tooltip from '@tippyjs/react';
 import { AlertFillIcon, XCircleFillIcon } from '@primer/octicons-react';
@@ -7,7 +8,7 @@ import { assertUnreachable } from '../utils/util-types';
 export const ServiceStatusBadge: React.FC<{
 	status: HealthStatus;
 	error?: string;
-}> = ({ status, error }) => {
+}> = memo(function ServiceStatusBadge({ status, error }) {
 	switch (status) {
 		case HealthStatus.healthy:
 			return <div className={'w-2 h-2 rounded-full bg-emerald-700'} />;
@@ -72,4 +73,4 @@ export const ServiceStatusBadge: React.FC<{
 			assertUnreachable(status);
 			return <span>{status}</span>;
 	}
-};
+});

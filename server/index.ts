@@ -5,6 +5,8 @@ import cors from 'cors';
 import { Server as SocketServer, Socket } from 'socket.io';
 import * as t from 'io-ts';
 import { AbortController } from 'node-abort-controller';
+import morgan from 'morgan';
+import next from 'next';
 
 import { fmt } from '../utils/fmt';
 import {
@@ -52,10 +54,10 @@ const streamingMethods: Record<string, StreamingRpcHandler<any, any>> = {
 
 const corsConfig = { origin: ['http://localhost:9001'] };
 
-app.use(bodyParser.json({ limit: 1024 }));
 app.use(cors(corsConfig));
 app.post(
 	'/api/rpc/:methodName',
+	bodyParser.json({ limit: 1024 }),
 	route(async (req, res) => {
 		const { methodName } = req.params;
 		const method = methods[String(methodName)];
@@ -65,6 +67,18 @@ app.post(
 		return method(req, res);
 	}),
 );
+
+if (process.env.NODE_ENV === 'production') {
+	app.use(morgan('dev'));
+	const nextApp = next({});
+	const nextHandler = nextApp.getRequestHandler();
+	app.use((req, res) => {
+		nextHandler(req, res).catch((error) => {
+			res.status(500);
+			res.json({ error: String(error) });
+		});
+	});
+}
 
 const server = http.createServer(app);
 const isProduction = process.env.NODE_ENV === 'production';

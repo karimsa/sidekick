@@ -497,6 +497,8 @@ export default withSidebar(function Servers() {
 	>({});
 	const selectedServerName = useServerName();
 
+	const { data: servers, error } = useRpcQuery(getServers, {});
+
 	return (
 		<>
 			<Head>
@@ -505,17 +507,40 @@ export default withSidebar(function Servers() {
 
 			<div className={'flex-auto'}>
 				<div className={'bg-slate-900 rounded h-full flex'}>
-					<div className={'w-1/4'}>
-						<ServiceList
-							serviceStatuses={serviceStatuses}
-							setServiceStatuses={setServiceStatuses}
-						/>
-					</div>
-
-					{selectedServerName && (
-						<div className={'w-3/4 p-5'}>
-							<ServiceControlPanel serviceStatuses={serviceStatuses} />
+					{error && (
+						<div className={'flex items-center justify-center w-full'}>
+							<AlertCard title={'Failed to load servers list'}>
+								The servers list could not be loaded.
+								<Code>{String(error)}</Code>
+							</AlertCard>
 						</div>
+					)}
+
+					{servers && servers.length === 0 && (
+						<div className={'flex items-center justify-center w-full'}>
+							<AlertCard title={'No servers found.'}>
+								Looks like your project is not a lerna/yarn workspace, or is
+								empty. Create some packages that are visible to lerna/yarn to
+								get started.
+							</AlertCard>
+						</div>
+					)}
+
+					{!error && servers && servers.length > 0 && (
+						<>
+							<div className={'w-1/4'}>
+								<ServiceList
+									serviceStatuses={serviceStatuses}
+									setServiceStatuses={setServiceStatuses}
+								/>
+							</div>
+
+							{selectedServerName && (
+								<div className={'w-3/4 p-5'}>
+									<ServiceControlPanel serviceStatuses={serviceStatuses} />
+								</div>
+							)}
+						</>
 					)}
 				</div>
 			</div>

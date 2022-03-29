@@ -1,6 +1,8 @@
 import { program } from 'commander';
 import * as path from 'path';
+import * as fs from 'fs';
 import execa from 'execa';
+import { testHttp } from '../utils/healthcheck';
 
 program
 	.command('start')
@@ -17,7 +19,7 @@ program
 	.action(
 		async ({
 			project,
-			port,
+			port = 9002,
 		}: {
 			project?: string;
 			unstable?: boolean;
@@ -30,7 +32,34 @@ program
 			const projectDir = path.resolve(process.cwd(), project ?? '.');
 			console.log(`Starting sidekick in: ${projectDir}`);
 
-			await execa.command('');
+			await fs.promises.mkdir(`${process.env.HOME}/.sidekick`, {
+				recursive: true,
+			});
+
+			const child = execa.command(
+				`node ${path.resolve(
+					__dirname,
+					'server.dist.js',
+				)} 2>&1 | tee ~/.sidekick/server.log`,
+				{
+					stdin: 'ignore',
+					stdout: 'inherit',
+					stderr: 'inherit',
+					env: {
+						...process.env,
+						NODE_ENV: 'production',
+						PROJECT_PATH: projectDir,
+						PORT: String(port),
+					},
+				},
+			);
+
+			process.stdout.write(`Waiting for sidekick to start ...\r`);
+			// eslint-disable-next-line no-empty
+			while (!(await testHttp(port))) {}
+			console.log(`Sidekick started on http://localhost:${port}`);
+
+			await child;
 		},
 	);
 

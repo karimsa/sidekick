@@ -23,6 +23,8 @@ import {
 	getServers,
 	getService,
 	getServiceLogs,
+	getServices,
+	getServiceTags,
 	getZombieProcessInfo,
 	startService,
 	stopService,
@@ -38,9 +40,11 @@ const methods: Record<string, RpcHandler<any, any>> = {
 	getExtensions,
 	runExtensionMethod,
 
-	getServers,
 	getZombieProcessInfo,
 
+	getServers,
+	getServices,
+	getServiceTags,
 	startService,
 	stopService,
 	getService,

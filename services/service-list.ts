@@ -14,6 +14,7 @@ export interface ServiceConfig {
 	ports: { type: 'http' | 'tcp'; port: number }[];
 	actions: { label: string; command: string }[];
 	devServers: Record<string, string>;
+	tags: string[];
 }
 
 export class ServiceList {
@@ -145,7 +146,7 @@ export class ServiceList {
 	}): Promise<ServiceConfig> {
 		const servicePackageJson = await this.getPackageJson(location);
 		const serviceSidekickConfigStr = await this.getSidekickJson(location);
-		const { ports, actions, devServers } = parseJson(
+		const { ports, actions, devServers, tags } = parseJson(
 			z.object({
 				ports: z
 					.array(
@@ -167,6 +168,7 @@ export class ServiceList {
 					)
 					.optional(),
 				devServers: z.record(z.string(), z.string()).optional(),
+				tags: z.array(z.string()).optional(),
 			}),
 			serviceSidekickConfigStr,
 		);
@@ -181,6 +183,7 @@ export class ServiceList {
 			devServers: devServers ?? {
 				all: 'npm start',
 			},
+			tags: tags ?? [],
 		};
 	}
 

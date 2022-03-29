@@ -8,24 +8,18 @@ import createDebug from 'debug';
 import { ConfigManager } from '../services/config';
 import { ExecUtils } from './exec';
 import { fmt } from './fmt';
+import { RunningProcessModel } from '../server/models/RunningProcess.model';
 
 const debug = createDebug('sidekick:process');
 
-const ProcessPidDirectory = path.join(ConfigManager.getSidekickPath(), 'pids');
 const ProcessLogsDirectory = path.join(ConfigManager.getSidekickPath(), 'logs');
 
-Promise.all([
-	fs.promises.mkdir(ProcessPidDirectory, { recursive: true }),
-	fs.promises.mkdir(ProcessLogsDirectory, { recursive: true }),
-]).catch((error) => {
+fs.promises.mkdir(ProcessLogsDirectory, { recursive: true }).catch((error) => {
 	console.error(error);
 	process.exit(1);
 });
 
 export class ProcessManager {
-	private static getProcessPidFile(name: string) {
-		return path.join(ProcessPidDirectory, `${name}.pid`);
-	}
 	private static getProcessLogFile(name: string) {
 		return path.join(ProcessLogsDirectory, `${name}.log`);
 	}
@@ -33,20 +27,29 @@ export class ProcessManager {
 	static getScopedName(serviceName: string, devServer: string) {
 		return (serviceName + '-' + devServer)
 			.replace(/\W+/g, '-')
-			.replace(/^-|-$/g, '');
+			.replace(/^-|-$/g, '')
+			.toLowerCase();
 	}
 
 	static async start(
-		name: string,
+		serviceName: string,
+		devServerName: string,
 		cmd: string,
 		appDir: string,
 		options: childProcess.SpawnOptionsWithoutStdio,
 	) {
+		const env = { ...process.env, ...options.env };
+		if (!env) {
+			throw new Error(`Cannot start a process without an environment override`);
+		}
+
+		const name = this.getScopedName(serviceName, devServerName);
 		const child = childProcess.spawn(
 			`/bin/bash`,
 			['-c', `${cmd} &> ${this.getProcessLogFile(name)}`],
 			{
 				...options,
+				env,
 				detached: true,
 				stdio: 'ignore',
 			},
@@ -57,7 +60,15 @@ export class ProcessManager {
 		if (!pid) {
 			throw new Error(`Failed to get pid of child`);
 		}
-		await fs.promises.writeFile(this.getProcessPidFile(name), String(pid));
+
+		await RunningProcessModel.repository.insert({
+			_id: name,
+			pid,
+			serviceName,
+			devServerName,
+			devServerScript: cmd,
+			environment: env as any,
+		});
 	}
 
 	static async watchLogs({
@@ -79,24 +90,16 @@ export class ProcessManager {
 		);
 	}
 
-	static async stop(name: string) {
+	static async stop(serviceName: string, devServerName: string) {
+		const name = this.getScopedName(serviceName, devServerName);
 		if (await this.isProcessCreated(name)) {
 			await ExecUtils.treeKill(
 				await this.getPID(name),
 				os.constants.signals.SIGKILL,
 			);
-			await Promise.all([
-				fs.promises.unlink(this.getProcessPidFile(name)).catch((error) => {
-					if (error.code !== 'ENOENT') {
-						throw error;
-					}
-				}),
-				fs.promises.unlink(this.getProcessLogFile(name)).catch((error) => {
-					if (error.code !== 'ENOENT') {
-						throw error;
-					}
-				}),
-			]);
+			await RunningProcessModel.repository.remove({
+				_id: name,
+			});
 		}
 	}
 
@@ -118,7 +121,7 @@ export class ProcessManager {
 		try {
 			return await ExecUtils.isSuspended(await this.getPID(name));
 		} catch (error: any) {
-			if (error.code === 'ENOENT') {
+			if (error.code === 'PROCESS_NOT_RUNNING') {
 				return false;
 			}
 			throw error;
@@ -126,13 +129,18 @@ export class ProcessManager {
 	}
 
 	static async getPID(name: string): Promise<number> {
-		const pidFile = this.getProcessPidFile(name);
-		const strPid = await fs.promises.readFile(pidFile, 'utf8');
-		const pid = Number(strPid);
-		if (Number.isNaN(pid)) {
-			throw new Error(fmt`Corrupted pid file: ${pidFile} (read: ${strPid})`);
+		const processInfo = await RunningProcessModel.repository.findOne({
+			_id: name,
+		});
+		if (!processInfo) {
+			throw Object.assign(
+				new Error(`Could not find a running process named '${name}'`),
+				{
+					code: 'PROCESS_NOT_RUNNING',
+				},
+			);
 		}
-		return pid;
+		return processInfo.pid;
 	}
 
 	static async isProcessRunning(name: string): Promise<boolean> {
@@ -142,11 +150,10 @@ export class ProcessManager {
 			debug(fmt`Found ${name} running at ${pid}`);
 			return true;
 		} catch (error: any) {
-			// ENOENT means the pidfile wasn't found
 			// ESRCH means the signal failed to send
 			if (
-				error.code === 'ENOENT' ||
 				error.code === 'ESRCH' ||
+				error.code === 'PROCESS_NOT_RUNNING' ||
 				String(error).match(/Corrupted pid file/)
 			) {
 				return false;
@@ -156,18 +163,8 @@ export class ProcessManager {
 	}
 
 	static async isProcessCreated(name: string): Promise<boolean> {
-		try {
-			await this.getPID(name);
-			return true;
-		} catch (error: any) {
-			// ENOENT means the pidfile wasn't found
-			if (
-				error.code === 'ENOENT' ||
-				String(error).match(/Corrupted pid file/)
-			) {
-				return false;
-			}
-			throw error;
-		}
+		return !!(await RunningProcessModel.repository.findOne({
+			_id: name,
+		}));
 	}
 }

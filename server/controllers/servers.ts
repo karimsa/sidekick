@@ -247,7 +247,8 @@ export const startService = createRpcMethod(
 			objectEntries(serviceConfig.devServers).map(
 				([devServerName, runCommand]) => {
 					return ProcessManager.start(
-						ProcessManager.getScopedName(name, devServerName),
+						name,
+						devServerName,
 						runCommand,
 						serviceConfig.location,
 						{
@@ -272,9 +273,7 @@ export const stopService = createRpcMethod(
 
 		await Promise.all(
 			objectEntries(serviceConfig.devServers).map(([devServerName]) => {
-				return ProcessManager.stop(
-					ProcessManager.getScopedName(name, devServerName),
-				);
+				return ProcessManager.stop(name, devServerName);
 			}),
 		);
 

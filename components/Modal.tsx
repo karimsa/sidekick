@@ -13,7 +13,7 @@ export const Modal: React.FC<ModalProps> = ({ show, onClose, children }) => {
 	return (
 		<div
 			className={classNames(
-				'fixed flex items-center justify-center bg-black/50 top-0 left-0 w-full h-full transition-all duration-300',
+				'fixed flex items-center justify-center bg-black/50 top-0 left-0 w-full h-full transition-all duration-300 z-50',
 				{
 					'opacity-0 pointer-events-none invisible': !show,
 				},

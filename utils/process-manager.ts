@@ -4,6 +4,7 @@ import * as os from 'os';
 import * as childProcess from 'child_process';
 
 import createDebug from 'debug';
+import omitBy from 'lodash/omitBy';
 
 import { ConfigManager } from '../services/config';
 import { ExecUtils } from './exec';
@@ -38,10 +39,9 @@ export class ProcessManager {
 		appDir: string,
 		options: childProcess.SpawnOptionsWithoutStdio,
 	) {
-		const env = { ...process.env, ...options.env };
-		if (!env) {
-			throw new Error(`Cannot start a process without an environment override`);
-		}
+		const env = omitBy({ ...process.env, ...options.env }, (_, key) => {
+			return key.startsWith('npm_');
+		}) as any;
 
 		const name = this.getScopedName(serviceName, devServerName);
 		const child = childProcess.spawn(
@@ -67,6 +67,7 @@ export class ProcessManager {
 			serviceName,
 			devServerName,
 			devServerScript: cmd,
+			workdir: appDir,
 			environment: env as any,
 		});
 	}
@@ -100,6 +101,18 @@ export class ProcessManager {
 			await RunningProcessModel.repository.remove({
 				_id: name,
 			});
+		}
+	}
+
+	static async removeLogFile(serviceName: string, devServerName: string) {
+		try {
+			await fs.promises.unlink(
+				this.getProcessLogFile(this.getScopedName(serviceName, devServerName)),
+			);
+		} catch (error: any) {
+			if (error.code !== 'ENOENT') {
+				throw error;
+			}
 		}
 	}
 

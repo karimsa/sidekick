@@ -7,6 +7,8 @@ import {
 	getServers,
 	getService,
 	getServiceLogs,
+	getServiceProcessInfo,
+	restartDevServer,
 	startService,
 	stopService,
 } from '../../server/controllers/servers';
@@ -212,12 +214,140 @@ const ServiceList: React.FC<{
 	);
 });
 
+const ServiceEditButton: React.FC<{
+	serviceName: string;
+	devServerName: string;
+}> = memo(function ServiceEditButton({ serviceName, devServerName }) {
+	const { mutate: restart, isLoading: isStarting } = useRpcMutation(
+		restartDevServer,
+		{
+			onError(error: any) {
+				toast.error(
+					`Failed to restart ${devServerName}: ${error.message ?? error}`,
+				);
+			},
+		},
+	);
+	const { data: processInfo, error } = useRpcQuery(getServiceProcessInfo, {
+		serviceName,
+		devServer: devServerName,
+	});
+
+	const [modalOpen, setModalOpen] = useState(false);
+	const [resetLogs, setResetLogs] = useState(false);
+	const [envOverrides, setEnvOverrides] = useState('{}');
+	useEffect(() => {
+		if (processInfo) {
+			setEnvOverrides(JSON.stringify(processInfo.environment, null, '\t'));
+		}
+	}, [processInfo]);
+
+	const isEnvOverridesValid = useMemo(() => {
+		try {
+			JSON.parse(envOverrides);
+			return true;
+		} catch {
+			return false;
+		}
+	}, [envOverrides]);
+
+	return (
+		<>
+			<Button
+				className={'mb-5'}
+				variant={'warning'}
+				disabled={!!error}
+				loading={isStarting}
+				icon={<PlayIcon />}
+				onClick={() => setModalOpen(true)}
+			>
+				Edit and restart
+			</Button>
+
+			<Modal show={modalOpen} onClose={() => setModalOpen(false)}>
+				<ModalTitle>
+					Edit and restart:{' '}
+					<span className={'bg-slate-400 rounded p-1'}>{devServerName}</span> in{' '}
+					<span className={'bg-slate-400 rounded p-1'}>{serviceName}</span>
+				</ModalTitle>
+				<ModalBody>
+					<form
+						className={'flex flex-col space-y-5'}
+						onSubmit={(evt) => {
+							evt.preventDefault();
+							restart({
+								serviceName,
+								devServer: devServerName,
+								resetLogs,
+								environment: JSON.parse(envOverrides),
+							});
+							setModalOpen(false);
+						}}
+					>
+						<div>
+							<label
+								htmlFor={'targetEnvironment'}
+								className={'mr-2 w-full block mb-3'}
+							>
+								Environment variables:
+							</label>
+							<div className={'h-96'}>
+								<Monaco
+									language={'json'}
+									value={envOverrides}
+									onChange={(value) => setEnvOverrides(value ?? '{}')}
+								/>
+							</div>
+							{!isEnvOverridesValid && (
+								<p className={'text-xs text-red-700 flex items-center pt-2'}>
+									<XCircleFillIcon />
+									<span className={'ml-1'}>Invalid JSON.</span>
+								</p>
+							)}
+						</div>
+
+						<div>
+							<input
+								id={'resetLogs'}
+								type={'checkbox'}
+								className={'m-3 inline-block'}
+								checked={resetLogs}
+								onChange={(evt) => setResetLogs(evt.target.checked)}
+							/>
+							<label htmlFor={'resetLogs'}>Reset logs</label>
+						</div>
+
+						<div className="flex justify-center">
+							<Button
+								type={'submit'}
+								variant={'warning'}
+								icon={<PlayIcon />}
+								disabled={!isEnvOverridesValid}
+							>
+								Edit and restart
+							</Button>
+						</div>
+					</form>
+				</ModalBody>
+			</Modal>
+		</>
+	);
+});
+
 const ServiceStartButton: React.FC<{ serviceName: string }> = memo(
 	function ServiceStartButton({ serviceName }) {
 		const [menuOpen, setMenuOpen] = useState(false);
 		const { data: config, error } = useRpcQuery(getConfig, {});
-		const { mutate: start, isLoading: isStarting } =
-			useRpcMutation(startService);
+		const { mutate: start, isLoading: isStarting } = useRpcMutation(
+			startService,
+			{
+				onError(error: any) {
+					toast.error(
+						`Failed to start ${serviceName}: ${error.message ?? error}`,
+					);
+				},
+			},
+		);
 
 		const [modalOpen, setModalOpen] = useState(false);
 		const [targetEnvironment, setTargetEnvironment] = useState('');
@@ -407,7 +537,15 @@ const ServiceLogs: React.FC<{
 		'',
 	);
 
-	return <Monaco language={'log'} value={data} />;
+	return (
+		<>
+			<ServiceEditButton
+				serviceName={serviceName}
+				devServerName={devServerName}
+			/>
+			<Monaco language={'log'} value={data} />
+		</>
+	);
 };
 
 const ServiceControlPanel: React.FC<{

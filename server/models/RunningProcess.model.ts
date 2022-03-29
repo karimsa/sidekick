@@ -9,6 +9,7 @@ export class RunningProcessModel extends Model(
 		serviceName: z.string(),
 		devServerName: z.string(),
 		devServerScript: z.string(),
+		workdir: z.string(),
 		environment: z.record(z.string(), z.string()),
 	}),
 ) {}

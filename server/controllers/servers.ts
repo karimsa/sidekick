@@ -14,6 +14,7 @@ import { ExecUtils } from '../../utils/exec';
 import * as os from 'os';
 import { EventEmitter, on } from 'events';
 import { AbortController } from 'node-abort-controller';
+import { RunningProcessModel } from '../models/RunningProcess.model';
 
 export const getServers = createRpcMethod(t.interface({}), async function () {
 	return ServiceList.getServiceNames();
@@ -220,6 +221,15 @@ export const getService = createRpcMethod(
 	},
 );
 
+export const getServiceProcessInfo = createRpcMethod(
+	t.interface({ serviceName: t.string, devServer: t.string }),
+	async ({ serviceName, devServer }) => {
+		return RunningProcessModel.repository.findOne({
+			_id: ProcessManager.getScopedName(serviceName, devServer),
+		});
+	},
+);
+
 export const startService = createRpcMethod(
 	t.interface({
 		name: t.string,
@@ -272,8 +282,9 @@ export const stopService = createRpcMethod(
 		const serviceConfig = await ServiceList.getService(name);
 
 		await Promise.all(
-			objectEntries(serviceConfig.devServers).map(([devServerName]) => {
-				return ProcessManager.stop(name, devServerName);
+			objectEntries(serviceConfig.devServers).map(async ([devServerName]) => {
+				await ProcessManager.stop(name, devServerName);
+				await ProcessManager.removeLogFile(name, devServerName);
 			}),
 		);
 
@@ -311,5 +322,41 @@ export const getServiceLogs = createStreamingRpcMethod(
 		if (streamError) {
 			throw streamError;
 		}
+	},
+);
+
+export const restartDevServer = createRpcMethod(
+	t.interface({
+		serviceName: t.string,
+		devServer: t.string,
+		environment: t.record(t.string, t.string),
+		resetLogs: t.boolean,
+	}),
+	async ({ serviceName, devServer, environment, resetLogs }) => {
+		const processInfo = await RunningProcessModel.repository.findOne({
+			_id: ProcessManager.getScopedName(serviceName, devServer),
+		});
+		if (!processInfo) {
+			throw new Error(`Could not find running process matching query`);
+		}
+
+		await ProcessManager.stop(serviceName, devServer);
+
+		if (resetLogs) {
+			await ProcessManager.removeLogFile(serviceName, devServer);
+		}
+
+		await ProcessManager.start(
+			serviceName,
+			devServer,
+			processInfo.devServerScript,
+			processInfo.workdir,
+			{
+				cwd: processInfo.workdir,
+				env: environment as any,
+			},
+		);
+
+		return { ok: true };
 	},
 );

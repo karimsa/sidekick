@@ -23,7 +23,9 @@ import {
 	getServers,
 	getService,
 	getServiceLogs,
+	getServiceProcessInfo,
 	getZombieProcessInfo,
+	restartDevServer,
 	startService,
 	stopService,
 } from './controllers/servers';
@@ -44,6 +46,8 @@ const methods: Record<string, RpcHandler<any, any>> = {
 	startService,
 	stopService,
 	getService,
+	getServiceProcessInfo,
+	restartDevServer,
 };
 
 const streamingMethods: Record<string, StreamingRpcHandler<any, any>> = {
@@ -57,7 +61,7 @@ const corsConfig = { origin: ['http://localhost:9001'] };
 app.use(cors(corsConfig));
 app.post(
 	'/api/rpc/:methodName',
-	bodyParser.json({ limit: 1024 }),
+	bodyParser.json({ limit: 1024 * 1024 }),
 	route(async (req, res) => {
 		const { methodName } = req.params;
 		const method = methods[String(methodName)];

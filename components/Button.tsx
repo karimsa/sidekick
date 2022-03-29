@@ -6,6 +6,7 @@ const ButtonVariants = {
 	primary: 'bg-emerald-900 hover:bg-emerald-800 text-white',
 	secondary: 'bg-slate-700 hover:bg-slate-600 text-white',
 	danger: 'bg-red-600 hover:bg-red-800 text-white',
+	warning: 'bg-amber-500 hover:bg-amber-600 text-black',
 };
 
 const ButtonSizes = {

@@ -1,11 +1,10 @@
-# sidekick
-
-Create devtools for your monorepo easily.
+<h1 align="center">⚡️ sidekick</h1>
+<p align="center">Create devtools for your monorepo easily.</p>
 
 ## Installation
 
 ```shell
-yarn add -D @karimsa/sidekick
+yarn add -D @karimsa/sidekick@next
 ```
 
 ## Usage

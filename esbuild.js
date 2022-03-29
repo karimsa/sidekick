@@ -31,7 +31,10 @@ const buildFile = (input, output) =>
 		watch: isWatchMode,
 	});
 
-buildFile('./server/index.js', './server.dist.js').catch((error) => {
+Promise.all([
+	buildFile('./server/index.ts', './server.dist.js'),
+	buildFile('./server/cli.ts', './cli.dist.js'),
+]).catch((error) => {
 	if (!error.errors) {
 		console.error(error);
 	}

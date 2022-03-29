@@ -8,7 +8,6 @@ import createDebug from 'debug';
 import { ConfigManager } from '../services/config';
 import { ExecUtils } from './exec';
 import { fmt } from './fmt';
-import { NvmUtil } from './nvm.util';
 
 const debug = createDebug('sidekick:process');
 
@@ -45,13 +44,7 @@ export class ProcessManager {
 	) {
 		const child = childProcess.spawn(
 			`/bin/bash`,
-			[
-				'-c',
-				`${await NvmUtil.wrapVersionedCommand(
-					appDir,
-					cmd,
-				)} &> ${this.getProcessLogFile(name)}`,
-			],
+			['-c', `${cmd} &> ${this.getProcessLogFile(name)}`],
 			{
 				...options,
 				detached: true,

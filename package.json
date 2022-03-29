@@ -4,9 +4,6 @@
   "publishConfig": {
     "access": "public"
   },
-  "engines": {
-    "node": ">= 12"
-  },
   "scripts": {
     "dev": "npm-run-all -p dev-*",
     "dev-web": "next dev -p 9001",
@@ -24,6 +21,12 @@
     "lint-tsc": "tsc",
     "lint-prettier": "prettier --check components hooks pages server services utils",
     "pin": "syncpack fix-mismatches && syncpack set-semver-ranges"
+  },
+  "engines": {
+    "node": ">= 12"
+  },
+  "bin": {
+    "sidekick": "./cli.dist.js"
   },
   "dependencies": {
     "@babel/core": "7.17.0",

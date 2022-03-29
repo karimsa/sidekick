@@ -1,7 +1,9 @@
 {
-  "private": true,
   "name": "@sidekick/app",
   "version": "0.0.1-6",
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">= 12"
   },

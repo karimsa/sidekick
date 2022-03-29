@@ -1,9 +1,0 @@
-.github
-.eslintrc.json
-.nvmrc
-.prettierrc.json
-esbuild.js
-*.log
-tailwind.config.js
-server
-node_modules

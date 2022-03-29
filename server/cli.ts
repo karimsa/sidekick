@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import execa from 'execa';
 import { testHttp } from '../utils/healthcheck';
+import { PassThrough } from 'stream';
 
 program
 	.command('start')
@@ -36,23 +37,28 @@ program
 				recursive: true,
 			});
 
+			const logStream = fs.createWriteStream(
+				path.resolve(process.env.HOME!, '.sidekick', 'server.log'),
+			);
 			const child = execa.command(
-				`node ${path.resolve(
-					__dirname,
-					'server.dist.js',
-				)} 2>&1 | tee ~/.sidekick/server.log`,
+				`node ${path.resolve(__dirname, 'server.dist.js')}`,
 				{
 					stdin: 'ignore',
-					stdout: 'inherit',
-					stderr: 'inherit',
 					env: {
 						...process.env,
+						DEBUG: 'sidekick:*',
 						NODE_ENV: 'production',
 						PROJECT_PATH: projectDir,
 						PORT: String(port),
 					},
 				},
 			);
+
+			child.stdout!.pipe(logStream);
+			child.stderr!.on('data', (chunk) => {
+				logStream.write(chunk);
+				process.stderr.write(chunk);
+			});
 
 			process.stdout.write(`Waiting for sidekick to start ...\r`);
 			// eslint-disable-next-line no-empty

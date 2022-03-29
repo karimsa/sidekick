@@ -56,7 +56,7 @@ export class ProcessManager {
 		);
 		child.unref();
 		const pid = child.pid;
-		console.warn(fmt`started ${name} with pid ${pid}: ${cmd}`);
+		debug(fmt`Started ${name} with pid ${pid}: ${cmd}`);
 		if (!pid) {
 			throw new Error(`Failed to get pid of child`);
 		}

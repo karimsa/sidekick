@@ -16,9 +16,24 @@ import { EventEmitter, on } from 'events';
 import { AbortController } from 'node-abort-controller';
 import { RunningProcessModel } from '../models/RunningProcess.model';
 
+/**
+ * @deprecated Need to remove this.
+ */
 export const getServers = createRpcMethod(t.interface({}), async function () {
 	return ServiceList.getServiceNames();
 });
+
+export const getServices = createRpcMethod(t.interface({}), async function () {
+	return ServiceList.getServices();
+});
+
+export const getServiceTags = createRpcMethod(
+	t.interface({}),
+	async function () {
+		const services = await ServiceList.getServices();
+		return [...new Set(services.flatMap((service) => service.tags))];
+	},
+);
 
 export const getZombieProcessInfo = createRpcMethod(
 	t.interface({

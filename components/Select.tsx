@@ -42,7 +42,7 @@ export const Select: React.FC<SelectProps> = ({
 				)}
 				onClick={() => setOpen(!isOpen)}
 			>
-				<span>{value}</span>
+				<span>{options.find((o) => o.value === value)?.label ?? value}</span>
 				<TriangleDownIcon />
 			</div>
 

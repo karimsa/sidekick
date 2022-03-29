@@ -1,8 +1,6 @@
-import { validate } from '../utils/http';
 import { objectEntries } from '../utils/util-types';
 import { ConfigManager } from './config';
 import * as fs from 'fs';
-import * as t from 'io-ts';
 import * as path from 'path';
 import * as execa from 'execa';
 import { parseJson } from '../utils/json';
@@ -16,6 +14,7 @@ export interface ServiceConfig {
 	ports: { type: 'http' | 'tcp'; port: number }[];
 	actions: { label: string; command: string }[];
 	devServers: Record<string, string>;
+	tags: string[];
 }
 
 export class ServiceList {
@@ -66,6 +65,20 @@ export class ServiceList {
 			'utf8',
 		);
 		return JSON.parse(packageJson);
+	}
+
+	private static async getSidekickJson(location: string) {
+		try {
+			return await fs.promises.readFile(
+				path.resolve(location, '.sidekick.json'),
+				'utf8',
+			);
+		} catch (error: any) {
+			if (error.code === 'ENOENT') {
+				return '{}';
+			}
+			throw error;
+		}
 	}
 
 	private static async getServicesWithYarnWorkspaces() {
@@ -132,24 +145,32 @@ export class ServiceList {
 		version: string;
 	}): Promise<ServiceConfig> {
 		const servicePackageJson = await this.getPackageJson(location);
-
-		const { ports, actions, devServers } = validate(
-			t.partial({
-				ports: t.array(
-					t.interface({
-						type: t.union([t.literal('http'), t.literal('tcp')]),
-						port: t.number,
-					}),
-				),
-				actions: t.array(
-					t.interface({
-						label: t.string,
-						command: t.string,
-					}),
-				),
-				devServers: t.record(t.string, t.string),
+		const serviceSidekickConfigStr = await this.getSidekickJson(location);
+		const { ports, actions, devServers, tags } = parseJson(
+			z.object({
+				ports: z
+					.array(
+						z.object({
+							type: z.union([z.literal('http'), z.literal('tcp')]),
+							port: z
+								.number()
+								.int('Port numbers must be valid integers')
+								.min(1),
+						}),
+					)
+					.optional(),
+				actions: z
+					.array(
+						z.object({
+							label: z.string(),
+							command: z.string(),
+						}),
+					)
+					.optional(),
+				devServers: z.record(z.string(), z.string()).optional(),
+				tags: z.array(z.string()).optional(),
 			}),
-			servicePackageJson.sidekick ?? {},
+			serviceSidekickConfigStr,
 		);
 
 		return {
@@ -162,6 +183,7 @@ export class ServiceList {
 			devServers: devServers ?? {
 				all: 'npm start',
 			},
+			tags: tags ?? [],
 		};
 	}
 

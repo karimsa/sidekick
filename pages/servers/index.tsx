@@ -9,6 +9,8 @@ import {
 	getServiceLogs,
 	getServiceProcessInfo,
 	restartDevServer,
+	getServices,
+	getServiceTags,
 	startService,
 	stopService,
 } from '../../server/controllers/servers';
@@ -20,7 +22,6 @@ import { useRouter } from 'next/router';
 import { useStreamingRpcQuery } from '../../hooks/useStreamingQuery';
 import { HealthStatus, isActiveStatus } from '../../utils/shared-types';
 import { RpcOutputType } from '../../utils/http';
-import { Toggle } from '../../components/Toggle';
 import { ServiceStatusBadge } from '../../components/ServiceStatusBadge';
 import { ZombieServiceControls } from '../../components/ZombieServiceControls';
 import { Button } from '../../components/Button';
@@ -42,6 +43,8 @@ import { Code } from '../../components/Code';
 import { assertUnreachable } from '../../utils/util-types';
 import { debugHooksChanged } from '../../hooks/debug-hooks';
 import isEqual from 'lodash/isEqual';
+import startCase from 'lodash/startCase';
+import type { ServiceConfig } from '../../services/service-list';
 
 function useServerName() {
 	const router = useRouter();
@@ -57,10 +60,9 @@ function useServerName() {
 
 const ServiceListEntry: React.FC<{
 	serviceName: string;
-	showAllServices: boolean;
 	healthStatus: HealthStatus;
 	onStatusUpdate(status: RpcOutputType<typeof getServerHealth>): void;
-}> = ({ serviceName, showAllServices, healthStatus, onStatusUpdate }) => {
+}> = ({ serviceName, healthStatus, onStatusUpdate }) => {
 	const selectedServerName = useServerName();
 	const { data } = useStreamingRpcQuery(
 		getServerHealth,
@@ -109,13 +111,6 @@ const ServiceListEntry: React.FC<{
 		statusUpdateRef.current(data);
 	}, [data]);
 
-	if (
-		!showAllServices &&
-		selectedServerName !== serviceName &&
-		healthStatus === HealthStatus.none
-	) {
-		return null;
-	}
 	return (
 		<li>
 			<Link href={`/servers/${serviceName}`} passHref>
@@ -145,7 +140,7 @@ const ServiceList: React.FC<{
 	): void;
 }> = memo(function ServiceList({ serviceStatuses, setServiceStatuses }) {
 	const { data: services } = useRpcQuery(
-		getServers,
+		getServices,
 		{},
 		{
 			onError(error) {
@@ -153,25 +148,39 @@ const ServiceList: React.FC<{
 			},
 		},
 	);
-
-	const numHiddenServices = useMemo(
-		() =>
-			Object.values(serviceStatuses).reduce((numHiddenServices, status) => {
-				return (
-					numHiddenServices +
-					(status.healthStatus === HealthStatus.none ? 1 : 0)
-				);
-			}, 0),
-		[serviceStatuses],
+	const { data: serviceTags } = useRpcQuery(
+		getServiceTags,
+		{},
+		{
+			onError(error: any) {
+				toast.error(`Failed to fetch service tags: ${error.message ?? error}`, {
+					id: 'get-service-tags',
+				});
+			},
+		},
 	);
 
 	const [showAllServices, setShowAllServices] = useState(false);
+	const [visibleTag, setVisibleTag] = useState('all');
+	const isServiceVisible = useCallback(
+		(visibleTag: string, service: ServiceConfig) => {
+			if (visibleTag === 'all') {
+				return true;
+			}
+			if (visibleTag === 'running') {
+				return isActiveStatus(
+					serviceStatuses[service.name]?.healthStatus ?? HealthStatus.none,
+				);
+			}
+			return service.tags.includes(visibleTag);
+		},
+		[serviceStatuses],
+	);
 
 	debugHooksChanged('ServiceList', {
 		serviceStatuses,
 		setServiceStatuses,
 		services,
-		numHiddenServices,
 		showAllServices,
 		setShowAllServices,
 	});
@@ -183,33 +192,38 @@ const ServiceList: React.FC<{
 				maxHeight: 'calc(100vh - (2*1.25rem))',
 			}}
 		>
-			{numHiddenServices > 0 && (
-				<div className={'text-slate-600 p-4 flex items-center justify-between'}>
-					<span>
-						{showAllServices
-							? `All services are visible.`
-							: `${numHiddenServices} non-running services are hidden.`}
-					</span>
-					<Toggle value={showAllServices} onChange={setShowAllServices} />
+			{serviceTags && (
+				<div className={'p-5'}>
+					<Select
+						id={'service-tag-view'}
+						value={visibleTag}
+						onChange={setVisibleTag}
+						options={['all', 'running', ...serviceTags].map((tag) => ({
+							label: `${startCase(tag)} services`,
+							value: tag,
+						}))}
+					/>
 				</div>
 			)}
-			{services?.map((serviceName) => (
-				<ServiceListEntry
-					key={serviceName}
-					serviceName={serviceName}
-					showAllServices={showAllServices}
-					healthStatus={
-						serviceStatuses[serviceName]?.healthStatus ?? HealthStatus.none
-					}
-					onStatusUpdate={(status) =>
-						!isEqual(serviceStatuses[serviceName], status) &&
-						setServiceStatuses({
-							...serviceStatuses,
-							[serviceName]: status,
-						})
-					}
-				/>
-			))}
+			{services?.map(
+				(service) =>
+					isServiceVisible(visibleTag, service) && (
+						<ServiceListEntry
+							key={service.name}
+							serviceName={service.name}
+							healthStatus={
+								serviceStatuses[service.name]?.healthStatus ?? HealthStatus.none
+							}
+							onStatusUpdate={(status) =>
+								!isEqual(serviceStatuses[service.name], status) &&
+								setServiceStatuses({
+									...serviceStatuses,
+									[service.name]: status,
+								})
+							}
+						/>
+					),
+			)}
 		</ul>
 	);
 });

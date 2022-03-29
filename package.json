@@ -21,8 +21,6 @@
     "lint-eslint": "next lint",
     "lint-tsc": "tsc",
     "lint-prettier": "prettier --check {components,hooks,pages,server,services,utils}",
-    "deploy:unstable": "cp ../../yarn.lock yarn.lock && docker build -t ghcr.io/karimsa/sidekick:unstable . && docker push ghcr.io/karimsa/sidekick:unstable",
-    "deploy:stable": "docker tag ghcr.io/karimsa/sidekick:unstable ghcr.io/karimsa/sidekick:latest && docker push ghcr.io/karimsa/sidekick:latest",
     "pin": "syncpack fix-mismatches && syncpack set-semver-ranges"
   },
   "dependencies": {

@@ -30,10 +30,10 @@ jobs:
         run: yarn --frozen-lockfile
 
       - name: Linting
-        run: lerna run lint --stream
+        run: yarn lint
 
       - name: Build
-        run: lerna run build --stream
+        run: yarn build
 
       - name: Setup for deploy
         if: "startsWith(github.ref, 'refs/tags/v')"
@@ -44,8 +44,8 @@ jobs:
       # prerelease versions must have a '-' to be released
       - name: Publish unstable
         if: "startsWith(github.ref, 'refs/tags/v') && contains(github.ref, '-')"
-        run: lerna run deploy:unstable --stream
+        run: npm publish --tag next
 
       - name: Publish stable
         if: "startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')"
-        run: lerna run deploy:stable --stream
+        run: npm publish

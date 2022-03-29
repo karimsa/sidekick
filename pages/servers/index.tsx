@@ -8,9 +8,8 @@ import {
 	getService,
 	getServiceLogs,
 	getServiceProcessInfo,
-	restartDevServer,
 	getServices,
-	getServiceTags,
+	restartDevServer,
 	startService,
 	stopService,
 } from '../../server/controllers/servers';
@@ -148,17 +147,13 @@ const ServiceList: React.FC<{
 			},
 		},
 	);
-	const { data: serviceTags } = useRpcQuery(
-		getServiceTags,
-		{},
-		{
-			onError(error: any) {
-				toast.error(`Failed to fetch service tags: ${error.message ?? error}`, {
-					id: 'get-service-tags',
-				});
-			},
-		},
-	);
+	const serviceTags = useMemo(() => {
+		const builtinTags = ['all', 'running'];
+		const customTags = [
+			...new Set(services?.flatMap((service) => service.tags) ?? []),
+		].sort();
+		return [...builtinTags, ...customTags];
+	}, [services]);
 
 	const [showAllServices, setShowAllServices] = useState(false);
 	const [visibleTag, setVisibleTag] = useState('all');
@@ -187,7 +182,7 @@ const ServiceList: React.FC<{
 
 	return (
 		<ul
-			className={'overflow-auto'}
+			className={'overflow-auto h-full'}
 			style={{
 				maxHeight: 'calc(100vh - (2*1.25rem))',
 			}}
@@ -198,7 +193,7 @@ const ServiceList: React.FC<{
 						id={'service-tag-view'}
 						value={visibleTag}
 						onChange={setVisibleTag}
-						options={['all', 'running', ...serviceTags].map((tag) => ({
+						options={serviceTags.map((tag) => ({
 							label: `${startCase(tag)} services`,
 							value: tag,
 						}))}

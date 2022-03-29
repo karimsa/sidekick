@@ -27,14 +27,6 @@ export const getServices = createRpcMethod(t.interface({}), async function () {
 	return ServiceList.getServices();
 });
 
-export const getServiceTags = createRpcMethod(
-	t.interface({}),
-	async function () {
-		const services = await ServiceList.getServices();
-		return [...new Set(services.flatMap((service) => service.tags))];
-	},
-);
-
 export const getZombieProcessInfo = createRpcMethod(
 	t.interface({
 		name: t.string,

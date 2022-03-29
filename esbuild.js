@@ -9,6 +9,9 @@ const buildFile = (input, output) =>
 		bundle: true,
 		platform: 'node',
 		target: 'node12',
+		banner: {
+			js: '#!/usr/bin/env node\n',
+		},
 		define: {
 			'process.env.NODE_ENV': JSON.stringify(
 				process.env.NODE_ENV || 'development',

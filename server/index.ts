@@ -75,6 +75,8 @@ app.post(
 );
 
 if (process.env.NODE_ENV === 'production') {
+	process.chdir(__dirname);
+
 	app.use(morgan('dev'));
 	const nextApp = next({});
 	const nextHandler = nextApp.getRequestHandler();

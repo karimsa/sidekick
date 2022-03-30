@@ -16,4 +16,5 @@ module.exports = {
 	typescript: {
 		ignoreBuildErrors: true,
 	},
+	serverless: false,
 };

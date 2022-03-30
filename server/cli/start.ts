@@ -2,8 +2,7 @@ import { program } from 'commander';
 import * as path from 'path';
 import * as fs from 'fs';
 import execa from 'execa';
-import { testHttp } from '../utils/healthcheck';
-import { PassThrough } from 'stream';
+import { testHttp } from '../../utils/healthcheck';
 
 program
 	.command('start')
@@ -68,8 +67,3 @@ program
 			await child;
 		},
 	);
-
-program.parseAsync().catch((error) => {
-	console.error(error);
-	process.exit(1);
-});

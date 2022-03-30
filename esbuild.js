@@ -36,7 +36,7 @@ const buildFile = (input, output) =>
 
 Promise.all([
 	buildFile('./server/index.ts', './server.dist.js'),
-	buildFile('./server/cli.ts', './cli.dist.js'),
+	buildFile('./server/cli/index.ts', './cli.dist.js'),
 ]).catch((error) => {
 	if (!error.errors) {
 		console.error(error);

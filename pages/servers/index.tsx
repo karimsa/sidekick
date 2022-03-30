@@ -211,7 +211,7 @@ const ServiceList: React.FC<{
 						/>
 					</div>
 
-					<div className={'p-5 space-x-2 flex'}>
+					<div className={'px-5 pb-5 space-x-2 flex'}>
 						<Button
 							variant={'primary'}
 							size={'sm'}

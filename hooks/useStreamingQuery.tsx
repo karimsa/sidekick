@@ -5,7 +5,7 @@ import { v4 as uuid } from 'uuid';
 import jsonStableStringify from 'json-stable-stringify';
 import isEqual from 'lodash/isEqual';
 
-const socket = io(`http://${global.location?.hostname}:9002/`, {
+const socket = io(`http://${global.location?.hostname}:9010/`, {
 	autoConnect: !!global.window,
 });
 

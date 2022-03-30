@@ -20,7 +20,7 @@ function useRpcQueryInternal<InputType, OutputType>(
 		async queryFn(inputData): Promise<OutputType> {
 			try {
 				const { data: resData } = await axios.post(
-					`http://localhost:9002/api/rpc/${handler.methodName}`,
+					`http://${location.hostname}:9010/api/rpc/${handler.methodName}`,
 					inputData.queryKey[1],
 				);
 				return resData;

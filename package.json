@@ -8,7 +8,7 @@
     "dev": "npm-run-all -p dev-*",
     "dev-web": "next dev -p 9001",
     "dev-build": "node esbuild -w",
-    "dev-api": "nodemon -x 'kill-port 9002 && node server.dist.js 2>&1 | tee server.log'",
+    "dev-api": "nodemon -x 'kill-port 9010 && node server.dist.js 2>&1 | tee server.log'",
     "build": "npm-run-all -p build-*",
     "build-web": "rm -rf .next && next build && next export",
     "build-server": "NODE_ENV=production node esbuild",

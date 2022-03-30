@@ -13,13 +13,13 @@ program
 	)
 	.option(
 		'-p, --port [port]',
-		'Port to run sidekick on (default: 9002)',
+		'Port to run sidekick on (default: 9010)',
 		(arg) => parseInt(arg, 10),
 	)
 	.action(
 		async ({
 			project,
-			port = 9002,
+			port = 9010,
 		}: {
 			project?: string;
 			unstable?: boolean;

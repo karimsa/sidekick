@@ -161,6 +161,6 @@ io.on('connection', (socket) => {
 	});
 });
 
-server.listen(process.env.PORT || 9002, () => {
+server.listen(process.env.PORT || 9010, () => {
 	console.log(fmt`Sidekick server listening on :${server.address()}`);
 });

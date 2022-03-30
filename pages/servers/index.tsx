@@ -25,7 +25,12 @@ import { RpcOutputType } from '../../utils/http';
 import { ServiceStatusBadge } from '../../components/ServiceStatusBadge';
 import { ZombieServiceControls } from '../../components/ZombieServiceControls';
 import { Button } from '../../components/Button';
-import { PlayIcon, StopIcon, XCircleFillIcon } from '@primer/octicons-react';
+import {
+	LinkExternalIcon,
+	PlayIcon,
+	StopIcon,
+	XCircleFillIcon,
+} from '@primer/octicons-react';
 import {
 	Dropdown,
 	DropdownButton,
@@ -679,7 +684,32 @@ const ServiceControlPanel: React.FC<{
 				)}
 
 				{isActiveStatus(selectedServerStatus.healthStatus) && (
-					<ServiceStopButton serviceName={selectedServerName} />
+					<div>
+						{serviceConfig &&
+							serviceConfig.ports.flatMap((port) =>
+								port.type === 'http' ? (
+									<div key={port.port} className={'mb-5'}>
+										<a
+											href={`http://localhost:${port.port}/`}
+											target={'_blank'}
+											className={
+												'text-blue-500 hover:text-blue-700 hover:border-b border-blue-700 pb-1'
+											}
+											rel="noreferrer"
+										>
+											<LinkExternalIcon />
+											<span className={'ml-2'}>
+												Open http://localhost:{port.port}/
+											</span>
+										</a>
+									</div>
+								) : null,
+							)}
+
+						<div>
+							<ServiceStopButton serviceName={selectedServerName} />
+						</div>
+					</div>
 				)}
 
 				{selectedServerStatus.healthStatus === HealthStatus.zombie && (

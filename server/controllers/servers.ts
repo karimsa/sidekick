@@ -299,6 +299,58 @@ export const stopService = createRpcMethod(
 	},
 );
 
+export const bulkServiceAction = createRpcMethod(
+	t.union([
+		t.interface({
+			serviceNames: t.array(t.string),
+			action: t.literal('start'),
+			targetEnvironment: t.string,
+			environment: t.record(t.string, t.string),
+		}),
+		t.interface({
+			serviceNames: t.array(t.string),
+			action: t.union([t.literal('stop'), t.literal('pause')]),
+			targetEnvironment: t.undefined,
+			environment: t.undefined,
+		}),
+	]),
+	async ({ serviceNames, action, targetEnvironment, environment }) => {
+		const services = await ServiceList.getServices();
+		const servicesUpdated: string[] = [];
+		await Promise.all(
+			services.map(async (service) => {
+				if (serviceNames.includes(service.name)) {
+					servicesUpdated.push(service.name);
+
+					switch (action) {
+						case 'start':
+							await startService.run({
+								name: service.name,
+								targetEnvironment,
+								environment,
+							});
+							break;
+
+						case 'stop':
+							await stopService.run({
+								name: service.name,
+							});
+							break;
+
+						case 'pause':
+							break;
+
+						default:
+							assertUnreachable(action);
+					}
+				}
+			}),
+		);
+
+		return servicesUpdated;
+	},
+);
+
 export const getServiceLogs = createStreamingRpcMethod(
 	t.interface({ name: t.string, devServer: t.string }),
 	async function* ({ name, devServer }, abortController) {

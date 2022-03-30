@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { withSidebar } from '../../components/Sidebar';
 import {
+	bulkServiceAction,
 	getServerHealth,
 	getServers,
 	getService,
@@ -172,6 +173,15 @@ const ServiceList: React.FC<{
 		[serviceStatuses],
 	);
 
+	const { mutate: performBulkAction, isLoading: isPerformingBulkAction } =
+		useRpcMutation(bulkServiceAction, {
+			onError(error: any, data) {
+				toast.error(
+					`Failed to ${data.action} services: ${error.message ?? error}`,
+				);
+			},
+		});
+
 	debugHooksChanged('ServiceList', {
 		serviceStatuses,
 		setServiceStatuses,
@@ -187,17 +197,73 @@ const ServiceList: React.FC<{
 				maxHeight: 'calc(100vh - (2*1.25rem))',
 			}}
 		>
-			{serviceTags && (
-				<div className={'p-5'}>
-					<Select
-						id={'service-tag-view'}
-						value={visibleTag}
-						onChange={setVisibleTag}
-						options={serviceTags.map((tag) => ({
-							label: `${startCase(tag)} services`,
-							value: tag,
-						}))}
-					/>
+			{serviceTags && services && (
+				<div>
+					<div className={'p-5'}>
+						<Select
+							id={'service-tag-view'}
+							value={visibleTag}
+							onChange={setVisibleTag}
+							options={serviceTags.map((tag) => ({
+								label: `${startCase(tag)} services`,
+								value: tag,
+							}))}
+						/>
+					</div>
+
+					<div className={'p-5 space-x-2 flex'}>
+						<Button
+							variant={'primary'}
+							size={'sm'}
+							loading={isPerformingBulkAction}
+							onClick={() =>
+								performBulkAction({
+									action: 'start',
+									serviceNames: services.flatMap((service) =>
+										isServiceVisible(visibleTag, service) ? [service.name] : [],
+									),
+									targetEnvironment: 'local',
+									environment: {},
+								})
+							}
+						>
+							Start {visibleTag.toLowerCase()} services
+						</Button>
+						<Button
+							variant={'danger'}
+							size={'sm'}
+							loading={isPerformingBulkAction}
+							onClick={() =>
+								performBulkAction({
+									action: 'stop',
+									serviceNames: services.flatMap((service) =>
+										isServiceVisible(visibleTag, service) ? [service.name] : [],
+									),
+									targetEnvironment: undefined,
+									environment: undefined,
+								})
+							}
+						>
+							Stop {visibleTag.toLowerCase()} services
+						</Button>
+						<Button
+							variant={'warning'}
+							size={'sm'}
+							loading={isPerformingBulkAction}
+							onClick={() =>
+								performBulkAction({
+									action: 'pause',
+									serviceNames: services.flatMap((service) =>
+										isServiceVisible(visibleTag, service) ? [service.name] : [],
+									),
+									targetEnvironment: undefined,
+									environment: undefined,
+								})
+							}
+						>
+							Pause {visibleTag.toLowerCase()} services
+						</Button>
+					</div>
 				</div>
 			)}
 			{services?.map(

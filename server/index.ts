@@ -19,6 +19,7 @@ import {
 import { getConfig, updateConfig } from './controllers/config';
 import { getExtensions, runExtensionMethod } from './controllers/extensions';
 import {
+	bulkServiceAction,
 	getServerHealth,
 	getServers,
 	getService,
@@ -50,6 +51,7 @@ const methods: Record<string, RpcHandler<any, any>> = {
 	getService,
 	getServiceProcessInfo,
 	restartDevServer,
+	bulkServiceAction,
 };
 
 const streamingMethods: Record<string, StreamingRpcHandler<any, any>> = {

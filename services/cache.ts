@@ -1,24 +1,16 @@
-import { Model } from '../utils/Model';
-import { z } from 'zod';
 import * as crypto from 'crypto';
 import jsonStableStringify from 'json-stable-stringify';
 import * as fs from 'fs';
-import { version } from '../../package.json';
 
 const isCacheEnabled = process.env.SIDEKICK_CACHE !== 'false';
 if (!isCacheEnabled) {
 	console.warn(`Sidekick caching is disabled`);
 }
 
-export class CacheModel extends Model(
-	'cache',
-	z.object({
-		_id: z.string(),
-		version: z.string(),
-		hash: z.string(),
-		value: z.unknown(),
-	}),
-) {
+export class CacheService {
+	private static readonly store: Map<string, { hash: string; value: unknown }> =
+		new Map();
+
 	static hashObject(object: any) {
 		return crypto
 			.createHash('md5')
@@ -33,33 +25,29 @@ export class CacheModel extends Model(
 			.digest('hex');
 	}
 
-	static async set<T>(key: string, hash: string, value: T) {
+	static set<T>(key: string, hash: string, value: T) {
 		if (!isCacheEnabled) {
 			return;
 		}
 
-		await this.repository.remove({ _id: key });
-		await this.repository.insert({
-			_id: key,
-			version,
+		this.store.delete(key);
+		this.store.set(key, {
 			hash,
 			value,
 		});
 	}
 
-	static async get(key: string, hash: string): Promise<unknown | null> {
+	static get(key: string, hash: string): unknown | null {
 		if (!isCacheEnabled) {
 			return null;
 		}
 
-		const entry = await this.repository.findOne({
-			_id: key,
-		});
+		const entry = this.store.get(key);
 		if (!entry) {
 			return null;
 		}
-		if (entry.hash !== hash || entry.version !== version) {
-			await this.repository.remove({ _id: key });
+		if (entry.hash !== hash) {
+			this.store.delete(key);
 			return null;
 		}
 		return entry.value;

@@ -5,7 +5,7 @@ import * as path from 'path';
 import * as execa from 'execa';
 import { parseJson } from '../utils/json';
 import { z } from 'zod';
-import { CacheModel } from '../server/models/Cache.model';
+import { CacheService } from './cache';
 
 export interface ServiceConfig {
 	name: string;
@@ -52,16 +52,16 @@ export class ServiceList {
 		);
 
 		if (packageJson.workspaces) {
-			const cacheHash = CacheModel.hashObject({
+			const cacheHash = CacheService.hashObject({
 				rootPackageJsonStr,
 			});
-			const cached = await CacheModel.get('yarn-workspace-list', cacheHash);
+			const cached = CacheService.get('yarn-workspace-list', cacheHash);
 			if (cached) {
 				return cached as PartialServiceEntry[];
 			}
 
 			const services = await this.getServicesWithYarnWorkspaces();
-			await CacheModel.set('yarn-workspace-list', cacheHash, services);
+			CacheService.set('yarn-workspace-list', cacheHash, services);
 			return services;
 		}
 

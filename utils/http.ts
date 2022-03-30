@@ -115,6 +115,7 @@ export type RpcHandler<InputType, OutputType> = RouteHandler<
 	InputType,
 	OutputType
 > & {
+	run(data: InputType): Promise<OutputType>;
 	__inputType: InputType;
 	__outputType: OutputType;
 };
@@ -149,8 +150,8 @@ export function createRpcMethod<InputType, ReturnType>(
 	inputType: t.Type<InputType>,
 	handler: (
 		data: InputType,
-		req: ApiRequest<InputType>,
-		res: express.Response,
+		req?: ApiRequest<InputType>,
+		res?: express.Response,
 	) => Promise<ReturnType>,
 ): RpcHandler<InputType, ReturnType> {
 	const wrapper: RouteHandler<{ data: unknown }, ReturnType> = async (
@@ -166,7 +167,11 @@ export function createRpcMethod<InputType, ReturnType>(
 			res,
 		);
 	};
-	return wrapper as any;
+	return Object.assign(wrapper as any, {
+		run(data: InputType) {
+			return handler(validate(inputType, data));
+		},
+	});
 }
 
 export function createStreamingRpcMethod<InputType, OutputType>(

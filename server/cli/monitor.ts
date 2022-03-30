@@ -1,13 +1,14 @@
 import { program } from 'commander';
-import { HealthStatus } from '../../utils/shared-types';
+import { HealthStatus, isActiveStatus } from '../../utils/shared-types';
 import * as readline from 'readline';
-import { getServerHealth } from '../controllers/servers';
+import { getServerHealth, stopService } from '../controllers/servers';
 import { AbortController } from 'node-abort-controller';
 import { ServiceConfig, ServiceList } from '../../services/service-list';
 import ansi from 'ansi-escapes';
 import chalk from 'chalk';
 import ms from 'ms';
 import path from 'path';
+import { objectEntries } from '../../utils/util-types';
 
 const clearScreen = () => process.stdout.write(ansi.clearTerminal);
 const hideCursor = () => process.stdout.write(ansi.cursorHide);
@@ -51,7 +52,7 @@ function startStdinBuffer() {
 	const inputStream = (intf as any).input;
 	inputStream.on(
 		'keypress',
-		(
+		async (
 			_: never,
 			event: { name: string; ctrl: boolean; meta: boolean; shift: boolean },
 		) => {
@@ -65,7 +66,17 @@ function startStdinBuffer() {
 			switch (event.name) {
 				case 'k':
 					setMessage(`Killing processes ...`);
-					// TODO: Implement
+					await Promise.all(
+						objectEntries(state.services).map(
+							async ([serviceName, serviceState]) => {
+								if (isActiveStatus(serviceState.status)) {
+									await stopService.run({
+										name: serviceName,
+									});
+								}
+							},
+						),
+					);
 					break;
 				case 'q':
 					process.exit();
@@ -101,6 +112,7 @@ function logAndOverwrite(msg: string) {
 
 // Never make this async
 function render({ delay, apps }: { delay: number; apps: ServiceConfig[] }) {
+	clearScreen();
 	hideCursor();
 	process.stdout.write(ansi.cursorTo(0, 0));
 

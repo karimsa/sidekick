@@ -153,7 +153,7 @@ const ServiceList: React.FC<{
 		},
 	);
 	const serviceTags = useMemo(() => {
-		const builtinTags = ['all', 'running'];
+		const builtinTags = ['running', 'all'];
 		const customTags = [
 			...new Set(services?.flatMap((service) => service.tags) ?? []),
 		].sort();
@@ -161,7 +161,7 @@ const ServiceList: React.FC<{
 	}, [services]);
 
 	const [showAllServices, setShowAllServices] = useState(false);
-	const [visibleTag, setVisibleTag] = useState('all');
+	const [visibleTag, setVisibleTag] = useState('running');
 	const isServiceVisible = useCallback(
 		(visibleTag: string, service: ServiceConfig) => {
 			if (visibleTag === 'all') {

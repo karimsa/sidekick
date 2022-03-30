@@ -21,7 +21,6 @@ import { getExtensions, runExtensionMethod } from './controllers/extensions';
 import {
 	bulkServiceAction,
 	getServerHealth,
-	getServers,
 	getService,
 	getServiceLogs,
 	getServiceProcessInfo,
@@ -44,7 +43,6 @@ const methods: Record<string, RpcHandler<any, any>> = {
 
 	getZombieProcessInfo,
 
-	getServers,
 	getServices,
 	startService,
 	stopService,

@@ -12,13 +12,6 @@ import { RunningProcessModel } from '../models/RunningProcess.model';
 import { HealthService } from '../../services/health';
 import { HealthStatus } from '../../utils/shared-types';
 
-/**
- * @deprecated Need to remove this.
- */
-export const getServers = createRpcMethod(t.interface({}), async function () {
-	return ServiceList.getServiceNames();
-});
-
 export const getServices = createRpcMethod(t.interface({}), async function () {
 	return ServiceList.getServices();
 });

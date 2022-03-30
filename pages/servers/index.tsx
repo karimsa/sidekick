@@ -5,7 +5,6 @@ import { withSidebar } from '../../components/Sidebar';
 import {
 	bulkServiceAction,
 	getServerHealth,
-	getServers,
 	getService,
 	getServiceLogs,
 	getServiceProcessInfo,
@@ -740,7 +739,7 @@ export default withSidebar(function Servers() {
 	>({});
 	const selectedServerName = useServerName();
 
-	const { data: servers, error } = useRpcQuery(getServers, {});
+	const { data: services, error } = useRpcQuery(getServices, {});
 
 	return (
 		<>
@@ -759,7 +758,7 @@ export default withSidebar(function Servers() {
 						</div>
 					)}
 
-					{servers && servers.length === 0 && (
+					{services && services.length === 0 && (
 						<div className={'flex items-center justify-center w-full'}>
 							<AlertCard title={'No servers found.'}>
 								Looks like your project is not a lerna/yarn workspace, or is
@@ -769,7 +768,7 @@ export default withSidebar(function Servers() {
 						</div>
 					)}
 
-					{!error && servers && servers.length > 0 && (
+					{!error && services && services.length > 0 && (
 						<>
 							<div className={'w-1/4'}>
 								<ServiceList

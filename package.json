@@ -1,6 +1,6 @@
 {
   "name": "@karimsa/sidekick",
-  "version": "0.0.1-12",
+  "version": "0.0.1-13",
   "publishConfig": {
     "access": "public"
   },

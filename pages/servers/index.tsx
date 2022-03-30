@@ -118,7 +118,7 @@ const ServiceListEntry: React.FC<{
 					className={classNames(
 						'text-white p-4 hover:bg-slate-600 block flex items-center justify-between',
 						{
-							'bg-emerald-700': selectedServerName === serviceName,
+							'bg-slate-800': selectedServerName === serviceName,
 						},
 					)}
 				>
@@ -164,8 +164,8 @@ const ServiceList: React.FC<{
 				return true;
 			}
 			if (visibleTag === 'running') {
-				return isActiveStatus(
-					serviceStatuses[service.name]?.healthStatus ?? HealthStatus.none,
+				return (
+					serviceStatuses[service.name]?.healthStatus !== HealthStatus.none
 				);
 			}
 			return service.tags.includes(visibleTag);

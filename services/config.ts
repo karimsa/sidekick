@@ -137,18 +137,6 @@ export class ConfigManager {
 		if (!projectPath) {
 			throw new Error(`$PROJECT_PATH is missing from the env`);
 		}
-
-		// TODO: Move this check into the CLI, so we only do it on startup
-		try {
-			await fs.promises.stat(path.resolve(projectPath, '.git'));
-		} catch (error: any) {
-			if (error.code === 'ENOENT') {
-				throw new Error(
-					`Please run sidekick from the root of your project (.git was not found)`,
-				);
-			}
-		}
-
 		return projectPath;
 	}
 

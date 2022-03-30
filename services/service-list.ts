@@ -5,6 +5,7 @@ import * as path from 'path';
 import * as execa from 'execa';
 import { parseJson } from '../utils/json';
 import { z } from 'zod';
+import { CacheModel } from '../server/models/Cache.model';
 
 export interface ServiceConfig {
 	name: string;
@@ -17,13 +18,15 @@ export interface ServiceConfig {
 	tags: string[];
 }
 
+interface PartialServiceEntry {
+	name: string;
+	location: string;
+	version: string;
+}
+
 export class ServiceList {
 	static async getServices() {
 		return this.loadServicesFromPaths(await this.getServiceDefinitions());
-	}
-
-	static async getServiceNames() {
-		return (await this.getServiceDefinitions()).map((service) => service.name);
 	}
 
 	static async getService(name: string) {
@@ -37,18 +40,29 @@ export class ServiceList {
 
 	private static async getServiceDefinitions() {
 		const projectPath = await ConfigManager.getProjectPath();
+		const rootPackageJsonStr = await fs.promises.readFile(
+			path.resolve(projectPath, 'package.json'),
+			'utf8',
+		);
 		const packageJson = parseJson(
 			z.object({
 				workspaces: z.any().optional(),
 			}),
-			await fs.promises.readFile(
-				path.resolve(projectPath, 'package.json'),
-				'utf8',
-			),
+			rootPackageJsonStr,
 		);
 
 		if (packageJson.workspaces) {
-			return this.getServicesWithYarnWorkspaces();
+			const cacheHash = CacheModel.hashObject({
+				rootPackageJsonStr,
+			});
+			const cached = await CacheModel.get('yarn-workspace-list', cacheHash);
+			if (cached) {
+				return cached as PartialServiceEntry[];
+			}
+
+			const services = await this.getServicesWithYarnWorkspaces();
+			await CacheModel.set('yarn-workspace-list', cacheHash, services);
+			return services;
 		}
 
 		const rootFiles = await fs.promises.readdir(projectPath);
@@ -81,7 +95,9 @@ export class ServiceList {
 		}
 	}
 
-	private static async getServicesWithYarnWorkspaces() {
+	private static async getServicesWithYarnWorkspaces(): Promise<
+		PartialServiceEntry[]
+	> {
 		const projectPath = await ConfigManager.getProjectPath();
 
 		const { stdout } = await execa.command('yarn workspaces info --json', {
@@ -118,7 +134,7 @@ export class ServiceList {
 		);
 	}
 
-	private static async getServicesWithLerna() {
+	private static async getServicesWithLerna(): Promise<PartialServiceEntry[]> {
 		const projectPath = await ConfigManager.getProjectPath();
 		const { stdout: listOutput } = await execa.command(
 			`lerna list --all --json`,

@@ -26,6 +26,7 @@ import { ZombieServiceControls } from '../../components/ZombieServiceControls';
 import { Button } from '../../components/Button';
 import {
 	LinkExternalIcon,
+	NoEntryFillIcon,
 	PlayIcon,
 	StopIcon,
 	XCircleFillIcon,
@@ -216,57 +217,79 @@ const ServiceList: React.FC<{
 					</div>
 
 					<div className={'px-5 pb-5 space-x-2 flex'}>
-						<Button
-							variant={'primary'}
-							size={'sm'}
-							loading={isPerformingBulkAction}
-							onClick={() =>
-								performBulkAction({
-									action: 'start',
-									serviceNames: services.flatMap((service) =>
-										isServiceVisible(visibleTag, service) ? [service.name] : [],
-									),
-									targetEnvironment: 'local',
-									environment: {},
-								})
-							}
+						<Tooltip
+							content={`Start ${visibleTag.toLowerCase()} services`}
+							disabled={visibleTag === 'running'}
 						>
-							Start {visibleTag.toLowerCase()} services
-						</Button>
-						<Button
-							variant={'danger'}
-							size={'sm'}
-							loading={isPerformingBulkAction}
-							onClick={() =>
-								performBulkAction({
-									action: 'stop',
-									serviceNames: services.flatMap((service) =>
-										isServiceVisible(visibleTag, service) ? [service.name] : [],
-									),
-									targetEnvironment: undefined,
-									environment: undefined,
-								})
-							}
-						>
-							Stop {visibleTag.toLowerCase()} services
-						</Button>
-						<Button
-							variant={'warning'}
-							size={'sm'}
-							loading={isPerformingBulkAction}
-							onClick={() =>
-								performBulkAction({
-									action: 'pause',
-									serviceNames: services.flatMap((service) =>
-										isServiceVisible(visibleTag, service) ? [service.name] : [],
-									),
-									targetEnvironment: undefined,
-									environment: undefined,
-								})
-							}
-						>
-							Pause {visibleTag.toLowerCase()} services
-						</Button>
+							<Button
+								className={'flex items-center'}
+								variant={'primary'}
+								size={'sm'}
+								disabled={visibleTag === 'running'}
+								loading={isPerformingBulkAction}
+								icon={<PlayIcon />}
+								onClick={() =>
+									performBulkAction({
+										action: 'start',
+										serviceNames: services.flatMap((service) =>
+											isServiceVisible(visibleTag, service)
+												? [service.name]
+												: [],
+										),
+										targetEnvironment: 'local',
+										environment: {},
+									})
+								}
+							>
+								Start
+							</Button>
+						</Tooltip>
+
+						<Tooltip content={`Stop ${visibleTag.toLowerCase()} services`}>
+							<Button
+								variant={'danger'}
+								size={'sm'}
+								loading={isPerformingBulkAction}
+								icon={<StopIcon />}
+								onClick={() =>
+									performBulkAction({
+										action: 'stop',
+										serviceNames: services.flatMap((service) =>
+											isServiceVisible(visibleTag, service)
+												? [service.name]
+												: [],
+										),
+										targetEnvironment: undefined,
+										environment: undefined,
+									})
+								}
+							>
+								Stop
+							</Button>
+						</Tooltip>
+
+						<Tooltip content={`Pause ${visibleTag.toLowerCase()} services`}>
+							<Button
+								variant={'warning'}
+								size={'sm'}
+								loading={isPerformingBulkAction}
+								icon={<NoEntryFillIcon />}
+								onClick={() =>
+									performBulkAction({
+										action: 'pause',
+										serviceNames: services.flatMap((service) =>
+											isServiceVisible(visibleTag, service)
+												? [service.name]
+												: [],
+										),
+										targetEnvironment: undefined,
+										environment: undefined,
+									})
+								}
+							>
+								Pause
+							</Button>
+						</Tooltip>
 					</div>
 				</div>
 			)}

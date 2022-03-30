@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { forwardRef } from 'react';
 import classNames from 'classnames';
 import { Spinner } from './Spinner';
 
@@ -28,19 +29,23 @@ export interface ButtonProps {
 	icon?: React.ReactElement;
 }
 
-export const Button: React.FC<ButtonProps> = ({
-	loading,
-	disabled,
-	variant,
-	size = 'md',
-	className,
-	type = 'button',
-	icon,
-	children,
-	onClick,
-}) => {
+export const Button: React.FC<ButtonProps> = forwardRef(function Button(
+	{
+		loading,
+		disabled,
+		variant,
+		size = 'md',
+		className,
+		type = 'button',
+		icon,
+		children,
+		onClick,
+	},
+	ref,
+) {
 	return (
 		<button
+			ref={ref as any}
 			className={classNames(
 				'rounded inline-flex items-center',
 				ButtonVariants[variant],
@@ -54,12 +59,14 @@ export const Button: React.FC<ButtonProps> = ({
 		>
 			{loading && <Spinner className={'text-white mr-2'} />}
 			{!loading && icon && (
-				<span className={'mr-2 inline-flex items-center'}>{icon}</span>
+				<span className={classNames('mr-2 inline-flex items-center')}>
+					{icon}
+				</span>
 			)}
 			<span>{children}</span>
 		</button>
 	);
-};
+});
 
 export const IconButton: React.FC<Omit<ButtonProps, 'icon'>> = ({
 	className,

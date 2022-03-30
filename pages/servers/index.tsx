@@ -270,6 +270,7 @@ const ServiceList: React.FC<{
 
 						<Tooltip content={`Pause ${visibleTag.toLowerCase()} services`}>
 							<Button
+								disabled={true}
 								variant={'warning'}
 								size={'sm'}
 								loading={isPerformingBulkAction}

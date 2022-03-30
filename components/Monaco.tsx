@@ -9,8 +9,8 @@ type MonacoProps =
 	| ({ diff: true } & DiffEditorProps)
 	| ({ diff?: false } & EditorProps);
 
-export const Monaco: React.FC<MonacoProps> = ({ diff, ...props }) => {
-	if (diff) {
+export const Monaco: React.FC<MonacoProps> = (props) => {
+	if (props.diff) {
 		return (
 			<div className={'rounded overflow-hidden h-full w-full'}>
 				<DiffEditor

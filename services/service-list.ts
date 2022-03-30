@@ -83,10 +83,17 @@ export class ServiceList {
 
 	private static async getServicesWithYarnWorkspaces() {
 		const projectPath = await ConfigManager.getProjectPath();
+
 		const { stdout } = await execa.command('yarn workspaces info --json', {
 			cwd: projectPath,
-			stderr: 'pipe',
+			stdin: 'ignore',
+			stderr: 'inherit',
 		});
+		const lines = stdout
+			.split(/\n/g)
+			.filter((line) => !line.startsWith('yarn') && !line.startsWith('Done in'))
+			.join('\n');
+
 		const workspaceConfig = parseJson(
 			z.record(
 				z.string(),
@@ -97,7 +104,7 @@ export class ServiceList {
 					}),
 				}),
 			),
-			stdout,
+			lines,
 		);
 
 		return Promise.all(

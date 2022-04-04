@@ -1,4 +1,3 @@
-import { program } from 'commander';
 import { HealthStatus, isActiveStatus } from '../../utils/shared-types';
 import * as readline from 'readline';
 import { getServerHealth, stopService } from '../controllers/servers';
@@ -7,8 +6,9 @@ import { ServiceConfig, ServiceList } from '../../services/service-list';
 import ansi from 'ansi-escapes';
 import chalk from 'chalk';
 import ms from 'ms';
-import path from 'path';
 import { objectEntries } from '../../utils/util-types';
+import { createCommand } from './createCommand';
+import { z } from 'zod';
 
 const clearScreen = () => process.stdout.write(ansi.clearTerminal);
 const hideCursor = () => process.stdout.write(ansi.cursorHide);
@@ -184,30 +184,22 @@ function render({ delay, apps }: { delay: number; apps: ServiceConfig[] }) {
 	showCursor();
 }
 
-program
-	.command('monitor')
-	.description('Run a slim version of the sidekick dashboard in a TTY')
-	.option(
-		'-d, --directory [directory]',
-		'Path to your yarn/lerna workspace (default: current directory)',
-	)
-	.action(async ({ directory }: { directory?: string }) => {
-		directory =
-			directory?.[0] === '~'
-				? path.join(process.env.HOME!, directory.substring(1))
-				: directory;
-		const projectDir = path.resolve(process.cwd(), directory ?? '.');
-		process.env.PROJECT_PATH = projectDir;
-		console.log(`Starting sidekick in: ${projectDir}`);
-
+createCommand({
+	name: 'monitor',
+	description: 'Run a slim version of the sidekick dashboard in a TTY',
+	options: z.object({}),
+	async action() {
 		const services = await ServiceList.getServices();
 
 		startStdinBuffer();
 		startAllHealthUpdaters(services);
 
 		clearScreen();
+
+		// eslint-disable-next-line no-constant-condition
 		while (true) {
 			render({ delay: 500, apps: services });
 			await new Promise((resolve) => setTimeout(resolve, 500));
 		}
-	});
+	},
+});

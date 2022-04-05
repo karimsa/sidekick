@@ -26,7 +26,7 @@ createCommand({
 							service.name,
 							service.tags.length === 0 ? '-' : service.tags.join(', '),
 							(
-								await ServiceBuildsService.getServiceLastUpdated(service)
+								await ServiceBuildsService.getServiceSourceLastUpdated(service)
 							)?.toLocaleString() ?? 'never',
 						]),
 					),

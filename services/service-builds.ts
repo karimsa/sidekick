@@ -8,7 +8,7 @@ import { ConfigManager } from './config';
 import { makeChan, select } from 'rsxjs';
 
 export class ServiceBuildsService {
-	static async getServiceLastUpdated(serviceConfig: ServiceConfig) {
+	static async getServiceSourceLastUpdated(serviceConfig: ServiceConfig) {
 		const sourceEntries = await globby(serviceConfig.sourceFiles, {
 			objectMode: true,
 			cwd: serviceConfig.location,
@@ -22,19 +22,42 @@ export class ServiceBuildsService {
 		return lastModifiedEntry?.stats!.mtime ?? null;
 	}
 
-	static async getServiceLastBuilt(serviceConfig: ServiceConfig) {
-		const buildEntry = await ServiceBuildHistoryModel.getLastBuildEntry(
-			serviceConfig,
+	static async getServiceOutputLastUpdated(serviceConfig: ServiceConfig) {
+		const sourceEntries = await globby(serviceConfig.outputFiles, {
+			objectMode: true,
+			cwd: serviceConfig.location,
+			expandDirectories: true,
+			stats: true,
+		});
+		const lastModifiedEntry = maxBy(
+			sourceEntries,
+			(entry) => +entry.stats!.mtime,
 		);
-		return buildEntry?.lastBuiltTime ?? null;
+		return lastModifiedEntry?.stats!.mtime ?? null;
+	}
+
+	static async getServiceLastBuilt(serviceConfig: ServiceConfig) {
+		const [buildEntry, outputLastUpdated] = await Promise.all([
+			ServiceBuildHistoryModel.getLastBuildEntry(serviceConfig),
+			this.getServiceOutputLastUpdated(serviceConfig),
+		]);
+
+		const buildEntryLastBuilt = buildEntry?.lastBuiltTime ?? new Date(0);
+		const lastOutputUpdated = outputLastUpdated ?? new Date(0);
+
+		return new Date(Math.max(+buildEntryLastBuilt, +lastOutputUpdated));
 	}
 
 	static async isServiceStale(serviceConfig: ServiceConfig) {
 		const [lastBuiltAt, lastUpdatedAt] = await Promise.all([
 			this.getServiceLastBuilt(serviceConfig),
-			this.getServiceLastUpdated(serviceConfig),
+			this.getServiceSourceLastUpdated(serviceConfig),
 		]);
-		return !lastBuiltAt || !lastUpdatedAt || lastBuiltAt < lastUpdatedAt;
+		// there's no source files, can't be stale
+		if (!lastUpdatedAt) {
+			return false;
+		}
+		return !lastBuiltAt || lastBuiltAt < lastUpdatedAt;
 	}
 
 	static async *buildServices(

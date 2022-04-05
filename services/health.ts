@@ -3,7 +3,7 @@ import { testHttp, testTcp } from '../utils/healthcheck';
 import { assertUnreachable, objectKeys } from '../utils/util-types';
 import { ProcessManager } from '../utils/process-manager';
 import { HealthStatus, isActiveStatus } from '../utils/shared-types';
-import { ServiceBuildHistoryModel } from '../server/models/ServiceBuildHistory.model';
+import { ServiceBuildsService } from './service-builds';
 
 export class HealthService {
 	static async getServiceHealth(name: string) {
@@ -78,18 +78,6 @@ export class HealthService {
 			};
 		}
 
-		// If there are no processes and no response, the service is not running
-		else if (
-			numCreatedProcesses === 0 &&
-			numRunningProcesses === 0 &&
-			numPortsHealthy === 0
-		) {
-			return {
-				healthStatus: HealthStatus.none,
-				version: serviceConfig.version,
-			};
-		}
-
 		// If the all the expected ports are responding, but the process manager was not able to
 		// locate all the processes, we have entered zombie mode
 		else if (
@@ -105,7 +93,9 @@ export class HealthService {
 		// If all the expected processes are running, but we are not receiving any response on ports,
 		// the service is completely failing
 		else if (
-			(numRunningProcesses === numExpectedProcesses && numPortsHealthy === 0) ||
+			(numExpectedProcesses > 0 &&
+				numRunningProcesses === numExpectedProcesses &&
+				numPortsHealthy === 0) ||
 			numCreatedProcesses > numRunningProcesses
 		) {
 			return {
@@ -124,13 +114,12 @@ export class HealthService {
 				healthStatus: HealthStatus.partial,
 				version: serviceConfig.version,
 			};
+		} else if (await ServiceBuildsService.isServiceStale(serviceConfig)) {
+			return {
+				healthStatus: HealthStatus.stale,
+				version: serviceConfig.version,
+			};
 		} else {
-			// TODO: Identify stale builds
-
-			if (name.endsWith('labs-server')) {
-				await ServiceBuildHistoryModel.isServiceStale(serviceConfig);
-			}
-
 			return {
 				healthStatus: HealthStatus.none,
 				version: serviceConfig.version,

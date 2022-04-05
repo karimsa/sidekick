@@ -40,8 +40,6 @@ function setMessage(message: string) {
 	}, 5000);
 }
 
-const stdinBuffer: string[] = [];
-
 function startStdinBuffer() {
 	const intf = readline.createInterface({
 		input: process.stdin,
@@ -97,6 +95,7 @@ async function startHealthUpdater(name: string) {
 		abortController,
 	)) {
 		state.services[name] = { status: healthStatus, lastChangedAt: new Date() };
+		state.lastUpdatedAt = new Date();
 	}
 }
 
@@ -146,16 +145,18 @@ function render({ delay, apps }: { delay: number; apps: ServiceConfig[] }) {
 
 			case HealthStatus.zombie:
 				logAndOverwrite(
-					`🧟‍ ${chalk.bold.red(name)} (running, but not owned by sidekick)`,
+					`🧟‍ ${chalk.bold.magenta(
+						name,
+					)} (running, but not owned by sidekick)`,
 				);
 				break;
 
 			case HealthStatus.stale:
-				logAndOverwrite(`🚨‍ ${chalk.bold.red(name)} (needs to be rebuilt)`);
+				logAndOverwrite(`🚨‍ ${chalk.yellow(name)} (needs to be rebuilt)`);
 				break;
 
 			case HealthStatus.paused:
-				logAndOverwrite(`⏸‍ ${chalk.bold.red(name)}`);
+				logAndOverwrite(`⏸‍ ${chalk.yellow(name)}`);
 				break;
 
 			case HealthStatus.none:
@@ -198,8 +199,8 @@ createCommand({
 
 		// eslint-disable-next-line no-constant-condition
 		while (true) {
-			render({ delay: 500, apps: services });
-			await new Promise((resolve) => setTimeout(resolve, 500));
+			render({ delay: 1000, apps: services });
+			await new Promise((resolve) => setTimeout(resolve, 1000));
 		}
 	},
 });

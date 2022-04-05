@@ -12,6 +12,8 @@ export interface ServiceConfig {
 	location: string;
 	version: string;
 	scripts: Record<string, string>;
+	outputFiles: string[];
+	sourceFiles: string[];
 	ports: { type: 'http' | 'tcp'; port: number }[];
 	actions: { label: string; command: string }[];
 	devServers: Record<string, string>;
@@ -31,7 +33,11 @@ export class ServiceList {
 
 	static async getService(name: string) {
 		const definitions = await this.getServiceDefinitions();
-		const serviceDefn = definitions.find((defn) => defn.name === name);
+		const serviceDefn = definitions.find(
+			(defn) =>
+				defn.name === name ||
+				(defn.name[0] === '@' && defn.name.split('/')[1] === name),
+		);
 		if (!serviceDefn) {
 			throw new Error(`Could not find a service with the name: ${name}`);
 		}
@@ -135,27 +141,34 @@ export class ServiceList {
 	}
 
 	private static async getServicesWithLerna(): Promise<PartialServiceEntry[]> {
-		const projectPath = await ConfigManager.getProjectPath();
-		const { stdout: listOutput } = await execa.command(
-			`lerna list --all --json`,
-			{ cwd: projectPath },
-		);
+		try {
+			const projectPath = await ConfigManager.getProjectPath();
+			const { stdout: listOutput } = await execa.command(
+				`lerna list --all --json`,
+				{ cwd: projectPath },
+			);
 
-		const lernaList = parseJson(
-			z.array(
-				z.object({
-					name: z.string(),
-					location: z.string(),
-					version: z.string(),
-				}),
-			),
-			listOutput,
-		);
-		return lernaList.map(({ name, location, version }) => ({
-			name,
-			location,
-			version,
-		}));
+			const lernaList = parseJson(
+				z.array(
+					z.object({
+						name: z.string(),
+						location: z.string(),
+						version: z.string(),
+					}),
+				),
+				listOutput,
+			);
+			return lernaList.map(({ name, location, version }) => ({
+				name,
+				location,
+				version,
+			}));
+		} catch (error: any) {
+			if (error.code === 'ENOENT') {
+				return [];
+			}
+			throw error;
+		}
 	}
 
 	private static async loadServiceFromPath({
@@ -169,32 +182,35 @@ export class ServiceList {
 	}): Promise<ServiceConfig> {
 		const servicePackageJson = await this.getPackageJson(location);
 		const serviceSidekickConfigStr = await this.getSidekickJson(location);
-		const { ports, actions, devServers, tags } = parseJson(
-			z.object({
-				ports: z
-					.array(
-						z.object({
-							type: z.union([z.literal('http'), z.literal('tcp')]),
-							port: z
-								.number()
-								.int('Port numbers must be valid integers')
-								.min(1),
-						}),
-					)
-					.optional(),
-				actions: z
-					.array(
-						z.object({
-							label: z.string(),
-							command: z.string(),
-						}),
-					)
-					.optional(),
-				devServers: z.record(z.string(), z.string()).optional(),
-				tags: z.array(z.string()).optional(),
-			}),
-			serviceSidekickConfigStr,
-		);
+		const { ports, actions, devServers, tags, sourceFiles, outputFiles } =
+			parseJson(
+				z.object({
+					ports: z
+						.array(
+							z.object({
+								type: z.union([z.literal('http'), z.literal('tcp')]),
+								port: z
+									.number()
+									.int('Port numbers must be valid integers')
+									.min(1),
+							}),
+						)
+						.optional(),
+					actions: z
+						.array(
+							z.object({
+								label: z.string(),
+								command: z.string(),
+							}),
+						)
+						.optional(),
+					devServers: z.record(z.string(), z.string()).optional(),
+					tags: z.array(z.string()).optional(),
+					sourceFiles: z.array(z.string()).optional(),
+					outputFiles: z.array(z.string()).optional(),
+				}),
+				serviceSidekickConfigStr,
+			);
 
 		return {
 			name,
@@ -207,6 +223,8 @@ export class ServiceList {
 				all: 'npm start',
 			},
 			tags: tags ?? [],
+			sourceFiles: sourceFiles ?? ['./src/**/*.{js,jsx,ts,tsx}'],
+			outputFiles: outputFiles ?? ['./dist/**/*.js'],
 		};
 	}
 

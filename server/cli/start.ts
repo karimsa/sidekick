@@ -11,7 +11,7 @@ createCommand({
 	options: z.object({
 		port: z.number().default(9010).describe('Port to run sidekick on'),
 	}),
-	async action({ port, projectDir }) {
+	async action({ port = 9010, projectDir }) {
 		await fs.promises.mkdir(`${process.env.HOME}/.sidekick`, {
 			recursive: true,
 		});

@@ -3,6 +3,7 @@ import { testHttp, testTcp } from '../utils/healthcheck';
 import { assertUnreachable, objectKeys } from '../utils/util-types';
 import { ProcessManager } from '../utils/process-manager';
 import { HealthStatus, isActiveStatus } from '../utils/shared-types';
+import { ServiceBuildHistoryModel } from '../server/models/ServiceBuildHistory.model';
 
 export class HealthService {
 	static async getServiceHealth(name: string) {
@@ -125,6 +126,11 @@ export class HealthService {
 			};
 		} else {
 			// TODO: Identify stale builds
+
+			if (name.endsWith('labs-server')) {
+				await ServiceBuildHistoryModel.isServiceStale(serviceConfig);
+			}
+
 			return {
 				healthStatus: HealthStatus.none,
 				version: serviceConfig.version,

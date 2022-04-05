@@ -2,6 +2,7 @@ import { z } from 'zod';
 import parseArgs from 'minimist';
 import path from 'path';
 import { objectEntries, objectKeys } from '../../utils/util-types';
+import { fmt } from '../../utils/fmt';
 
 interface Command<Options> {
 	name: string;
@@ -24,7 +25,7 @@ function getShape(schema: z.Schema<any>) {
 }
 
 function isZodType(name: string, schema: any): boolean {
-	if (schema.typeName === name) {
+	if (schema._def?.typeName === name) {
 		return true;
 	}
 	if (schema.innerType) {
@@ -72,7 +73,9 @@ function showCommandHelp(command: Command<any>) {
 				' '.repeat(longestFlagName - flagOutputs[index].length + 2),
 				schema.description,
 				// @ts-ignore
-				schema._def ? ` (default: ${schema._def.defaultValue()})` : ``,
+				schema._def.defaultValue
+					? ` (default: ${schema._def.defaultValue()})`
+					: ``,
 			].join(''),
 		);
 	}
@@ -106,27 +109,26 @@ setImmediate(async () => {
 			return;
 		}
 
+		const args = parseArgs(process.argv.slice(3), {
+			alias: objectKeys(getShape(command.options)).reduce(
+				(aliases, option) => ({ ...aliases, [option[0]]: option }),
+				{ t: 'targetDirectory' },
+			),
+		});
 		const result = z
 			.intersection(
 				command.options,
 				z.object({
-					directory: z.string({ description: '' }).default('./'),
+					targetDirectory: z.string({ description: '' }).default('./'),
 				}),
 			)
-			.safeParse(
-				parseArgs(process.argv.slice(3), {
-					alias: objectKeys(getShape(command.options)).reduce(
-						(aliases, option) => ({ ...aliases, [option[0]]: option }),
-						{ d: 'directory' },
-					),
-				}),
-			);
+			.safeParse(args);
 		if (result.success) {
-			const { directory, ...options } = result.data;
+			const { targetDirectory, ...options } = result.data;
 			const normalizedDirectory =
-				directory?.[0] === '~'
-					? path.join(process.env.HOME!, directory.substring(1))
-					: directory;
+				targetDirectory?.[0] === '~'
+					? path.join(process.env.HOME!, targetDirectory.substring(1))
+					: targetDirectory;
 			const projectDir = path.resolve(
 				process.cwd(),
 				normalizedDirectory ?? '.',
@@ -135,7 +137,17 @@ setImmediate(async () => {
 
 			await command.action({ ...options, projectDir });
 		} else {
-			console.dir(result.error);
+			const { fieldErrors, formErrors } = result.error.flatten();
+			if (formErrors.length > 0) {
+				console.error(formErrors.join('\n'));
+			} else {
+				console.error(
+					objectEntries(fieldErrors)
+						.map(([key, error]) => `--${key}: ${error}: ${fmt`${args[key]}`}`)
+						.join('\n'),
+				);
+			}
+			console.error('');
 			showCommandHelp(command);
 		}
 	} catch (error: any) {

@@ -1,4 +1,4 @@
-import Datastore, { RemoveOptions } from 'nedb';
+import Datastore, { UpdateOptions } from 'nedb';
 import path from 'path';
 import { ConfigManager } from '../../services/config';
 import { z } from 'zod';
@@ -35,6 +35,35 @@ export class Repository<T extends { _id: string }> {
 					reject(err);
 				} else {
 					resolve(result ?? null);
+				}
+			});
+		});
+	}
+
+	async upsertById(document: T) {
+		return new Promise<void>((resolve, reject) => {
+			this.db.update(
+				{ _id: document._id },
+				document,
+				{ upsert: true },
+				(err: Error | null) => {
+					if (err) {
+						reject(err);
+					} else {
+						resolve();
+					}
+				},
+			);
+		});
+	}
+
+	async update(query: any, updates: any, options?: UpdateOptions) {
+		return new Promise<void>((resolve, reject) => {
+			this.db.update(query, updates, options, (err: Error | null) => {
+				if (err) {
+					reject(err);
+				} else {
+					resolve();
 				}
 			});
 		});

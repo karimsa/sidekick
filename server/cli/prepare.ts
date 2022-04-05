@@ -10,15 +10,22 @@ createCommand({
 	description: 'Build a service',
 	options: z.object({
 		name: z.string().optional().describe('Name of the service to build'),
+		force: z
+			.boolean()
+			.optional()
+			.describe('Force build services, even if they are up-to-date'),
 		dryRun: z
 			.boolean()
 			.optional()
 			.describe('Skip building, and only print information'),
 	}),
-	async action({ name, dryRun }) {
+	async action({ name, dryRun, force }) {
 		if (name) {
 			const serviceConfig = await ServiceList.getService(name);
-			if (!(await ServiceBuildsService.isServiceStale(serviceConfig))) {
+			if (
+				!force &&
+				!(await ServiceBuildsService.isServiceStale(serviceConfig))
+			) {
 				console.warn(`Service already up-to-date`);
 				return;
 			}
@@ -38,7 +45,7 @@ createCommand({
 			const staleServices = (
 				await Promise.all(
 					services.map(async (service) => {
-						if (await ServiceBuildsService.isServiceStale(service)) {
+						if (force || (await ServiceBuildsService.isServiceStale(service))) {
 							return [service];
 						}
 						return [];

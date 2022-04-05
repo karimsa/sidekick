@@ -34,6 +34,14 @@ function isZodType(name: string, schema: any): boolean {
 	return false;
 }
 
+function getDefaultValue(schema: z.ZodSchema<any>) {
+	// @ts-ignore
+	return schema._def.defaultValue
+		? // @ts-ignore
+		  ` (default: ${schema._def.defaultValue()})`
+		: ``;
+}
+
 function showHelp() {
 	console.error(`usage: sidekick [command] [options]`);
 	console.error(``);
@@ -72,10 +80,7 @@ function showCommandHelp(command: Command<any>) {
 				flagOutputs[index],
 				' '.repeat(longestFlagName - flagOutputs[index].length + 2),
 				schema.description,
-				// @ts-ignore
-				schema._def.defaultValue
-					? ` (default: ${schema._def.defaultValue()})`
-					: ``,
+				getDefaultValue(schema),
 			].join(''),
 		);
 	}

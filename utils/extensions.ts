@@ -51,9 +51,10 @@ export class ExtensionBuilder {
 			}),
 		);
 		if (cacheEntry) {
-			console.dir(cacheEntry);
+			debug(`Cache hit for extension client: ${extensionId}`);
 			return cacheEntry;
 		}
+		debug(`Cache miss for extension client: ${extensionId}`);
 
 		const clientCode = await ctx.timePromise(
 			'bundle client',
@@ -102,8 +103,10 @@ export class ExtensionBuilder {
 			}),
 		);
 		if (cacheEntry) {
+			debug(`Cache hit for extension server: ${extensionId}`);
 			return cacheEntry;
 		}
+		debug(`Cache miss for extension server: ${extensionId}`);
 
 		const serverCode = await this.buildServerBundle(ctx, {
 			filePath,

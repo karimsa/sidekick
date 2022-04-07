@@ -10,31 +10,41 @@ export const getExtensions = createRpcMethod(
 	t.interface({}),
 	async function () {
 		const config = await ConfigManager.loadProjectOverrides();
-		return Promise.all(
-			config.extensions?.map(async (extensionPath) => {
-				try {
-					const { clientCode, warnings } =
-						await ExtensionBuilder.getExtensionClient(extensionPath);
-					return { extensionPath, warnings, code: clientCode };
-				} catch (error: any) {
-					console.error(error);
-					return {
-						extensionPath,
-						warnings: [],
-						code: `throw new Error(${JSON.stringify(
-							`${String(error)} (failed to build)`,
-						)})`,
-					};
-				}
-			}) ?? [],
-		);
+		return config.extensions;
+	},
+);
+
+export const getExtensionClient = createRpcMethod(
+	t.interface({ id: t.string }),
+	async function ({ id }) {
+		const config = await ConfigManager.loadProjectOverrides();
+		const extension = config.extensions?.find((ext) => ext.id === id);
+		if (!extension) {
+			throw new Error(`Extension with id '${id}' not found`);
+		}
+
+		try {
+			const { clientCode, warnings } =
+				await ExtensionBuilder.getExtensionClient(extension);
+			return { id, config: extension, warnings, code: clientCode };
+		} catch (error: any) {
+			console.error(error);
+			return {
+				id,
+				config: null,
+				warnings: [],
+				code: `throw new Error(${JSON.stringify(
+					`${String(error)} (failed to build)`,
+				)})`,
+			};
+		}
 	},
 );
 
 export const runExtensionMethod = createRpcMethod(
 	t.intersection([
 		t.interface({
-			extensionPath: t.string,
+			extensionId: t.string,
 			methodName: t.string,
 			params: t.unknown,
 		}),
@@ -45,7 +55,7 @@ export const runExtensionMethod = createRpcMethod(
 		}),
 	]),
 	async ({
-		extensionPath,
+		extensionId,
 		methodName,
 		params,
 		targetEnvironment,
@@ -53,8 +63,11 @@ export const runExtensionMethod = createRpcMethod(
 		nodeOptions,
 	}) => {
 		const sidekickConfig = await ConfigManager.loadProjectOverrides();
-		if (!sidekickConfig.extensions?.includes(extensionPath)) {
-			throw new Error(`No extension found at: ${extensionPath}`);
+		const extension = sidekickConfig.extensions?.find(
+			(ext) => ext.id === extensionId,
+		);
+		if (!extension) {
+			throw new Error(`No extension found with id ${extensionId}`);
 		}
 
 		const config = await ConfigManager.createProvider();
@@ -64,7 +77,7 @@ export const runExtensionMethod = createRpcMethod(
 			: {};
 
 		const projectPath = await ConfigManager.getProjectPath();
-		const server = await ExtensionBuilder.getExtensionServer(extensionPath);
+		const server = await ExtensionBuilder.getExtensionServer(extension);
 		const result = await ExecUtils.runJS(
 			async function (require, { server, methodName, params }) {
 				const modulePolyfill = { exports: {} as any };
@@ -87,7 +100,7 @@ export const runExtensionMethod = createRpcMethod(
 			},
 			{ server, methodName, params },
 			{
-				cwd: path.resolve(projectPath, path.dirname(extensionPath)),
+				cwd: path.resolve(projectPath, path.dirname(extension.entryPoint)),
 				nodeOptions,
 				env: {
 					...environment,

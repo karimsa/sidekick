@@ -8,6 +8,7 @@ import omit from 'lodash/omit';
 
 import SidekickPackageJson from '../package.json';
 import { loadModule } from '../utils/load-module';
+import { Defined } from '../utils/util-types';
 
 const ConfigTypes = t.interface({
 	environments: t.record(t.string, t.record(t.string, t.string)),
@@ -19,9 +20,19 @@ type ConfigTypes = t.TypeOf<typeof ConfigTypes>;
 
 export const SidekickConfigOverrides = t.partial({
 	defaultConfig: ConfigTypes,
-	extensions: t.array(t.string),
+	extensions: t.array(
+		t.interface({
+			id: t.string,
+			name: t.string,
+			icon: t.string,
+			entryPoint: t.string,
+		}),
+	),
 });
 export type SidekickConfigOverrides = t.TypeOf<typeof SidekickConfigOverrides>;
+export type SidekickExtensionConfig = Defined<
+	SidekickConfigOverrides['extensions']
+>[number];
 
 const validateConfig = (config: any) =>
 	validate(

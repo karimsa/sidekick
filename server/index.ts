@@ -17,7 +17,11 @@ import {
 	validate,
 } from '../utils/http';
 import { getConfig, updateConfig } from './controllers/config';
-import { getExtensions, runExtensionMethod } from './controllers/extensions';
+import {
+	getExtensionClient,
+	getExtensions,
+	runExtensionMethod,
+} from './controllers/extensions';
 import {
 	bulkServiceAction,
 	getServerHealth,
@@ -39,6 +43,7 @@ const methods: Record<string, RpcHandler<any, any>> = {
 	updateConfig,
 
 	getExtensions,
+	getExtensionClient,
 	runExtensionMethod,
 
 	getZombieProcessInfo,
@@ -61,6 +66,9 @@ const streamingMethods: Record<string, StreamingRpcHandler<any, any>> = {
 const corsConfig = { origin: ['http://localhost:9001'] };
 
 app.use(cors(corsConfig));
+app.options('/api/rpc/:methodName', (req, res) => {
+	res.end();
+});
 app.post(
 	'/api/rpc/:methodName',
 	bodyParser.json({ limit: 1024 * 1024 }),

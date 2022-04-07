@@ -5,7 +5,7 @@ export function objectKeys<T>(object: T): (keyof T)[] {
 	return Object.keys(object) as any[];
 }
 
-type Defined<T> = T extends undefined ? never : T;
+export type Defined<T> = T extends undefined ? never : T;
 
 type Entries<T> = Defined<
 	{

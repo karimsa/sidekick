@@ -2,7 +2,7 @@ import * as React from 'react';
 import { useCallback, useMemo } from 'react';
 import { useQueryInvalidator, useRpcQuery } from './useQuery';
 import {
-	getExtensions,
+	getExtensionClient,
 	runExtensionMethod,
 } from '../server/controllers/extensions';
 // @ts-ignore
@@ -19,7 +19,7 @@ import { loadModule } from '../utils/load-module';
 import omit from 'lodash/omit';
 import * as tslib from 'tslib';
 
-function createExtensionHelpers(extensionId: string, extensionPath: string) {
+function createExtensionHelpers(extensionId: string) {
 	return {
 		useQuery(
 			methodName: string,
@@ -37,7 +37,7 @@ function createExtensionHelpers(extensionId: string, extensionPath: string) {
 			const { data, ...props } = useRpcQuery(
 				runExtensionMethod,
 				{
-					extensionPath,
+					extensionId,
 					methodName,
 					params,
 					targetEnvironment: options?.targetEnvironment,
@@ -114,7 +114,7 @@ function createExtensionHelpers(extensionId: string, extensionPath: string) {
 					},
 				) => {
 					mutate({
-						extensionPath,
+						extensionId,
 						methodName,
 						params,
 						targetEnvironment: options?.targetEnvironment,
@@ -205,91 +205,96 @@ export interface CompiledExtension {
 	icon: string;
 	code: string;
 	warnings: string[];
-	title: string;
+	name: string;
 	Page: React.FC;
 }
 
 const extensionCache = new Map<string, CompiledExtension>();
 
-export function useExtensions() {
-	const { data, ...props } = useRpcQuery(getExtensions, {});
+export function getExtensionIcon(name: string) {
+	const icon = octicons[name];
+	if (!icon) {
+		console.error(`Unrecognized icon: ${name}`);
+		return '';
+	}
+	return icon.toSVG();
+}
 
-	const extensions = useMemo<CompiledExtension[] | undefined>(() => {
-		return data?.flatMap(({ extensionPath, code, warnings }) => {
-			const cachedExtension = extensionCache.get(extensionPath);
-			if (cachedExtension) {
-				const updateWarning = `Your extension has changed. Please refresh to update.`;
-				if (
-					code !== cachedExtension.code &&
-					!cachedExtension.warnings.includes(updateWarning)
-				) {
-					cachedExtension.warnings.push(updateWarning);
-				}
+export function useExtension(extensionId?: string) {
+	const { data, error, ...props } = useRpcQuery(
+		getExtensionClient,
+		{
+			id: extensionId,
+		},
+		{
+			enabled: !!extensionId,
+		},
+	);
+	const { extension, error: extensionError } = useMemo<
+		| { extension: CompiledExtension; error: null }
+		| { extension: null; error: any }
+		| { extension: null; error: null }
+	>(() => {
+		if (!data || !extensionId) {
+			return { extension: null, error: null };
+		}
 
-				return [cachedExtension];
+		const { config, code, warnings } = data;
+		if (!config) {
+			return { extension: null, error: `Unexpected error` };
+		}
+
+		const cachedExtension = extensionCache.get(extensionId);
+		if (cachedExtension) {
+			const updateWarning = `Your extension has changed. Please refresh to update.`;
+			if (
+				code !== cachedExtension.code &&
+				!cachedExtension.warnings.includes(updateWarning)
+			) {
+				cachedExtension.warnings.push(updateWarning);
 			}
 
-			try {
-				console.log(`Loading extension: ${extensionPath}`);
-				const helpers = {};
+			return { extension: cachedExtension, error: null };
+		}
 
-				const { config, Page } = loadModule(code, {
-					// these cannot be bundled and must be loaded at runtime
-					require(modName: string) {
-						switch (modName) {
-							case 'react':
-								return React;
-							case 'react-dom':
-								return ReactDOM;
-							case 'next/router':
-								return { useRouter };
-							case 'sidekick/extension':
-								return helpers;
-							case 'tslib':
-								return tslib;
-							default:
-								throw new Error(`Failed to bundle '${modName}'`);
-						}
-					},
-				});
+		try {
+			console.log(`Loading extension: ${extensionId}`);
+			const helpers = {};
 
-				if (!config) {
-					throw new Error(`Missing 'config' export`);
-				}
-				if (!config.id) {
-					throw new Error(`Extension is missing an 'id' (export using config)`);
-				}
+			const { Page } = loadModule(code, {
+				// these cannot be bundled and must be loaded at runtime
+				require(modName: string) {
+					switch (modName) {
+						case 'react':
+							return React;
+						case 'react-dom':
+							return ReactDOM;
+						case 'next/router':
+							return { useRouter };
+						case 'sidekick/extension':
+							return helpers;
+						case 'tslib':
+							return tslib;
+						default:
+							throw new Error(`Failed to bundle '${modName}'`);
+					}
+				},
+			});
 
-				const icon = octicons[config.icon];
-				if (!icon) {
-					throw new Error(`Unrecognized icon: ${config.icon}`);
-				}
-
-				Object.assign(
-					helpers,
-					createExtensionHelpers(config.id, extensionPath),
-				);
-				const compiled: CompiledExtension = {
-					id: config.id,
-					icon: icon.toSVG(),
-					code,
-					warnings,
-					title: config.title,
-					Page,
-				};
-				extensionCache.set(extensionPath, compiled);
-				return [compiled];
-			} catch (error: any) {
-				console.dir({ error, code });
-				toast.error(
-					`Failed to load extension from ${extensionPath}: ${String(error)}`,
-					{
-						id: `loading-${extensionPath}`,
-					},
-				);
-				return [];
-			}
-		});
-	}, [data]);
-	return { extensions, ...props };
+			Object.assign(helpers, createExtensionHelpers(config.id));
+			const compiled: CompiledExtension = {
+				id: config.id,
+				icon: getExtensionIcon(config.icon),
+				code,
+				warnings,
+				name: config.name,
+				Page,
+			};
+			extensionCache.set(extensionId, compiled);
+			return { extension: compiled, error: null };
+		} catch (error: any) {
+			return { extension: null, error };
+		}
+	}, [data, extensionId]);
+	return { extension, error: error || extensionError, ...props };
 }

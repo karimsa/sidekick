@@ -50,6 +50,7 @@ import { debugHooksChanged } from '../../hooks/debug-hooks';
 import isEqual from 'lodash/isEqual';
 import startCase from 'lodash/startCase';
 import type { ServiceConfig } from '../../services/service-list';
+import { Spinner } from '../../components/Spinner';
 
 function useServerName() {
 	const router = useRouter();
@@ -779,6 +780,17 @@ export default withSidebar(function Servers() {
 								The servers list could not be loaded.
 								<Code>{String(error)}</Code>
 							</AlertCard>
+						</div>
+					)}
+
+					{!services && !error && (
+						<div className={'flex items-center justify-center w-full'}>
+							<div className={'flex items-center'}>
+								<Spinner className={'text-white'} />
+								<span className={'ml-4 text-white text-lg'}>
+									Fetching services ...
+								</span>
+							</div>
 						</div>
 					)}
 

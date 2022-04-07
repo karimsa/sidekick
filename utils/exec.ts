@@ -71,10 +71,7 @@ export class ExecUtils {
 		const nodeOptions = options?.nodeOptions ?? [];
 		await ExecUtils.runCommand(
 			process.env.SHELL!,
-			[
-				'-c',
-				`source ~/.nvm/nvm.sh && nvm use 12.22.7 && node ${nodeOptions} ${tmpFilePath}`,
-			],
+			['-c', `${process.argv[0]} ${nodeOptions} ${tmpFilePath}`],
 			{ ...options, cwd: projectDir },
 		);
 		const resData = await fs.promises.readFile(outputSocket, 'utf8');

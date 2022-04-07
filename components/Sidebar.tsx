@@ -12,14 +12,25 @@ import Tooltip from '@tippyjs/react';
 
 // import { InboxItems } from './InboxItems';
 import { useLocalState } from '../hooks/useLocalState';
-import { useExtensions } from '../hooks/useExtensions';
+import { useRpcQuery } from '../hooks/useQuery';
+import { getExtensions } from '../server/controllers/extensions';
+import { toast } from 'react-hot-toast';
+import { getExtensionIcon } from '../hooks/useExtensions';
 
 export const Sidebar: React.FC<{
 	isOpen: boolean;
 	setOpen(open: boolean): void;
 }> = ({ isOpen, setOpen }) => {
 	const router = useRouter();
-	const { extensions } = useExtensions();
+	const { data: extensions } = useRpcQuery(
+		getExtensions,
+		{},
+		{
+			onError(error: any) {
+				toast.error(`Failed to load extensions: ${error.message ?? error}`);
+			},
+		},
+	);
 
 	const links = useMemo(
 		() => [
@@ -32,11 +43,13 @@ export const Sidebar: React.FC<{
 				icon: (
 					<span
 						style={{ fill: 'white' }}
-						dangerouslySetInnerHTML={{ __html: extension.icon }}
+						dangerouslySetInnerHTML={{
+							__html: getExtensionIcon(extension.icon),
+						}}
 					/>
 				),
 				href: `/extensions/${extension.id}`,
-				label: extension.title,
+				label: extension.name,
 			})),
 			{
 				icon: <ToolsIcon />,

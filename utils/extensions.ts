@@ -1,7 +1,7 @@
 import * as babel from '@babel/core';
 import * as esbuild from 'esbuild';
 import { BuildOptions } from 'esbuild';
-import { ConfigManager } from '../services/config';
+import { ConfigManager, SidekickExtensionConfig } from '../services/config';
 // @ts-ignore
 import resolveModulePath from 'resolve/async';
 import * as util from 'util';
@@ -31,7 +31,9 @@ const BabelParserOptions: ParserOptions = {
 };
 
 export class ExtensionBuilder {
-	static async getExtensionClient(extensionPath: string) {
+	static async getExtensionClient({
+		entryPoint: extensionPath,
+	}: SidekickExtensionConfig) {
 		const ctx = new OperationContext();
 		const timer = ctx.startTimer('build client extension');
 		const { code, filePath, fullAst } = await ctx.timePromise(
@@ -62,7 +64,9 @@ export class ExtensionBuilder {
 		return { clientCode, warnings };
 	}
 
-	static async getExtensionServer(extensionPath: string) {
+	static async getExtensionServer({
+		entryPoint: extensionPath,
+	}: SidekickExtensionConfig) {
 		const ctx = new OperationContext();
 		const timer = ctx.startTimer('build server extension');
 		const { code, filePath, fullAst, serverExports } =
@@ -115,16 +119,14 @@ export class ExtensionBuilder {
 								const css = await fs.promises.readFile(args.path, 'utf8');
 								return {
 									contents: `!function(){
-                                        try { var d = document.documentElement }
-                                        catch (error) { return }
+											try { var d = document.documentElement }
+											catch (error) { return }
 
-                                        var style = document.createElement('style')
-                                        style.setAttribute('data-path', '${
-																					args.path
-																				}')
-                                        style.innerText = ${JSON.stringify(css)}
-                                        document.body.appendChild(style)
-                                    }()`,
+											var style = document.createElement('style')
+											style.setAttribute('data-path', '${args.path}')
+											style.innerText = ${JSON.stringify(css)}
+											document.body.appendChild(style)
+									}()`,
 								};
 							});
 						},
@@ -150,18 +152,25 @@ export class ExtensionBuilder {
 		const filePath = path.resolve(projectPath, extensionPath);
 		const rawCode = await fs.promises.readFile(filePath, 'utf8');
 
-		const rolledUpCode = await this.rollupExtension(ctx, {
-			filePath,
-			code: rawCode,
-		});
+		const rolledUpCode = await ctx.timePromise(
+			'rollupExtension',
+			this.rollupExtension(ctx, {
+				filePath,
+				code: rawCode,
+			}),
+		);
 		verbose(fmt`Rolled up extension: ${{ filePath, code: rolledUpCode }}`);
 
-		const fullAst = (await babel.parseAsync(rolledUpCode, {
-			parserOpts: BabelParserOptions,
-		}))!;
+		const fullAst = (await ctx.timePromise(
+			'parse code',
+			babel.parseAsync(rolledUpCode, {
+				parserOpts: BabelParserOptions,
+			} as any),
+		))!;
 
 		// First determine all the server-side exports
 		const serverExports: string[] = [];
+		const timer = ctx.startTimer('find server side exports');
 		await babel.traverse(fullAst, {
 			CallExpression: (path) => {
 				const callee = path.get('callee');
@@ -192,6 +201,7 @@ export class ExtensionBuilder {
 				}
 			},
 		});
+		timer.end();
 		ctx.setValues({ serverExports });
 		debug(fmt`Determined server-side exports: ${serverExports}`);
 
@@ -333,7 +343,7 @@ export class ExtensionBuilder {
 					ast: fullAst,
 					filename: path.basename(filePath),
 					code,
-					allowedExports: ['config', 'Page'],
+					allowedExports: ['Page'],
 				}),
 			);
 			ctx.setValues({ clientCode });
@@ -385,6 +395,7 @@ export class ExtensionBuilder {
 					],
 				}),
 			);
+			console.dir(ctx.toJSON().metrics, { depth: null });
 			return result.outputFiles[0].text;
 		} catch (error: any) {
 			console.error(error.stack || error);
@@ -411,12 +422,12 @@ export class ExtensionBuilder {
 	) {
 		ctx.setValues({ allowedExports });
 
+		const shouldMinify = await this.isMinificationEnabled();
 		const discoveredExports: string[] = [];
 		const injectedExports: string[] = [];
-		const { code: exportsRemovedCode } = (await babel.transformFromAstAsync(
-			inputAst,
-			code,
-			{
+		const { code: exportsRemovedCode } = (await ctx.timePromise(
+			'remove exports from code',
+			babel.transformFromAstAsync(inputAst, code, {
 				filename,
 				plugins: [
 					{
@@ -528,29 +539,36 @@ export class ExtensionBuilder {
 					babelPluginTransformModules,
 				],
 				presets: [babelPresetTypescript, babelPresetReact],
-			},
+				compact: !shouldMinify,
+			}),
 		))!;
-		const { code: cleanedCode } = await minify(exportsRemovedCode!, {
-			compress: {
-				defaults: false,
-				dead_code: true,
-				toplevel: true,
-				unused: true,
-				pure_funcs: [
-					'require',
+		const { code: cleanedCode } = await ctx.timePromise(
+			'remove dead code',
+			minify(exportsRemovedCode!, {
+				compress: {
+					defaults: false,
+					dead_code: true,
+					toplevel: true,
+					unused: true,
+					pure_funcs: [
+						'require',
 
-					// babel internal helpers
-					// Source: https://github.com/babel/babel/blob/a6d77d07b461064deda6bdae308a0c70cacdd280/packages/babel-helpers/src/helpers.ts
-					'_interopRequireWildcard',
-					'_interopRequireDefault',
-				],
-				unsafe: true,
-			},
-			mangle: false,
-			format: {
-				beautify: true,
-			},
-		});
+						// esbuild rewrites require -> __require
+						'__require',
+
+						// babel internal helpers
+						// Source: https://github.com/babel/babel/blob/a6d77d07b461064deda6bdae308a0c70cacdd280/packages/babel-helpers/src/helpers.ts
+						'_interopRequireWildcard',
+						'_interopRequireDefault',
+					],
+					unsafe: true,
+				},
+				mangle: shouldMinify,
+				format: {
+					beautify: !shouldMinify,
+				},
+			}),
+		);
 
 		ctx.setValues({ injectedExports, cleanedCode });
 		return cleanedCode!;

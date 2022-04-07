@@ -20,6 +20,7 @@ import { OperationContext } from '@orthly/context';
 import * as fs from 'fs';
 import * as path from 'path';
 import ms from 'ms';
+import { CacheService } from '../services/cache';
 
 const debug = createDebug('sidekick:extensions');
 const verbose = createDebug('sidekick:extensions:verbose');
@@ -32,6 +33,7 @@ const BabelParserOptions: ParserOptions = {
 
 export class ExtensionBuilder {
 	static async getExtensionClient({
+		id: extensionId,
 		entryPoint: extensionPath,
 	}: SidekickExtensionConfig) {
 		const ctx = new OperationContext();
@@ -41,6 +43,18 @@ export class ExtensionBuilder {
 			this.getRawExtension(ctx, extensionPath),
 		);
 		ctx.setValues({ filePath });
+
+		const cacheEntry = await CacheService.get(
+			`extension-client-${extensionId}`,
+			CacheService.hashObject({
+				code,
+			}),
+		);
+		if (cacheEntry) {
+			console.dir(cacheEntry);
+			return cacheEntry;
+		}
+
 		const clientCode = await ctx.timePromise(
 			'bundle client',
 			this.buildClientBundle(ctx, { filePath, fullAst, code }),
@@ -61,10 +75,18 @@ export class ExtensionBuilder {
 			warnings.push(bundleWarning);
 		}
 
+		await CacheService.set(
+			`extension-client-${extensionId}`,
+			CacheService.hashObject({
+				code,
+			}),
+			{ clientCode, warnings },
+		);
 		return { clientCode, warnings };
 	}
 
 	static async getExtensionServer({
+		id: extensionId,
 		entryPoint: extensionPath,
 	}: SidekickExtensionConfig) {
 		const ctx = new OperationContext();
@@ -72,6 +94,17 @@ export class ExtensionBuilder {
 		const { code, filePath, fullAst, serverExports } =
 			await this.getRawExtension(ctx, extensionPath);
 		ctx.setValues({ filePath });
+
+		const cacheEntry = await CacheService.get(
+			`extension-server-${extensionId}`,
+			CacheService.hashObject({
+				code,
+			}),
+		);
+		if (cacheEntry) {
+			return cacheEntry;
+		}
+
 		const serverCode = await this.buildServerBundle(ctx, {
 			filePath,
 			fullAst,
@@ -79,6 +112,14 @@ export class ExtensionBuilder {
 			code,
 		});
 		timer.end();
+
+		await CacheService.set(
+			`extension-server-${extensionId}`,
+			CacheService.hashObject({
+				code,
+			}),
+			serverCode,
+		);
 		return serverCode;
 	}
 

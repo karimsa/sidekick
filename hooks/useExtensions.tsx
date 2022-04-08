@@ -9,7 +9,7 @@ import {
 import octicons from '@primer/octicons';
 import toast from 'react-hot-toast';
 import { UseMutationOptions, UseQueryOptions } from 'react-query';
-import * as t from 'io-ts';
+import { z } from 'zod';
 import { getConfig, updateConfig } from '../server/controllers/config';
 import { useRpcMutation } from './useMutation';
 import { RpcInputType, RpcOutputType, validate } from '../utils/http';
@@ -133,7 +133,7 @@ function createExtensionHelpers(extensionId: string) {
 		},
 
 		useConfig<T extends Record<string, unknown>>(
-			schema: t.Type<T>,
+			schema: z.Schema<T>,
 		): {
 			data?: T;
 			error?: Error;

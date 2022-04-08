@@ -3,7 +3,6 @@ import * as bodyParser from 'body-parser';
 import * as http from 'http';
 import cors from 'cors';
 import { Server as SocketServer, Socket } from 'socket.io';
-import * as t from 'io-ts';
 import { AbortController } from 'node-abort-controller';
 import morgan from 'morgan';
 import next from 'next';
@@ -35,6 +34,7 @@ import {
 	stopService,
 } from './controllers/servers';
 import { getHeartbeat } from './controllers/heartbeat';
+import { z } from 'zod';
 
 const app = express();
 
@@ -128,10 +128,10 @@ io.on('connection', (socket) => {
 	socket.on('openStream', async (data) => {
 		try {
 			const { methodName, requestId, params } = validate(
-				t.interface({
-					methodName: t.string,
-					params: t.unknown,
-					requestId: t.string,
+				z.object({
+					methodName: z.string(),
+					params: z.unknown(),
+					requestId: z.string(),
 				}),
 				data,
 			);

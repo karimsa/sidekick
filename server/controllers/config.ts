@@ -1,15 +1,15 @@
-import * as t from 'io-ts';
+import { z } from 'zod';
 
 import { ConfigManager } from '../../services/config';
 import { createRpcMethod } from '../../utils/http';
 
-export const getConfig = createRpcMethod(t.interface({}), async function () {
+export const getConfig = createRpcMethod(z.object({}), async function () {
 	const config = await ConfigManager.createProvider();
 	return config.getAll();
 });
 
 export const updateConfig = createRpcMethod(
-	t.record(t.string, t.unknown),
+	z.record(z.string(), z.unknown()),
 	async function (updates) {
 		const config = await ConfigManager.createProvider();
 		await config.setAll(updates as any);

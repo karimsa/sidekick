@@ -1,35 +1,37 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import * as t from 'io-ts';
 import merge from 'lodash/merge';
 import { validate } from '../utils/http';
 import * as esbuild from 'esbuild';
 import omit from 'lodash/omit';
+import { z } from 'zod';
 
 import SidekickPackageJson from '../package.json';
 import { loadModule } from '../utils/load-module';
 import { Defined } from '../utils/util-types';
 
-const ConfigTypes = t.interface({
-	environments: t.record(t.string, t.record(t.string, t.string)),
-	extensions: t.record(t.string, t.record(t.string, t.unknown)),
-	showReactQueryDebugger: t.boolean,
-	minifyExtensionClients: t.boolean,
+const ConfigTypes = z.object({
+	environments: z.record(z.string(), z.record(z.string(), z.string())),
+	extensions: z.record(z.string(), z.record(z.string(), z.unknown())),
+	showReactQueryDebugger: z.boolean(),
+	minifyExtensionClients: z.boolean(),
 });
-type ConfigTypes = t.TypeOf<typeof ConfigTypes>;
+type ConfigTypes = z.TypeOf<typeof ConfigTypes>;
 
-export const SidekickConfigOverrides = t.partial({
-	defaultConfig: ConfigTypes,
-	extensions: t.array(
-		t.interface({
-			id: t.string,
-			name: t.string,
-			icon: t.string,
-			entryPoint: t.string,
-		}),
-	),
+export const SidekickConfigOverrides = z.object({
+	defaultConfig: ConfigTypes.partial().optional(),
+	extensions: z
+		.array(
+			z.object({
+				id: z.string(),
+				name: z.string(),
+				icon: z.string(),
+				entryPoint: z.string(),
+			}),
+		)
+		.optional(),
 });
-export type SidekickConfigOverrides = t.TypeOf<typeof SidekickConfigOverrides>;
+export type SidekickConfigOverrides = z.TypeOf<typeof SidekickConfigOverrides>;
 export type SidekickExtensionConfig = Defined<
 	SidekickConfigOverrides['extensions']
 >[number];
@@ -54,7 +56,7 @@ const validateConfig = (config: any) =>
 export class ConfigManager {
 	private readyPromise: Promise<void>;
 	private readyError: Error | null = null;
-	private configData: t.TypeOf<typeof ConfigTypes> | null = null;
+	private configData: z.TypeOf<typeof ConfigTypes> | null = null;
 
 	constructor(
 		private readonly projectName: string,
@@ -125,7 +127,7 @@ export class ConfigManager {
 		});
 	}
 
-	async setAll(updates: t.TypeOf<typeof ConfigTypes>) {
+	async setAll(updates: z.TypeOf<typeof ConfigTypes>) {
 		await this.waitForReady();
 		this.configData = validateConfig(
 			omit(updates, ['projectName', 'projectVersion', '__filename']),

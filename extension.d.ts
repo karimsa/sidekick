@@ -5,8 +5,8 @@ import {
 	UseQueryResult,
 } from 'react-query';
 import { AxiosError } from 'axios';
-import * as t from 'io-ts';
 import { toast } from 'react-hot-toast';
+import { z } from 'zod';
 
 declare module '@karimsa/sidekick/extension' {
 	export function useQuery<Params, Result>(
@@ -50,7 +50,7 @@ declare module '@karimsa/sidekick/extension' {
 		): void;
 	};
 
-	export function useConfig<T>(schema: t.Type<T>): {
+	export function useConfig<T>(schema: z.Schema<T>): {
 		data?: T;
 		error?: Error;
 		isLoading: boolean;

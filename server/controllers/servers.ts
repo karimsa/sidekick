@@ -1,4 +1,3 @@
-import * as t from 'io-ts';
 import { createRpcMethod, createStreamingRpcMethod } from '../../utils/http';
 import { ServiceList } from '../../services/service-list';
 import { ConfigManager } from '../../services/config';
@@ -11,14 +10,15 @@ import { AbortController } from 'node-abort-controller';
 import { RunningProcessModel } from '../models/RunningProcess.model';
 import { HealthService } from '../../services/health';
 import { HealthStatus } from '../../utils/shared-types';
+import { z } from 'zod';
 
-export const getServices = createRpcMethod(t.interface({}), async function () {
+export const getServices = createRpcMethod(z.object({}), async function () {
 	return ServiceList.getServices();
 });
 
 export const getZombieProcessInfo = createRpcMethod(
-	t.interface({
-		name: t.string,
+	z.object({
+		name: z.string(),
 	}),
 	async function ({ name }) {
 		const serviceConfig = await ServiceList.getService(name);
@@ -61,7 +61,7 @@ export const getZombieProcessInfo = createRpcMethod(
 );
 
 export const killProcesses = createRpcMethod(
-	t.interface({ pids: t.array(t.number) }),
+	z.object({ pids: z.array(z.number()) }),
 	async ({ pids }) => {
 		await Promise.all(
 			pids.map(async (pid) => {
@@ -72,8 +72,8 @@ export const killProcesses = createRpcMethod(
 );
 
 export const getServerHealth = createStreamingRpcMethod(
-	t.interface({
-		name: t.string,
+	z.object({
+		name: z.string(),
 	}),
 	async function* ({ name }, abortController) {
 		while (!abortController.signal.aborted) {
@@ -86,14 +86,14 @@ export const getServerHealth = createStreamingRpcMethod(
 );
 
 export const getService = createRpcMethod(
-	t.interface({ name: t.string }),
+	z.object({ name: z.string() }),
 	async ({ name }) => {
 		return ServiceList.getService(name);
 	},
 );
 
 export const getServiceProcessInfo = createRpcMethod(
-	t.interface({ serviceName: t.string, devServer: t.string }),
+	z.object({ serviceName: z.string(), devServer: z.string() }),
 	async ({ serviceName, devServer }) => {
 		return RunningProcessModel.repository.findOne({
 			_id: ProcessManager.getScopedName(serviceName, devServer),
@@ -102,10 +102,10 @@ export const getServiceProcessInfo = createRpcMethod(
 );
 
 export const startService = createRpcMethod(
-	t.interface({
-		name: t.string,
-		targetEnvironment: t.string,
-		environment: t.record(t.string, t.string),
+	z.object({
+		name: z.string(),
+		targetEnvironment: z.string(),
+		environment: z.record(z.string(), z.string()),
 	}),
 	async ({ name, targetEnvironment, environment }) => {
 		const serviceConfig = await ServiceList.getService(name);
@@ -148,8 +148,8 @@ export const startService = createRpcMethod(
 );
 
 export const stopService = createRpcMethod(
-	t.interface({
-		name: t.string,
+	z.object({
+		name: z.string(),
 	}),
 	async ({ name }) => {
 		const serviceConfig = await ServiceList.getService(name);
@@ -171,18 +171,18 @@ export const stopService = createRpcMethod(
 );
 
 export const bulkServiceAction = createRpcMethod(
-	t.union([
-		t.interface({
-			serviceNames: t.array(t.string),
-			action: t.literal('start'),
-			targetEnvironment: t.string,
-			environment: t.record(t.string, t.string),
+	z.union([
+		z.object({
+			serviceNames: z.array(z.string()),
+			action: z.literal('start'),
+			targetEnvironment: z.string(),
+			environment: z.record(z.string(), z.string()),
 		}),
-		t.interface({
-			serviceNames: t.array(t.string),
-			action: t.union([t.literal('stop'), t.literal('pause')]),
-			targetEnvironment: t.undefined,
-			environment: t.undefined,
+		z.object({
+			serviceNames: z.array(z.string()),
+			action: z.union([z.literal('stop'), z.literal('pause')]),
+			targetEnvironment: z.undefined(),
+			environment: z.undefined(),
 		}),
 	]),
 	async ({ serviceNames, action, targetEnvironment, environment }) => {
@@ -223,7 +223,7 @@ export const bulkServiceAction = createRpcMethod(
 );
 
 export const getServiceLogs = createStreamingRpcMethod(
-	t.interface({ name: t.string, devServer: t.string }),
+	z.object({ name: z.string(), devServer: z.string() }),
 	async function* ({ name, devServer }, abortController) {
 		const emitter = new EventEmitter();
 		const logsController = new AbortController();
@@ -256,11 +256,11 @@ export const getServiceLogs = createStreamingRpcMethod(
 );
 
 export const restartDevServer = createRpcMethod(
-	t.interface({
-		serviceName: t.string,
-		devServer: t.string,
-		environment: t.record(t.string, t.string),
-		resetLogs: t.boolean,
+	z.object({
+		serviceName: z.string(),
+		devServer: z.string(),
+		environment: z.record(z.string(), z.string()),
+		resetLogs: z.boolean(),
 	}),
 	async ({ serviceName, devServer, environment, resetLogs }) => {
 		const processInfo = await RunningProcessModel.repository.findOne({

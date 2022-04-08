@@ -1,21 +1,18 @@
-import * as t from 'io-ts';
 import * as path from 'path';
 
 import { createRpcMethod } from '../../utils/http';
 import { ExtensionBuilder } from '../../utils/extensions';
 import { ConfigManager } from '../../services/config';
 import { ExecUtils } from '../../utils/exec';
+import { z } from 'zod';
 
-export const getExtensions = createRpcMethod(
-	t.interface({}),
-	async function () {
-		const config = await ConfigManager.loadProjectOverrides();
-		return config.extensions;
-	},
-);
+export const getExtensions = createRpcMethod(z.object({}), async function () {
+	const config = await ConfigManager.loadProjectOverrides();
+	return config.extensions;
+});
 
 export const getExtensionClient = createRpcMethod(
-	t.interface({ id: t.string }),
+	z.object({ id: z.string() }),
 	async function ({ id }) {
 		const config = await ConfigManager.loadProjectOverrides();
 		const extension = config.extensions?.find((ext) => ext.id === id);
@@ -42,18 +39,18 @@ export const getExtensionClient = createRpcMethod(
 );
 
 export const runExtensionMethod = createRpcMethod(
-	t.intersection([
-		t.interface({
-			extensionId: t.string,
-			methodName: t.string,
-			params: t.unknown,
+	z.intersection(
+		z.object({
+			extensionId: z.string(),
+			methodName: z.string(),
+			params: z.unknown(),
 		}),
-		t.partial({
-			targetEnvironment: t.string,
-			environment: t.record(t.string, t.string),
-			nodeOptions: t.array(t.string),
+		z.object({
+			targetEnvironment: z.string().optional(),
+			environment: z.record(z.string(), z.string()).optional(),
+			nodeOptions: z.array(z.string()).optional(),
 		}),
-	]),
+	),
 	async ({
 		extensionId,
 		methodName,

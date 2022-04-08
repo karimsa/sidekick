@@ -53,7 +53,6 @@
     "express": "4.17.2",
     "fp-ts": "2.11.8",
     "globby": "11.1.0",
-    "io-ts": "2.2.16",
     "json-stable-stringify": "1.0.1",
     "lodash": "4.17.21",
     "minimist": "^1.2.6",

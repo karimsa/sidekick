@@ -1,7 +1,6 @@
-import * as t from 'io-ts';
 import express from 'express';
-import { PathReporter } from 'io-ts/lib/PathReporter';
 import { AbortController } from 'node-abort-controller';
+import { z } from 'zod';
 
 import { fmt } from './fmt';
 
@@ -79,36 +78,18 @@ export function route<ReqBodyType, ResBodyType>(
 	};
 }
 
-export const qsNumber = new t.Type(
-	'querystringNumber',
-	(i): i is Number => typeof i === 'string' && !isNaN(Number(i)),
-	(i, ctx) =>
-		typeof i === 'string' && !isNaN(Number(i))
-			? t.success(Number(i))
-			: t.failure(i, ctx),
-	Number,
-);
-
-const BooleanString = (val: any) => val === 'true';
-export const qsBoolean = new t.Type(
-	'querystringBoolean',
-	(i): i is boolean => i === 'true' || i === 'false',
-	(i, ctx) =>
-		i === 'true' || i === 'false'
-			? t.success(BooleanString(i))
-			: t.failure(i, ctx),
-	BooleanString,
-);
-
-export function validate<T>(dataType: t.Type<T>, data: any) {
-	const result = dataType.decode(data);
-	if (result._tag === 'Left') {
-		const errors = PathReporter.report(result);
-		const error = new APIError(errors[0], HTTPStatus.BadRequest, errors[0]);
+export function validate<T>(dataType: z.Schema<T>, data: any) {
+	const result = dataType.safeParse(data);
+	if (!result.success) {
+		const error = new APIError(
+			result.error.message,
+			HTTPStatus.BadRequest,
+			result.error.message,
+		);
 		Error.captureStackTrace(error, validate);
 		throw error;
 	}
-	return result.right;
+	return result.data;
 }
 
 export type RpcHandler<InputType, OutputType> = RouteHandler<
@@ -147,7 +128,7 @@ export type RpcOutputType<Handler> = Handler extends RpcHandler<
 	: never;
 
 export function createRpcMethod<InputType, ReturnType>(
-	inputType: t.Type<InputType>,
+	inputType: z.Schema<InputType>,
 	handler: (
 		data: InputType,
 		req?: ApiRequest<InputType>,
@@ -175,7 +156,7 @@ export function createRpcMethod<InputType, ReturnType>(
 }
 
 export function createStreamingRpcMethod<InputType, OutputType>(
-	inputType: t.Type<InputType>,
+	inputType: z.Schema<InputType>,
 	handler: (
 		data: InputType,
 		abortController: AbortController,

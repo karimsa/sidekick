@@ -1,8 +1,8 @@
 import { createStreamingRpcMethod } from '../../utils/http';
-import * as t from 'io-ts';
+import { z } from 'zod';
 
 export const getHeartbeat = createStreamingRpcMethod(
-	t.interface({}),
+	z.object({}),
 	async function* (_, abortController) {
 		while (!abortController.signal.aborted) {
 			yield { isAlive: true };

@@ -1,5 +1,5 @@
 import { SidekickConfigOverrides } from './services/config';
 
-declare module 'config' {
-    export type SidekickConfig = SidekickConfigOverrides;
+declare module '@karimsa/sidekick/config' {
+	export type SidekickConfig = SidekickConfigOverrides;
 }

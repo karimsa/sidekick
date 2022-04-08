@@ -31,6 +31,11 @@ const BabelParserOptions: ParserOptions = {
 	sourceType: 'module',
 };
 
+interface ClientResult {
+	warnings: string[];
+	clientCode: string;
+}
+
 export class ExtensionBuilder {
 	static async getExtensionClient({
 		id: extensionId,
@@ -52,7 +57,7 @@ export class ExtensionBuilder {
 		);
 		if (cacheEntry) {
 			debug(`Cache hit for extension client: ${extensionId}`);
-			return cacheEntry;
+			return cacheEntry as ClientResult;
 		}
 		debug(`Cache miss for extension client: ${extensionId}`);
 

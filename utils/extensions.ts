@@ -234,7 +234,7 @@ export class ExtensionBuilder {
 						helperBinding.path.node.type === 'ImportSpecifier' &&
 						helperBinding.path.parentPath?.node.type === 'ImportDeclaration' &&
 						helperBinding.path.parentPath?.node.source.value ===
-							'sidekick/extension'
+							'@karimsa/sidekick/extension'
 					) {
 						const firstArg = path.get('arguments')[0];
 						if (!firstArg || !firstArg.isIdentifier()) {
@@ -346,15 +346,15 @@ export class ExtensionBuilder {
 								path: args.path,
 								external:
 									args.path !== 'next/router' &&
-									args.path !== 'sidekick/extension',
+									args.path !== '@karimsa/sidekick/extension',
 								namespace:
 									args.path !== 'next/router' &&
-									args.path !== 'sidekick/extension'
+									args.path !== '@karimsa/sidekick/extension'
 										? undefined
 										: 'sidekick',
 							}));
 							build.onLoad(
-								{ filter: /^(next\/router|sidekick\/extension)$/ },
+								{ filter: /^(next\/router|@karimsa\/sidekick\/extension)$/ },
 								() => {
 									return { contents: 'module.exports = {}' };
 								},

@@ -271,7 +271,7 @@ export function useExtension(extensionId?: string) {
 							return ReactDOM;
 						case 'next/router':
 							return { useRouter };
-						case 'sidekick/extension':
+						case '@karimsa/sidekick/extension':
 							return helpers;
 						case 'tslib':
 							return tslib;

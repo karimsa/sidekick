@@ -28,7 +28,7 @@ createCommand({
 					DEBUG: 'sidekick:*',
 					NODE_ENV: 'production',
 					PROJECT_PATH: projectDir,
-					PORT: String(port),
+					SIDEKICK_PORT: String(port),
 				},
 			},
 		);

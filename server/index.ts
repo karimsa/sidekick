@@ -29,6 +29,7 @@ import {
 	getServiceProcessInfo,
 	getServices,
 	getZombieProcessInfo,
+	killProcesses,
 	restartDevServer,
 	startService,
 	stopService,
@@ -48,6 +49,7 @@ const methods: Record<string, RpcHandler<any, any>> = {
 
 	getZombieProcessInfo,
 
+	killProcesses,
 	getServices,
 	startService,
 	stopService,

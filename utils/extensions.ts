@@ -432,7 +432,7 @@ export class ExtensionBuilder {
 								build.onResolve(
 									{
 										filter:
-											/^(react|react-dom|next\/router|sidekick\/extension|tslib)$/,
+											/^(react|react-dom|next\/router|@karimsa\/sidekick\/extension|tslib)$/,
 									},
 									(args) => ({
 										path: args.path,

@@ -49,6 +49,10 @@ export class ServiceBuildsService {
 	}
 
 	static async isServiceStale(serviceConfig: ServiceConfig) {
+		if (serviceConfig.disableStaleChecks) {
+			return false;
+		}
+
 		const [lastBuiltAt, lastUpdatedAt] = await Promise.all([
 			this.getServiceLastBuilt(serviceConfig),
 			this.getServiceSourceLastUpdated(serviceConfig),

@@ -9,6 +9,7 @@ import {
 	getServiceLogs,
 	getServiceProcessInfo,
 	getServices,
+	prepareService,
 	prepareStaleServices,
 	restartDevServer,
 	startService,
@@ -56,7 +57,7 @@ import isEqual from 'lodash/isEqual';
 import startCase from 'lodash/startCase';
 import type { ServiceConfig } from '../../services/service-list';
 import { Spinner } from '../../components/Spinner';
-import { BackgroundMutationButton } from '../../hooks/useBackgroundMutation';
+import { LogWindow, reduceStreamingLogs } from '../../hooks/useLogWindow';
 
 function useServerName() {
 	const router = useRouter();
@@ -149,43 +150,10 @@ const ServiceListEntry: React.FC<{
 };
 
 const PrepareAllButton: React.FC = memo(function PrepareAllButton() {
-	const { data, mutate: runPrepare } = useLazyStreamingRpcQuery(
+	const { mutate: runPrepare, ...query } = useLazyStreamingRpcQuery(
 		prepareStaleServices,
-		(state, action) => {
-			switch (action.type) {
-				case 'open':
-					return { isLoading: true, isComplete: false, output: '' };
-				case 'data':
-					return { ...state, output: state.output + action.data };
-				case 'error':
-					return {
-						...state,
-						isComplete: true,
-						output: `${state.output}\n\nFailed to prepare: ${action.error}`,
-					};
-				case 'end':
-					return {
-						...state,
-						isLoading: false,
-						isComplete: true,
-						output: `${state.output}\n\nSuccessfully prepare package.`,
-					};
-			}
-		},
-		{ isLoading: false, isComplete: false, output: '' },
-		{ autoRetry: false },
+		...reduceStreamingLogs,
 	);
-	const [isModalVisible, setModalVisible] = useState(false);
-	useEffect(() => {
-		if (data.isComplete) {
-			toast.success(`Successfully prepared!`, {
-				id: `prepare-all`,
-				duration: 1e3,
-				position: 'bottom-right',
-			});
-		}
-	}, [data.isComplete]);
-
 	return (
 		<>
 			<Button
@@ -193,42 +161,19 @@ const PrepareAllButton: React.FC = memo(function PrepareAllButton() {
 				className={'w-full'}
 				size={'sm'}
 				icon={<ToolsIcon />}
-				loading={data.isLoading}
-				onClick={() => {
-					toast.loading(
-						<div className={'flex items-center'}>
-							<span>Preparing</span>
-							<Button
-								variant={'secondary'}
-								className={'ml-2'}
-								size={'sm'}
-								onClick={() => setModalVisible(true)}
-							>
-								Logs
-							</Button>
-						</div>,
-						{
-							id: `prepare-all`,
-							duration: Infinity,
-							position: 'bottom-right',
-						},
-					);
-					runPrepare({});
-				}}
+				loading={query.isStreaming}
+				onClick={() => runPrepare({})}
 			>
 				Prepare
 			</Button>
 
-			<Modal
-				show={isModalVisible}
-				onClose={() => setModalVisible(false)}
-				fullHeight
-			>
-				<ModalTitle>Preparing all stale packages</ModalTitle>
-				<ModalBody>
-					<Monaco language={'logs'} value={`${data.output}\n`} />
-				</ModalBody>
-			</Modal>
+			<LogWindow
+				windowId={`prepare-all`}
+				title={`Preparing all stale packages`}
+				successToast={`Successfully prepared!`}
+				loadingToast={'Preparing all stale packages'}
+				{...query}
+			/>
 		</>
 	);
 });
@@ -708,20 +653,30 @@ const ServiceStartButton: React.FC<{ serviceName: string }> = memo(
 const ServicePrepareButton: React.FC<{ serviceName: string }> = ({
 	serviceName,
 }) => {
+	const { mutate, ...query } = useLazyStreamingRpcQuery(
+		prepareService,
+		...reduceStreamingLogs,
+	);
 	return (
-		<BackgroundMutationButton
-			variant={'info'}
-			className={'ml-2'}
-			icon={<ToolsIcon />}
-			toastId={`prepare-${serviceName}`}
-			logsTitle={`Preparing: ${serviceName}`}
-			loadingMessage={`Preparing`}
-			successMessage={`Successfully prepared ${serviceName}!`}
-			handler={{ methodName: 'prepareService' } as any}
-			inputData={useMemo(() => ({ name: serviceName }), [serviceName])}
-		>
-			Prepare
-		</BackgroundMutationButton>
+		<>
+			<Button
+				variant={'info'}
+				className={'ml-2'}
+				icon={<ToolsIcon />}
+				loading={query.isStreaming}
+				onClick={() => mutate({ name: serviceName })}
+			>
+				Prepare
+			</Button>
+
+			<LogWindow
+				windowId={`prepare-${serviceName}`}
+				title={`Preparing ${serviceName}`}
+				successToast={`Successfully prepared ${serviceName}!`}
+				loadingToast={'Preparing'}
+				{...query}
+			/>
+		</>
 	);
 };
 

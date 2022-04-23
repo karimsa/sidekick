@@ -111,10 +111,7 @@ export class HealthService {
 				healthStatus: HealthStatus.partial,
 				version: serviceConfig.version,
 			};
-		} else if (
-			!serviceConfig.disableStaleChecks &&
-			(await ServiceBuildsService.isServiceStale(serviceConfig))
-		) {
+		} else if (await ServiceBuildsService.isServiceStale(serviceConfig)) {
 			return {
 				healthStatus: HealthStatus.stale,
 				version: serviceConfig.version,

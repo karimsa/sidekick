@@ -59,7 +59,7 @@ export const ModalTitle: React.FC = ({ children }) => {
 			<h3 className={'font-bold'}>{children}</h3>
 			<button
 				type={'button'}
-				className={'border-none'}
+				className={'border-none p-0 m-0 flex items-center justify-center'}
 				onClick={() => onClose()}
 			>
 				<XIcon />

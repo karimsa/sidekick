@@ -9,7 +9,7 @@ const socket = io(`http://${global.location?.hostname}:9010/`, {
 	autoConnect: !!global.window,
 });
 
-type StreamingRpcAction<Data> =
+export type StreamingRpcAction<Data> =
 	| { type: 'open' }
 	| { type: 'data'; data: Data }
 	| { type: 'error'; error: string }
@@ -36,7 +36,7 @@ export function useStreamingRpcQuery<InputType, OutputType, State>(
 		options,
 	);
 	useEffect(() => {
-		mutate(data);
+		mutate(data, jsonStableStringify(data));
 	}, [data, mutate]);
 	return result;
 }
@@ -155,8 +155,8 @@ export function useLazyStreamingRpcQuery<InputType, OutputType, State>(
 	return {
 		data: state,
 		isStreaming,
-		mutate: useCallback((data: InputType) => {
-			setData({ payload: data, key: jsonStableStringify(data) });
+		mutate: useCallback((data: InputType, key?: string) => {
+			setData({ payload: data, key: key ?? uuid() });
 		}, []),
 	};
 }

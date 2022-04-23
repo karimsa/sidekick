@@ -27,6 +27,7 @@ import {
 	getServiceLogs,
 	getServiceProcessInfo,
 	getServices,
+	getServiceScripts,
 	getZombieProcessInfo,
 	killProcesses,
 	prepareService,
@@ -59,6 +60,7 @@ const methods: Record<string, RpcHandler<any, any>> = {
 	getServiceProcessInfo,
 	restartDevServer,
 	bulkServiceAction,
+	getServiceScripts,
 };
 
 const streamingMethods: Record<string, StreamingRpcHandler<any, any>> = {

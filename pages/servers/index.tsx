@@ -9,9 +9,11 @@ import {
 	getServiceLogs,
 	getServiceProcessInfo,
 	getServices,
+	getServiceScripts,
 	prepareService,
 	prepareStaleServices,
 	restartDevServer,
+	runServiceScript,
 	startService,
 	stopService,
 } from '../../server/controllers/servers';
@@ -34,6 +36,7 @@ import {
 	NoEntryFillIcon,
 	PlayIcon,
 	StopIcon,
+	TerminalIcon,
 	ToolsIcon,
 	XCircleFillIcon,
 } from '@primer/octicons-react';
@@ -680,6 +683,67 @@ const ServicePrepareButton: React.FC<{ serviceName: string }> = ({
 	);
 };
 
+const ServiceRunScriptButton: React.FC<{ serviceName: string }> = ({
+	serviceName,
+}) => {
+	const {
+		data: serviceScripts,
+		isLoading,
+		error: errFetchingScripts,
+	} = useRpcQuery(
+		getServiceScripts,
+		{ serviceName },
+		{
+			onError(err) {
+				toast.error(`Failed to fetch scripts: ${err}`, { id: 'fetch-scripts' });
+			},
+		},
+	);
+	const [menuOpen, setMenuOpen] = useState(false);
+	const { mutate: runScript, ...query } = useLazyStreamingRpcQuery(
+		runServiceScript,
+		...reduceStreamingLogs,
+	);
+
+	return (
+		<>
+			<DropdownContainer>
+				<Button
+					variant={'secondary'}
+					className={'ml-2'}
+					disabled={!!errFetchingScripts}
+					loading={isLoading}
+					icon={<TerminalIcon />}
+					onClick={() => setMenuOpen(true)}
+				>
+					Run script
+				</Button>
+				<Dropdown show={menuOpen} onClose={() => setMenuOpen(false)}>
+					{serviceScripts?.map((scriptName) => (
+						<DropdownButton
+							key={scriptName}
+							onClick={() => {
+								runScript({ serviceName, scriptName });
+								setMenuOpen(false);
+							}}
+						>
+							{scriptName}
+						</DropdownButton>
+					))}
+				</Dropdown>
+			</DropdownContainer>
+
+			<LogWindow
+				windowId={`script-${serviceName}`}
+				title={`Running`}
+				successToast={`Successfully ran script!`}
+				loadingToast={`Running ...`}
+				{...query}
+			/>
+		</>
+	);
+};
+
 const ServiceStopButton: React.FC<{ serviceName: string }> = memo(
 	function ServiceStopButton({ serviceName }) {
 		const { mutate: stop, isLoading } = useRpcMutation(stopService, {
@@ -795,6 +859,7 @@ const ServiceControlPanel: React.FC<{
 					<div className={'flex items-center'}>
 						<ServiceStartButton serviceName={selectedServerName} />
 						<ServicePrepareButton serviceName={selectedServerName} />
+						<ServiceRunScriptButton serviceName={selectedServerName} />
 					</div>
 				)}
 

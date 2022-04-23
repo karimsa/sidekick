@@ -1,11 +1,9 @@
 import globby from 'globby';
 import maxBy from 'lodash/maxBy';
 import { ServiceBuildHistoryModel } from '../server/models/ServiceBuildHistory.model';
-import { ServiceConfig } from './service-list';
-import { AbortController } from 'node-abort-controller';
+import { ServiceConfig, ServiceList } from './service-list';
 import { ExecUtils } from '../utils/exec';
 import { ConfigManager } from './config';
-import { makeChan, select } from 'rsxjs';
 import { Observable } from 'rxjs';
 import path from 'path';
 
@@ -89,59 +87,47 @@ export class ServiceBuildsService {
 		});
 	}
 
-	static async *buildServices(
-		services: ServiceConfig[],
-		abortController: AbortController,
-	) {
-		const buildStart = new Date();
-		const outputChan = makeChan();
-		const doneChan = makeChan<null>();
-		const errorChan = makeChan();
+	static async getStaleServices() {
+		const services = await ServiceList.getServices();
+		return (
+			await Promise.all(
+				services.map(async (service) => {
+					if (await ServiceBuildsService.isServiceStale(service)) {
+						return [service];
+					}
+					return [];
+				}),
+			)
+		).flat();
+	}
 
-		// TODO: Run with yarn too
-		ExecUtils.runCommand(
-			'lerna',
-			[
-				'run',
-				'prepare',
-				'--stream',
-				...services.map((serviceConfig) => `--scope=${serviceConfig.name}`),
-			],
-			{
-				cwd: await ConfigManager.getProjectPath(),
-				abortController,
-				onStdout(chunk) {
-					outputChan.put(chunk);
+	static async buildServices(services: ServiceConfig[]) {
+		const projectPath = await ConfigManager.getProjectPath();
+		return new Observable<string>((subscriber) => {
+			const buildStart = new Date();
+			ExecUtils.runAndStream(
+				`lerna run prepare --stream ${services
+					.map((serviceConfig) => `--scope=${serviceConfig.name}`)
+					.join(' ')}`,
+				{
+					cwd: projectPath,
 				},
-			},
-		)
-			.then(() => doneChan.put(null))
-			.catch((error) => {
-				errorChan.put(error);
+			).subscribe({
+				next: (data) => subscriber.next(data),
+				error: (err) => subscriber.error(err),
+				complete: () => {
+					Promise.all(
+						services.map((serviceConfig) =>
+							ServiceBuildHistoryModel.updateLastBuildEntry(
+								serviceConfig,
+								buildStart,
+							),
+						),
+					)
+						.then(() => subscriber.complete())
+						.catch((err) => subscriber.error(err));
+				},
 			});
-
-		while (true) {
-			const { chunk, error } = await select({
-				[outputChan]: (chunk) => ({ chunk, error: null }),
-				[errorChan]: (error) => ({ chunk: null, error }),
-				[doneChan]: () => ({ chunk: null, error: null }),
-			});
-			if (chunk) {
-				yield chunk;
-			} else if (error) {
-				throw error;
-			} else {
-				break;
-			}
-		}
-
-		await Promise.all(
-			services.map((serviceConfig) =>
-				ServiceBuildHistoryModel.updateLastBuildEntry(
-					serviceConfig,
-					buildStart,
-				),
-			),
-		);
+		});
 	}
 }

@@ -8,6 +8,7 @@ const ButtonVariants = {
 	secondary: 'bg-slate-700 hover:bg-slate-600 text-white',
 	danger: 'bg-red-600 hover:bg-red-800 text-white',
 	warning: 'bg-amber-500 hover:bg-amber-600 text-black',
+	info: 'bg-cyan-500 hover:bg-cyan-600 text-black',
 };
 
 const ButtonSizes = {
@@ -47,7 +48,7 @@ export const Button: React.FC<ButtonProps> = forwardRef(function Button(
 		<button
 			ref={ref as any}
 			className={classNames(
-				'rounded inline-flex items-center',
+				'rounded inline-flex items-center justify-center',
 				ButtonVariants[variant],
 				ButtonSizes[size],
 				className,

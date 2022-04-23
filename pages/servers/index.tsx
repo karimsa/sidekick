@@ -9,7 +9,7 @@ import {
 	getServiceLogs,
 	getServiceProcessInfo,
 	getServices,
-	prepareService,
+	prepareStaleServices,
 	restartDevServer,
 	startService,
 	stopService,
@@ -33,6 +33,7 @@ import {
 	NoEntryFillIcon,
 	PlayIcon,
 	StopIcon,
+	ToolsIcon,
 	XCircleFillIcon,
 } from '@primer/octicons-react';
 import {
@@ -55,6 +56,7 @@ import isEqual from 'lodash/isEqual';
 import startCase from 'lodash/startCase';
 import type { ServiceConfig } from '../../services/service-list';
 import { Spinner } from '../../components/Spinner';
+import { BackgroundMutationButton } from '../../hooks/useBackgroundMutation';
 
 function useServerName() {
 	const router = useRouter();
@@ -76,9 +78,12 @@ const ServiceListEntry: React.FC<{
 	const selectedServerName = useServerName();
 	const { data } = useStreamingRpcQuery(
 		getServerHealth,
-		{
-			name: serviceName,
-		},
+		useMemo(
+			() => ({
+				name: serviceName,
+			}),
+			[serviceName],
+		),
 		useCallback(
 			(
 				state: {
@@ -142,6 +147,91 @@ const ServiceListEntry: React.FC<{
 		</li>
 	);
 };
+
+const PrepareAllButton: React.FC = memo(function PrepareAllButton() {
+	const { data, mutate: runPrepare } = useLazyStreamingRpcQuery(
+		prepareStaleServices,
+		(state, action) => {
+			switch (action.type) {
+				case 'open':
+					return { isLoading: true, isComplete: false, output: '' };
+				case 'data':
+					return { ...state, output: state.output + action.data };
+				case 'error':
+					return {
+						...state,
+						isComplete: true,
+						output: `${state.output}\n\nFailed to prepare: ${action.error}`,
+					};
+				case 'end':
+					return {
+						...state,
+						isLoading: false,
+						isComplete: true,
+						output: `${state.output}\n\nSuccessfully prepare package.`,
+					};
+			}
+		},
+		{ isLoading: false, isComplete: false, output: '' },
+		{ autoRetry: false },
+	);
+	const [isModalVisible, setModalVisible] = useState(false);
+	useEffect(() => {
+		if (data.isComplete) {
+			toast.success(`Successfully prepared!`, {
+				id: `prepare-all`,
+				duration: 1e3,
+				position: 'bottom-right',
+			});
+		}
+	}, [data.isComplete]);
+
+	return (
+		<>
+			<Button
+				variant={'info'}
+				className={'w-full'}
+				size={'sm'}
+				icon={<ToolsIcon />}
+				loading={data.isLoading}
+				onClick={() => {
+					toast.loading(
+						<div className={'flex items-center'}>
+							<span>Preparing</span>
+							<Button
+								variant={'secondary'}
+								className={'ml-2'}
+								size={'sm'}
+								onClick={() => setModalVisible(true)}
+							>
+								Logs
+							</Button>
+						</div>,
+						{
+							id: `prepare-all`,
+							duration: Infinity,
+							position: 'bottom-right',
+						},
+					);
+					runPrepare({});
+				}}
+			>
+				Prepare
+			</Button>
+
+			<Modal
+				show={isModalVisible}
+				onClose={() => setModalVisible(false)}
+				fullHeight
+			>
+				<ModalTitle>Preparing all stale packages</ModalTitle>
+				<ModalBody>
+					<Monaco language={'logs'} value={`${data.output}\n`} />
+				</ModalBody>
+			</Modal>
+		</>
+	);
+});
 
 const ServiceList: React.FC<{
 	serviceStatuses: Record<string, RpcOutputType<typeof getServerHealth>>;
@@ -238,13 +328,13 @@ const ServiceList: React.FC<{
 						/>
 					</div>
 
-					<div className={'px-5 pb-5 space-x-2 flex'}>
+					<div className={'px-5 pb-2 space-x-2 flex'}>
 						<Tooltip
 							content={`Start ${visibleTag.toLowerCase()} services`}
 							disabled={areAllVisibleServicesActive}
 						>
 							<Button
-								className={'flex items-center'}
+								className={'w-full'}
 								variant={'primary'}
 								size={'sm'}
 								disabled={areAllVisibleServicesActive}
@@ -269,6 +359,7 @@ const ServiceList: React.FC<{
 							<Button
 								variant={'danger'}
 								size={'sm'}
+								className={'w-full'}
 								loading={isPerformingBulkAction}
 								icon={<StopIcon />}
 								onClick={() =>
@@ -285,11 +376,18 @@ const ServiceList: React.FC<{
 								Stop
 							</Button>
 						</Tooltip>
+					</div>
+
+					<div className={'px-5 pb-5 space-x-2 flex'}>
+						<Tooltip content={`Prepare ${visibleTag.toLowerCase()} services`}>
+							<PrepareAllButton />
+						</Tooltip>
 
 						<Tooltip content={`Pause ${visibleTag.toLowerCase()} services`}>
 							<Button
 								disabled={true}
 								variant={'warning'}
+								className={'w-full'}
 								size={'sm'}
 								loading={isPerformingBulkAction}
 								icon={<NoEntryFillIcon />}
@@ -607,92 +705,25 @@ const ServiceStartButton: React.FC<{ serviceName: string }> = memo(
 	},
 );
 
-const ServicePrepareButton: React.FC<{ serviceName: string }> = memo(
-	function ServicePrepareButton({ serviceName }) {
-		const { data, mutate: runPrepare } = useLazyStreamingRpcQuery(
-			prepareService,
-			(state, action) => {
-				switch (action.type) {
-					case 'open':
-						return { isLoading: true, isComplete: false, output: '' };
-					case 'data':
-						return { ...state, output: state.output + action.data };
-					case 'error':
-						return {
-							...state,
-							isComplete: true,
-							output: `${state.output}\n\nFailed to prepare: ${action.error}`,
-						};
-					case 'end':
-						return {
-							...state,
-							isLoading: false,
-							isComplete: true,
-							output: `${state.output}\n\nSuccessfully prepare package.`,
-						};
-				}
-			},
-			{ isLoading: false, isComplete: false, output: '' },
-			{ autoRetry: false },
-		);
-		const [isModalVisible, setModalVisible] = useState(false);
-		useEffect(() => {
-			if (data.isComplete) {
-				toast.success(`Successfully prepared: ${serviceName}!`, {
-					id: `prepare-${serviceName}`,
-					duration: 1e3,
-					position: 'bottom-right',
-				});
-			}
-		}, [data.isComplete, serviceName]);
-
-		return (
-			<>
-				<Button
-					variant={'secondary'}
-					className={'ml-2'}
-					loading={data.isLoading}
-					onClick={() => {
-						toast.loading(
-							<div className={'flex items-center'}>
-								<span>Preparing {serviceName}</span>
-								<Button
-									variant={'secondary'}
-									className={'ml-2'}
-									size={'sm'}
-									onClick={() => setModalVisible(true)}
-								>
-									Logs
-								</Button>
-							</div>,
-							{
-								id: `prepare-${serviceName}`,
-								duration: Infinity,
-								position: 'bottom-right',
-							},
-						);
-						runPrepare({
-							name: serviceName,
-						});
-					}}
-				>
-					Prepare
-				</Button>
-
-				<Modal
-					show={isModalVisible}
-					onClose={() => setModalVisible(false)}
-					fullHeight
-				>
-					<ModalTitle>Preparing {serviceName}</ModalTitle>
-					<ModalBody>
-						<Monaco language={'logs'} value={`${data.output}\n`} />
-					</ModalBody>
-				</Modal>
-			</>
-		);
-	},
-);
+const ServicePrepareButton: React.FC<{ serviceName: string }> = ({
+	serviceName,
+}) => {
+	return (
+		<BackgroundMutationButton
+			variant={'info'}
+			className={'ml-2'}
+			icon={<ToolsIcon />}
+			toastId={`prepare-${serviceName}`}
+			logsTitle={`Preparing: ${serviceName}`}
+			loadingMessage={`Preparing`}
+			successMessage={`Successfully prepared ${serviceName}!`}
+			handler={{ methodName: 'prepareService' } as any}
+			inputData={useMemo(() => ({ name: serviceName }), [serviceName])}
+		>
+			Prepare
+		</BackgroundMutationButton>
+	);
+};
 
 const ServiceStopButton: React.FC<{ serviceName: string }> = memo(
 	function ServiceStopButton({ serviceName }) {
@@ -721,10 +752,13 @@ const ServiceLogs: React.FC<{
 }> = ({ serviceName, devServerName }) => {
 	const { data } = useStreamingRpcQuery(
 		getServiceLogs,
-		{
-			name: serviceName,
-			devServer: devServerName,
-		},
+		useMemo(
+			() => ({
+				name: serviceName,
+				devServer: devServerName,
+			}),
+			[devServerName, serviceName],
+		),
 		useCallback((state: string, action) => {
 			switch (action.type) {
 				case 'open':

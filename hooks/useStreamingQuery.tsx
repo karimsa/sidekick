@@ -61,7 +61,7 @@ export function useLazyStreamingRpcQuery<InputType, OutputType, State>(
 	const [state, dispatch] = useReducer(reducerWrapper, initialState);
 
 	const [requestId, setRequestId] = useState(() => uuid());
-	const [isStreaming, setIsStreaming] = useState(true);
+	const [isStreaming, setIsStreaming] = useState(false);
 
 	const [data, setData] = useState<{ payload: any; key: string } | null>(null);
 
@@ -106,11 +106,13 @@ export function useLazyStreamingRpcQuery<InputType, OutputType, State>(
 				requestId: string;
 			}) => {
 				if (incomingRequestId === requestId) {
+					setIsStreaming(false);
 					dispatch({ type: 'end' });
 				}
 			};
 
 			const openStream = () => {
+				setIsStreaming(true);
 				dispatch({ type: 'open' });
 				socket.emit('openStream', {
 					methodName,
@@ -137,6 +139,7 @@ export function useLazyStreamingRpcQuery<InputType, OutputType, State>(
 			return () => {
 				socket.emit('closeStream', {
 					requestId,
+					methodName,
 				});
 
 				socket.off('streamError', onStreamError);
@@ -152,8 +155,8 @@ export function useLazyStreamingRpcQuery<InputType, OutputType, State>(
 	return {
 		data: state,
 		isStreaming,
-		mutate(data: InputType) {
+		mutate: useCallback((data: InputType) => {
 			setData({ payload: data, key: jsonStableStringify(data) });
-		},
+		}, []),
 	};
 }

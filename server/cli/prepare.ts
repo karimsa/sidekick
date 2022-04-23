@@ -2,7 +2,6 @@ import { createCommand } from './createCommand';
 import { z } from 'zod';
 import { ServiceList } from '../../services/service-list';
 import { ServiceBuildsService } from '../../services/service-builds';
-import { AbortController } from 'node-abort-controller';
 import { fmt } from '../../utils/fmt';
 
 createCommand({
@@ -34,24 +33,18 @@ createCommand({
 				return;
 			}
 
-			for await (const chunk of ServiceBuildsService.buildServices(
-				[serviceConfig],
-				new AbortController(),
-			)) {
-				process.stdout.write(chunk);
-			}
+			const observable = await ServiceBuildsService.buildService(serviceConfig);
+			observable.subscribe({
+				next: (data) => process.stdout.write(data),
+				error: (err) => {
+					process.stderr.write(`${err}`);
+					process.exit(1);
+				},
+			});
 		} else {
-			const services = await ServiceList.getServices();
-			const staleServices = (
-				await Promise.all(
-					services.map(async (service) => {
-						if (force || (await ServiceBuildsService.isServiceStale(service))) {
-							return [service];
-						}
-						return [];
-					}),
-				)
-			).flat();
+			const staleServices = force
+				? await ServiceList.getServices()
+				: await ServiceBuildsService.getStaleServices();
 
 			if (dryRun) {
 				console.log(
@@ -62,12 +55,16 @@ createCommand({
 				return;
 			}
 
-			for await (const chunk of ServiceBuildsService.buildServices(
+			const observable = await ServiceBuildsService.buildServices(
 				staleServices,
-				new AbortController(),
-			)) {
-				process.stdout.write(chunk);
-			}
+			);
+			observable.subscribe({
+				next: (data) => process.stdout.write(data),
+				error: (err) => {
+					process.stderr.write(`${err}`);
+					process.exit(1);
+				},
+			});
 		}
 	},
 });

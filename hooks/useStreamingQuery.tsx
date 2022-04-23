@@ -1,5 +1,5 @@
 import type { StreamingRpcHandler } from '../utils/http';
-import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
+import { useCallback, useEffect, useReducer, useState } from 'react';
 import { io } from 'socket.io-client';
 import { v4 as uuid } from 'uuid';
 import jsonStableStringify from 'json-stable-stringify';
@@ -15,6 +15,10 @@ type StreamingRpcAction<Data> =
 	| { type: 'error'; error: string }
 	| { type: 'end' };
 
+export interface StreamOptions {
+	autoRetry?: boolean;
+}
+
 // TODO: Limit retries, auto retry on network change
 
 export function useStreamingRpcQuery<InputType, OutputType, State>(
@@ -23,8 +27,26 @@ export function useStreamingRpcQuery<InputType, OutputType, State>(
 	data: InputType,
 	reducer: (state: State, action: StreamingRpcAction<OutputType>) => State,
 	initialState: State,
+	options?: StreamOptions,
 ) {
-	// this is the type of the handler at runtime
+	const { mutate, ...result } = useLazyStreamingRpcQuery(
+		rpcHandler,
+		reducer,
+		initialState,
+		options,
+	);
+	useEffect(() => {
+		mutate(data);
+	}, [data, mutate]);
+	return result;
+}
+
+export function useLazyStreamingRpcQuery<InputType, OutputType, State>(
+	rpcHandler: StreamingRpcHandler<InputType, OutputType>,
+	reducer: (state: State, action: StreamingRpcAction<OutputType>) => State,
+	initialState: State,
+	options: StreamOptions = { autoRetry: true },
+) {
 	const { methodName } = rpcHandler as unknown as { methodName: string };
 	const reducerWrapper = useCallback(
 		(state: State, action: StreamingRpcAction<OutputType>) => {
@@ -41,58 +63,67 @@ export function useStreamingRpcQuery<InputType, OutputType, State>(
 	const [requestId, setRequestId] = useState(() => uuid());
 	const [isStreaming, setIsStreaming] = useState(true);
 
-	const dataKey = useMemo(() => jsonStableStringify(data), [data]);
+	const [data, setData] = useState<{ payload: any; key: string } | null>(null);
 
 	useEffect(
 		() => {
-			function onStreamError({
+			if (!data) {
+				return;
+			}
+
+			const onStreamError = ({
 				requestId: incomingRequestId,
 				error,
 			}: {
 				requestId: string;
 				error: string;
-			}) {
+			}) => {
 				if (incomingRequestId === requestId) {
 					dispatch({ type: 'error', error });
 					setIsStreaming(false);
-					setTimeout(() => setRequestId(uuid()), 1e3);
-				}
-			}
 
-			function onStreamData({
+					if (options?.autoRetry) {
+						setTimeout(() => setRequestId(uuid()), 1e3);
+					}
+				}
+			};
+
+			const onStreamData = ({
 				requestId: incomingRequestId,
 				data,
 			}: {
 				requestId: string;
 				data: OutputType;
-			}) {
+			}) => {
 				if (incomingRequestId === requestId) {
 					dispatch({ type: 'data', data });
 				}
-			}
+			};
 
-			function onStreamEnd({
+			const onStreamEnd = ({
 				requestId: incomingRequestId,
 			}: {
 				requestId: string;
-			}) {
+			}) => {
 				if (incomingRequestId === requestId) {
 					dispatch({ type: 'end' });
 				}
-			}
+			};
 
-			function openStream() {
+			const openStream = () => {
 				dispatch({ type: 'open' });
 				socket.emit('openStream', {
 					methodName,
-					params: data,
+					params: data.payload,
 					requestId,
 				});
-			}
+			};
 
-			function onConnect() {
-				openStream();
-			}
+			const onConnect = () => {
+				if (options?.autoRetry) {
+					openStream();
+				}
+			};
 
 			socket.on('streamError', onStreamError);
 			socket.on('streamData', onStreamData);
@@ -115,8 +146,14 @@ export function useStreamingRpcQuery<InputType, OutputType, State>(
 			};
 		},
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-		[dataKey, methodName, requestId],
+		[data?.key, methodName, requestId],
 	);
 
-	return { data: state, isStreaming };
+	return {
+		data: state,
+		isStreaming,
+		mutate(data: InputType) {
+			setData({ payload: data, key: jsonStableStringify(data) });
+		},
+	};
 }

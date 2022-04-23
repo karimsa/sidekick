@@ -10,6 +10,8 @@ import { RunningProcessModel } from '../models/RunningProcess.model';
 import { HealthService } from '../../services/health';
 import { HealthStatus } from '../../utils/shared-types';
 import { z } from 'zod';
+import * as path from 'path';
+import { ServiceBuildsService } from '../../services/service-builds';
 
 export const getServices = createRpcMethod(z.object({}), async function () {
 	return ServiceList.getServices();
@@ -170,14 +172,33 @@ export const stopService = createRpcMethod(
 	},
 );
 
-export const runServiceScript = createStreamingRpcMethod(
+export const prepareService = createStreamingRpcMethod(
 	z.object({
 		name: z.string(),
+	}),
+	z.string(),
+	async function ({ name }, subscriber) {
+		const serviceConfig = await ServiceList.getService(name);
+		const observable = await ServiceBuildsService.buildService(serviceConfig);
+		observable.subscribe(subscriber);
+	},
+);
+
+export const runServiceScript = createStreamingRpcMethod(
+	z.object({
+		serviceName: z.string(),
 		scriptName: z.string(),
 	}),
 	z.string(),
-	async function ({ name, scriptName }, subscriber) {
-		const serviceConfig = await ServiceList.getService(name);
+	async function ({ serviceName, scriptName }, subscriber) {
+		const serviceConfig = await ServiceList.getService(serviceName);
+		const projectPath = await ConfigManager.getProjectPath();
+		subscriber.next(
+			`Running 'yarn ${scriptName}' in ${path.relative(
+				projectPath,
+				serviceConfig.location,
+			)}\n\n`,
+		);
 		ExecUtils.runAndStream(`yarn ${scriptName}`, {
 			cwd: serviceConfig.location,
 		}).subscribe(subscriber);

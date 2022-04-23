@@ -6,6 +6,8 @@ import { AbortController } from 'node-abort-controller';
 import { ExecUtils } from '../utils/exec';
 import { ConfigManager } from './config';
 import { makeChan, select } from 'rsxjs';
+import { Observable } from 'rxjs';
+import path from 'path';
 
 export class ServiceBuildsService {
 	static async getServiceSourceLastUpdated(serviceConfig: ServiceConfig) {
@@ -58,6 +60,33 @@ export class ServiceBuildsService {
 			return false;
 		}
 		return !lastBuiltAt || lastBuiltAt < lastUpdatedAt;
+	}
+
+	static async buildService(serviceConfig: ServiceConfig) {
+		const projectPath = await ConfigManager.getProjectPath();
+		return new Observable<string>((subscriber) => {
+			const buildStart = new Date();
+			subscriber.next(
+				`Running 'yarn prepare' in ${path.relative(
+					projectPath,
+					serviceConfig.location,
+				)}\n\n`,
+			);
+			ExecUtils.runAndStream(`yarn prepare`, {
+				cwd: serviceConfig.location,
+			}).subscribe({
+				next: (data) => subscriber.next(data),
+				error: (err) => subscriber.error(err),
+				complete: async () => {
+					ServiceBuildHistoryModel.updateLastBuildEntry(
+						serviceConfig,
+						buildStart,
+					)
+						.then(() => subscriber.complete())
+						.catch((err) => subscriber.error(err));
+				},
+			});
+		});
 	}
 
 	static async *buildServices(

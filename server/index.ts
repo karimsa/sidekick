@@ -28,12 +28,12 @@ import {
 	getServiceProcessInfo,
 	getServices,
 	getZombieProcessInfo,
-	killProcesses,
+	killProcesses, prepareService,
 	restartDevServer,
 	runServiceScript,
 	startService,
-	stopService,
-} from './controllers/servers';
+	stopService
+} from "./controllers/servers";
 import { getHeartbeat } from './controllers/heartbeat';
 import { z } from 'zod';
 
@@ -64,6 +64,7 @@ const streamingMethods: Record<string, StreamingRpcHandler<any, any>> = {
 	getServerHealth,
 	getServiceLogs,
 	runServiceScript,
+	prepareService,
 };
 
 const corsConfig = { origin: ['http://localhost:9001'] };

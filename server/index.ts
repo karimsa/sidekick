@@ -3,7 +3,6 @@ import * as bodyParser from 'body-parser';
 import * as http from 'http';
 import cors from 'cors';
 import { Server as SocketServer, Socket } from 'socket.io';
-import { AbortController } from 'node-abort-controller';
 import morgan from 'morgan';
 import next from 'next';
 
@@ -99,31 +98,19 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 const server = http.createServer(app);
-const isProduction = process.env.NODE_ENV === 'production';
 
 const io = new SocketServer(server, {
 	cors: corsConfig,
 });
 
-function sendError(socket: Socket, requestId: string, error: any) {
-	console.error(`Socket stream encountered an error: ${error.stack || error}`);
-	socket.emit('streamError', { requestId, error: String(error) });
-}
-function sendResult(
+function sendError(
 	socket: Socket,
 	methodName: string,
 	requestId: string,
-	data: any,
+	error: any,
 ) {
-	if (isProduction) {
-		socket.emit('streamData', { requestId, data });
-	} else {
-		socket.emit('streamData', {
-			methodName,
-			requestId,
-			data,
-		});
-	}
+	console.error(`Socket stream encountered an error: ${error.stack || error}`);
+	socket.emit('streamError', { requestId, methodName, error: String(error) });
 }
 
 io.on('connection', (socket) => {
@@ -138,35 +125,37 @@ io.on('connection', (socket) => {
 				data,
 			);
 
-			const abortController = new AbortController();
 			try {
 				const method = streamingMethods[methodName];
 				if (!method) {
 					throw new Error(`Unrecognized method name: ${methodName}`);
 				}
 
+				const observable = method(params);
+				const subscription = observable.subscribe({
+					next: (data) =>
+						socket.emit('streamData', {
+							methodName,
+							requestId,
+							data,
+						}),
+					error: (err) => sendError(socket, methodName, requestId, err),
+					complete: () => socket.emit('streamEnd', { requestId, methodName }),
+				});
+
 				socket.on('disconnect', () => {
-					abortController.abort();
+					subscription.unsubscribe();
 				});
 				socket.on('closeStream', ({ requestId: incomingRequestId }) => {
 					if (incomingRequestId === requestId) {
-						abortController.abort();
+						subscription.unsubscribe();
 					}
 				});
-
-				for await (const result of method(params, abortController)) {
-					sendResult(socket, methodName, requestId, result);
-				}
-
-				socket.emit('streamEnd', {
-					requestId,
-				});
 			} catch (error) {
-				sendError(socket, requestId, error);
-				abortController.abort();
+				sendError(socket, methodName, requestId, error);
 			}
 		} catch (error) {
-			sendError(socket, '', error);
+			sendError(socket, '(unknown)', '', error);
 		}
 	});
 });

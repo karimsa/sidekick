@@ -72,22 +72,9 @@ export class ProcessManager {
 		});
 	}
 
-	static async watchLogs({
-		name,
-		onLogEntry,
-		abortController,
-	}: {
-		name: string;
-		onLogEntry: (chunk: string) => void;
-		abortController: AbortController;
-	}) {
-		await ExecUtils.runCommand(
-			`tail`,
-			['-n', '200', '-f', this.getProcessLogFile(name)],
-			{
-				onStdout: onLogEntry,
-				abortController,
-			},
+	static watchLogs({ name }: { name: string }) {
+		return ExecUtils.runAndStream(
+			`tail -n 200 -f ${this.getProcessLogFile(name)}`,
 		);
 	}
 

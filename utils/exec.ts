@@ -11,6 +11,8 @@ import * as fs from 'fs';
 import { fmt } from './fmt';
 import { ConfigManager } from '../services/config';
 import { ProcessManager } from './process-manager';
+import { AbortController } from 'node-abort-controller';
+import { Observable } from 'rxjs';
 
 const debug = createDebug('sidekick:exec');
 const verbose = createDebug('sidekick:exec:verbose');
@@ -165,6 +167,31 @@ export class ExecUtils {
 					reject(new Error(`process aborted`));
 				});
 			}
+		});
+	}
+
+	static runAndStream(command: string) {
+		return new Observable<string>((subscriber) => {
+			debug(fmt`Starting streaming command: ${command}`);
+			const child = execa.command(command, {
+				stdio: 'pipe',
+			});
+			child.stdout!.on('data', (chunk) =>
+				subscriber.next(stripAnsi(chunk.toString())),
+			);
+			child.stderr!.on('data', (chunk) =>
+				subscriber.next(stripAnsi(chunk.toString())),
+			);
+			child
+				.then(() => subscriber.complete())
+				.catch((error) => subscriber.error(error))
+				.then(() => debug(fmt`Process exited`));
+			return () => {
+				if (child.connected) {
+					debug(fmt`Received abort signal, killing process: ${command}`);
+					child.kill();
+				}
+			};
 		});
 	}
 

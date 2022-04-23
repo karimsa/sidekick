@@ -3,9 +3,9 @@ import { z } from 'zod';
 
 export const getHeartbeat = createStreamingRpcMethod(
 	z.object({}),
-	async function* (_, abortController) {
-		while (!abortController.signal.aborted) {
-			yield { isAlive: true };
+	async (_, subscriber) => {
+		while (!subscriber.closed) {
+			subscriber.next({ isAlive: true });
 			await new Promise<void>((resolve) => {
 				setTimeout(() => resolve(), 1e3);
 			});

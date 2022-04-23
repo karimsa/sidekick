@@ -5,7 +5,6 @@ import { assertUnreachable, objectEntries } from '../../utils/util-types';
 import { ProcessManager } from '../../utils/process-manager';
 import { ExecUtils } from '../../utils/exec';
 import * as os from 'os';
-import { EventEmitter, on } from 'events';
 import { AbortController } from 'node-abort-controller';
 import { RunningProcessModel } from '../models/RunningProcess.model';
 import { HealthService } from '../../services/health';
@@ -75,9 +74,9 @@ export const getServerHealth = createStreamingRpcMethod(
 	z.object({
 		name: z.string(),
 	}),
-	async function* ({ name }, abortController) {
-		while (!abortController.signal.aborted) {
-			yield HealthService.getServiceHealth(name);
+	async ({ name }, subscriber) => {
+		while (!subscriber.closed) {
+			subscriber.next(await HealthService.getServiceHealth(name));
 			await new Promise<void>((resolve) => {
 				setTimeout(() => resolve(), 5e3);
 			});
@@ -170,6 +169,23 @@ export const stopService = createRpcMethod(
 	},
 );
 
+// export const runServiceScript = createStreamingRpcMethod(
+// 	z.object({
+// 		name: z.string(),
+// 		scriptName: z.string(),
+// 	}),
+// 	async function*({ name, scriptName }, abortController) {
+// 		const serviceConfig = await ServiceList.getService(name);
+//
+// 		await ExecUtils.runCommand(`yarn`, [scriptName], {
+// 			abortController,
+// 			onStdout(chunk: string) {
+// 				// ...
+// 			}
+// 		})
+// 	},
+// );
+
 export const bulkServiceAction = createRpcMethod(
 	z.union([
 		z.object({
@@ -222,36 +238,15 @@ export const bulkServiceAction = createRpcMethod(
 	},
 );
 
-export const getServiceLogs = createStreamingRpcMethod(
+export const getServiceLogs = createStreamingRpcMethod<
+	{ name: string; devServer: string },
+	string
+>(
 	z.object({ name: z.string(), devServer: z.string() }),
-	async function* ({ name, devServer }, abortController) {
-		const emitter = new EventEmitter();
-		const logsController = new AbortController();
-		let streamError = null;
-
+	async function ({ name, devServer }, subscriber) {
 		ProcessManager.watchLogs({
 			name: ProcessManager.getScopedName(name, devServer),
-			abortController,
-			onLogEntry(chunk) {
-				emitter.emit('data', chunk);
-			},
-		}).then(
-			() => {
-				logsController.abort();
-			},
-			(error) => {
-				streamError = error;
-				logsController.abort();
-			},
-		);
-
-		yield* on(emitter, 'data', {
-			signal: logsController.signal,
-		});
-
-		if (streamError) {
-			throw streamError;
-		}
+		}).subscribe(subscriber);
 	},
 );
 

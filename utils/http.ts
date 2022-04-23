@@ -1,6 +1,6 @@
 import express from 'express';
-import { AbortController } from 'node-abort-controller';
 import { z } from 'zod';
+import { Observable, Subscriber } from 'rxjs';
 
 import { fmt } from './fmt';
 
@@ -103,11 +103,8 @@ export type RpcHandler<InputType, OutputType> = RouteHandler<
 
 export type StreamingRpcHandler<InputType, OutputType> = ((
 	data: InputType,
-	abortController: AbortController,
-) => AsyncGenerator<OutputType, void, unknown>) & {
+) => Observable<OutputType>) & {
 	__streaming: true;
-	__inputType: InputType;
-	__outputType: OutputType;
 };
 
 export type RpcInputType<Handler> = Handler extends RpcHandler<
@@ -159,15 +156,18 @@ export function createStreamingRpcMethod<InputType, OutputType>(
 	inputType: z.Schema<InputType>,
 	handler: (
 		data: InputType,
-		abortController: AbortController,
-	) => AsyncGenerator<OutputType, void, unknown>,
+		subscriber: Subscriber<OutputType>,
+	) => Promise<void>,
 ): StreamingRpcHandler<InputType, OutputType> {
-	const wrapper = async function* (
-		rawInput: unknown,
-		abortController: AbortController,
-	) {
-		const validatedInput = validate(inputType, rawInput);
-		yield* handler(validatedInput, abortController);
-	};
-	return wrapper as any;
+	return Object.assign(
+		function (rawInput: InputType) {
+			const validatedInput = validate(inputType, rawInput);
+			return new Observable<OutputType>((subscriber) => {
+				handler(validatedInput, subscriber).catch((error) => {
+					subscriber.error(error);
+				});
+			});
+		},
+		{ __streaming: true as const },
+	);
 }

@@ -1,7 +1,6 @@
 import { HealthStatus, isActiveStatus } from '../../utils/shared-types';
 import * as readline from 'readline';
 import { getServerHealth, stopService } from '../controllers/servers';
-import { AbortController } from 'node-abort-controller';
 import { ServiceConfig, ServiceList } from '../../services/service-list';
 import ansi from 'ansi-escapes';
 import chalk from 'chalk';
@@ -89,14 +88,19 @@ function startStdinBuffer() {
 }
 
 async function startHealthUpdater(name: string) {
-	const abortController = new AbortController();
-	for await (const { healthStatus } of getServerHealth(
-		{ name },
-		abortController,
-	)) {
-		state.services[name] = { status: healthStatus, lastChangedAt: new Date() };
-		state.lastUpdatedAt = new Date();
-	}
+	return new Promise<void>((resolve, reject) => {
+		getServerHealth({ name }).subscribe({
+			next: ({ healthStatus }) => {
+				state.services[name] = {
+					status: healthStatus,
+					lastChangedAt: new Date(),
+				};
+				state.lastUpdatedAt = new Date();
+			},
+			error: (err) => reject(err),
+			complete: () => resolve(),
+		});
+	});
 }
 
 async function startAllHealthUpdaters(services: ServiceConfig[]) {

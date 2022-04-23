@@ -10,6 +10,7 @@ import * as execa from 'execa';
 import * as fs from 'fs';
 import { fmt } from './fmt';
 import { ConfigManager } from '../services/config';
+import { ProcessManager } from './process-manager';
 
 const debug = createDebug('sidekick:exec');
 const verbose = createDebug('sidekick:exec:verbose');
@@ -186,5 +187,12 @@ export class ExecUtils {
 				}
 			});
 		});
+	}
+
+	static async treeKillAndWait(pid: number, signal: number) {
+		do {
+			await this.treeKill(pid, signal);
+			await new Promise((resolve) => setTimeout(resolve, 100));
+		} while (await ProcessManager.isPidRunning(pid));
 	}
 }

@@ -65,7 +65,7 @@ export const killProcesses = createRpcMethod(
 	async ({ pids }) => {
 		await Promise.all(
 			pids.map(async (pid) => {
-				await ExecUtils.treeKill(pid, os.constants.signals.SIGKILL);
+				await ExecUtils.treeKillAndWait(pid, os.constants.signals.SIGKILL);
 			}),
 		);
 	},

@@ -178,6 +178,23 @@ const ServiceList: React.FC<{
 		},
 		[serviceStatuses],
 	);
+	const visibleServices = useMemo(
+		() =>
+			services?.flatMap((service) =>
+				isServiceVisible(visibleTag, service) ? [service] : [],
+			),
+		[isServiceVisible, services, visibleTag],
+	);
+	const areAllVisibleServicesActive = useMemo(
+		() =>
+			visibleServices?.reduce(
+				(isHealthy, service) =>
+					isHealthy &&
+					isActiveStatus(serviceStatuses[service.name]?.healthStatus),
+				true,
+			),
+		[serviceStatuses, visibleServices],
+	);
 
 	const { mutate: performBulkAction, isLoading: isPerformingBulkAction } =
 		useRpcMutation(bulkServiceAction, {
@@ -203,7 +220,7 @@ const ServiceList: React.FC<{
 				maxHeight: 'calc(100vh - (2*1.25rem))',
 			}}
 		>
-			{serviceTags && services && (
+			{serviceTags && visibleServices && (
 				<div>
 					<div className={'p-5'}>
 						<Select
@@ -220,22 +237,20 @@ const ServiceList: React.FC<{
 					<div className={'px-5 pb-5 space-x-2 flex'}>
 						<Tooltip
 							content={`Start ${visibleTag.toLowerCase()} services`}
-							disabled={visibleTag === 'running'}
+							disabled={areAllVisibleServicesActive}
 						>
 							<Button
 								className={'flex items-center'}
 								variant={'primary'}
 								size={'sm'}
-								disabled={visibleTag === 'running'}
+								disabled={areAllVisibleServicesActive}
 								loading={isPerformingBulkAction}
 								icon={<PlayIcon />}
 								onClick={() =>
 									performBulkAction({
 										action: 'start',
-										serviceNames: services.flatMap((service) =>
-											isServiceVisible(visibleTag, service)
-												? [service.name]
-												: [],
+										serviceNames: visibleServices.map(
+											(service) => service.name,
 										),
 										targetEnvironment: 'local',
 										environment: {},
@@ -255,10 +270,8 @@ const ServiceList: React.FC<{
 								onClick={() =>
 									performBulkAction({
 										action: 'stop',
-										serviceNames: services.flatMap((service) =>
-											isServiceVisible(visibleTag, service)
-												? [service.name]
-												: [],
+										serviceNames: visibleServices.map(
+											(service) => service.name,
 										),
 										targetEnvironment: undefined,
 										environment: undefined,
@@ -279,10 +292,8 @@ const ServiceList: React.FC<{
 								onClick={() =>
 									performBulkAction({
 										action: 'pause',
-										serviceNames: services.flatMap((service) =>
-											isServiceVisible(visibleTag, service)
-												? [service.name]
-												: [],
+										serviceNames: visibleServices.map(
+											(service) => service.name,
 										),
 										targetEnvironment: undefined,
 										environment: undefined,
@@ -295,25 +306,22 @@ const ServiceList: React.FC<{
 					</div>
 				</div>
 			)}
-			{services?.map(
-				(service) =>
-					isServiceVisible(visibleTag, service) && (
-						<ServiceListEntry
-							key={service.name}
-							serviceName={service.name}
-							healthStatus={
-								serviceStatuses[service.name]?.healthStatus ?? HealthStatus.none
-							}
-							onStatusUpdate={(status) =>
-								!isEqual(serviceStatuses[service.name], status) &&
-								setServiceStatuses({
-									...serviceStatuses,
-									[service.name]: status,
-								})
-							}
-						/>
-					),
-			)}
+			{visibleServices?.map((service) => (
+				<ServiceListEntry
+					key={service.name}
+					serviceName={service.name}
+					healthStatus={
+						serviceStatuses[service.name]?.healthStatus ?? HealthStatus.none
+					}
+					onStatusUpdate={(status) =>
+						!isEqual(serviceStatuses[service.name], status) &&
+						setServiceStatuses({
+							...serviceStatuses,
+							[service.name]: status,
+						})
+					}
+				/>
+			))}
 		</ul>
 	);
 });

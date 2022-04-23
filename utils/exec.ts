@@ -170,11 +170,17 @@ export class ExecUtils {
 		});
 	}
 
-	static runAndStream(command: string) {
+	static runAndStream(
+		command: string,
+		options?: Omit<execa.Options, 'stdio' | 'stdout' | 'stderr'>,
+	) {
 		return new Observable<string>((subscriber) => {
 			debug(fmt`Starting streaming command: ${command}`);
 			const child = execa.command(command, {
-				stdio: 'pipe',
+				stdin: 'ignore',
+				...options,
+				stdout: 'pipe',
+				stderr: 'pipe',
 			});
 			child.stdout!.on('data', (chunk) =>
 				subscriber.next(stripAnsi(chunk.toString())),

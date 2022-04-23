@@ -154,6 +154,7 @@ export function createRpcMethod<InputType, ReturnType>(
 
 export function createStreamingRpcMethod<InputType, OutputType>(
 	inputType: z.Schema<InputType>,
+	outputType: z.Schema<OutputType>,
 	handler: (
 		data: InputType,
 		subscriber: Subscriber<OutputType>,

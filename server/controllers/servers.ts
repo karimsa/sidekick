@@ -74,6 +74,7 @@ export const getServerHealth = createStreamingRpcMethod(
 	z.object({
 		name: z.string(),
 	}),
+	z.object({ healthStatus: z.nativeEnum(HealthStatus), version: z.string() }),
 	async ({ name }, subscriber) => {
 		while (!subscriber.closed) {
 			subscriber.next(await HealthService.getServiceHealth(name));
@@ -169,22 +170,19 @@ export const stopService = createRpcMethod(
 	},
 );
 
-// export const runServiceScript = createStreamingRpcMethod(
-// 	z.object({
-// 		name: z.string(),
-// 		scriptName: z.string(),
-// 	}),
-// 	async function*({ name, scriptName }, abortController) {
-// 		const serviceConfig = await ServiceList.getService(name);
-//
-// 		await ExecUtils.runCommand(`yarn`, [scriptName], {
-// 			abortController,
-// 			onStdout(chunk: string) {
-// 				// ...
-// 			}
-// 		})
-// 	},
-// );
+export const runServiceScript = createStreamingRpcMethod(
+	z.object({
+		name: z.string(),
+		scriptName: z.string(),
+	}),
+	z.string(),
+	async function ({ name, scriptName }, subscriber) {
+		const serviceConfig = await ServiceList.getService(name);
+		ExecUtils.runAndStream(`yarn ${scriptName}`, {
+			cwd: serviceConfig.location,
+		}).subscribe(subscriber);
+	},
+);
 
 export const bulkServiceAction = createRpcMethod(
 	z.union([
@@ -238,11 +236,9 @@ export const bulkServiceAction = createRpcMethod(
 	},
 );
 
-export const getServiceLogs = createStreamingRpcMethod<
-	{ name: string; devServer: string },
-	string
->(
+export const getServiceLogs = createStreamingRpcMethod(
 	z.object({ name: z.string(), devServer: z.string() }),
+	z.string(),
 	async function ({ name, devServer }, subscriber) {
 		ProcessManager.watchLogs({
 			name: ProcessManager.getScopedName(name, devServer),

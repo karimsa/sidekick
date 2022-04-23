@@ -72,9 +72,17 @@ export class ProcessManager {
 		});
 	}
 
-	static watchLogs({ name }: { name: string }) {
+	static watchLogs({
+		name,
+		lines = 200,
+		follow = true,
+	}: {
+		name: string;
+		lines?: number;
+		follow?: boolean;
+	}) {
 		return ExecUtils.runAndStream(
-			`tail -n 200 -f ${this.getProcessLogFile(name)}`,
+			`tail -n ${lines} ${follow ? '-f' : ''} ${this.getProcessLogFile(name)}`,
 		);
 	}
 

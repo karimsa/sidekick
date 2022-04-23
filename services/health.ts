@@ -90,13 +90,10 @@ export class HealthService {
 			};
 		}
 
-		// If all the expected processes are running, but we are not receiving any response on ports,
-		// the service is completely failing
+		// If any expected processes are not running, the service is failing
 		else if (
-			(numExpectedProcesses > 0 &&
-				numRunningProcesses === numExpectedProcesses &&
-				numPortsHealthy === 0) ||
-			numCreatedProcesses > numRunningProcesses
+			numCreatedProcesses > 0 &&
+			numRunningProcesses !== numExpectedProcesses
 		) {
 			return {
 				healthStatus: HealthStatus.failing,
@@ -114,7 +111,10 @@ export class HealthService {
 				healthStatus: HealthStatus.partial,
 				version: serviceConfig.version,
 			};
-		} else if (await ServiceBuildsService.isServiceStale(serviceConfig)) {
+		} else if (
+			!serviceConfig.disableStaleChecks &&
+			(await ServiceBuildsService.isServiceStale(serviceConfig))
+		) {
 			return {
 				healthStatus: HealthStatus.stale,
 				version: serviceConfig.version,

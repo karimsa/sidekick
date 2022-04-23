@@ -12,6 +12,7 @@ export interface ServiceConfig {
 	location: string;
 	version: string;
 	scripts: Record<string, string>;
+	disableStaleChecks: boolean;
 	outputFiles: string[];
 	sourceFiles: string[];
 	ports: { type: 'http' | 'tcp'; port: number }[];
@@ -182,35 +183,43 @@ export class ServiceList {
 	}): Promise<ServiceConfig> {
 		const servicePackageJson = await this.getPackageJson(location);
 		const serviceSidekickConfigStr = await this.getSidekickJson(location);
-		const { ports, actions, devServers, tags, sourceFiles, outputFiles } =
-			parseJson(
-				z.object({
-					ports: z
-						.array(
-							z.object({
-								type: z.union([z.literal('http'), z.literal('tcp')]),
-								port: z
-									.number()
-									.int('Port numbers must be valid integers')
-									.min(1),
-							}),
-						)
-						.optional(),
-					actions: z
-						.array(
-							z.object({
-								label: z.string(),
-								command: z.string(),
-							}),
-						)
-						.optional(),
-					devServers: z.record(z.string(), z.string()).optional(),
-					tags: z.array(z.string()).optional(),
-					sourceFiles: z.array(z.string()).optional(),
-					outputFiles: z.array(z.string()).optional(),
-				}),
-				serviceSidekickConfigStr,
-			);
+		const {
+			ports,
+			actions,
+			devServers,
+			tags,
+			disableStaleChecks,
+			sourceFiles,
+			outputFiles,
+		} = parseJson(
+			z.object({
+				ports: z
+					.array(
+						z.object({
+							type: z.union([z.literal('http'), z.literal('tcp')]),
+							port: z
+								.number()
+								.int('Port numbers must be valid integers')
+								.min(1),
+						}),
+					)
+					.optional(),
+				actions: z
+					.array(
+						z.object({
+							label: z.string(),
+							command: z.string(),
+						}),
+					)
+					.optional(),
+				devServers: z.record(z.string(), z.string()).optional(),
+				tags: z.array(z.string()).optional(),
+				disableStaleChecks: z.boolean().optional(),
+				sourceFiles: z.array(z.string()).optional(),
+				outputFiles: z.array(z.string()).optional(),
+			}),
+			serviceSidekickConfigStr,
+		);
 
 		return {
 			name,
@@ -223,6 +232,7 @@ export class ServiceList {
 				all: 'npm start',
 			},
 			tags: tags ?? [],
+			disableStaleChecks: !!disableStaleChecks,
 			sourceFiles: sourceFiles ?? ['./src/**/*.{js,jsx,ts,tsx}'],
 			outputFiles: outputFiles ?? ['./dist/**/*.js'],
 		};

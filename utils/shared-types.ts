@@ -25,7 +25,7 @@ export enum HealthStatus {
 	none = 'none',
 }
 
-export function isActiveStatus(healthStatus: HealthStatus) {
+export function isActiveStatus(healthStatus?: HealthStatus) {
 	return (
 		healthStatus === HealthStatus.failing ||
 		healthStatus === HealthStatus.healthy ||

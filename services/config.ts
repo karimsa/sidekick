@@ -5,8 +5,6 @@ import { validate } from '../utils/http';
 import * as esbuild from 'esbuild';
 import omit from 'lodash/omit';
 import { z } from 'zod';
-
-import SidekickPackageJson from '../package.json';
 import { loadModule } from '../utils/load-module';
 import { Defined } from '../utils/util-types';
 
@@ -60,6 +58,7 @@ export class ConfigManager {
 
 	constructor(
 		private readonly projectName: string,
+		private readonly projectVersion: string,
 		private readonly configFilePath: string,
 	) {
 		this.readyPromise = this.loadConfig();
@@ -122,7 +121,7 @@ export class ConfigManager {
 		await this.waitForReady();
 		return Object.assign({}, this.configData!, {
 			projectName: this.projectName,
-			projectVersion: SidekickPackageJson.version,
+			projectVersion: this.projectVersion,
 			__filename: this.configFilePath,
 		});
 	}
@@ -189,7 +188,7 @@ export class ConfigManager {
 		const projectPath = await this.getProjectPath();
 
 		try {
-			const { name } = JSON.parse(
+			const { name, version } = JSON.parse(
 				await fs.promises.readFile(
 					path.resolve(projectPath, 'package.json'),
 					'utf8',
@@ -206,6 +205,7 @@ export class ConfigManager {
 
 			return new ConfigManager(
 				name,
+				version,
 				path.resolve(configDirectory, 'config.json'),
 			);
 		} catch (error: any) {

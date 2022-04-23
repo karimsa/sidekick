@@ -61,6 +61,7 @@ import startCase from 'lodash/startCase';
 import type { ServiceConfig } from '../../services/service-list';
 import { Spinner } from '../../components/Spinner';
 import { LogWindow, reduceStreamingLogs } from '../../hooks/useLogWindow';
+import { v4 as uuid } from 'uuid';
 
 function useServerName() {
 	const router = useRouter();
@@ -379,10 +380,18 @@ const ServiceList: React.FC<{
 const ServiceEditButton: React.FC<{
 	serviceName: string;
 	devServerName: string;
-}> = memo(function ServiceEditButton({ serviceName, devServerName }) {
+	onRestart(): void;
+}> = memo(function ServiceEditButton({
+	serviceName,
+	devServerName,
+	onRestart,
+}) {
 	const { mutate: restart, isLoading: isStarting } = useRpcMutation(
 		restartDevServer,
 		{
+			onSuccess: () => {
+				onRestart();
+			},
 			onError(error: any) {
 				toast.error(
 					`Failed to restart ${devServerName}: ${error.message ?? error}`,
@@ -769,14 +778,16 @@ const ServiceLogs: React.FC<{
 	serviceName: string;
 	devServerName: string;
 }> = ({ serviceName, devServerName }) => {
+	const [refKey, setRefKey] = useState('');
 	const { data } = useStreamingRpcQuery(
 		getServiceLogs,
 		useMemo(
 			() => ({
+				refKey,
 				name: serviceName,
 				devServer: devServerName,
 			}),
-			[devServerName, serviceName],
+			[devServerName, refKey, serviceName],
 		),
 		useCallback((state: string, action) => {
 			switch (action.type) {
@@ -798,6 +809,7 @@ const ServiceLogs: React.FC<{
 			<ServiceEditButton
 				serviceName={serviceName}
 				devServerName={devServerName}
+				onRestart={() => setRefKey(uuid())}
 			/>
 			<Monaco language={'log'} value={data} options={{ readOnly: true }} />
 		</>

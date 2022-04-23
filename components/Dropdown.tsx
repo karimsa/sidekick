@@ -38,7 +38,7 @@ export const Dropdown: React.FC<{
 		<ul
 			ref={dropdownRef}
 			className={classNames(
-				'dropdown absolute w-full flex-col py-1 rounded bg-slate-300 z-20',
+				'dropdown absolute min-w-full flex-col py-1 rounded bg-slate-300 z-20',
 				{
 					'inline-flex': show,
 					hidden: !show,

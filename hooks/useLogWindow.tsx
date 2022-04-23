@@ -115,7 +115,11 @@ export const LogWindow: React.FC<{
 				</span>
 			</ModalTitle>
 			<ModalBody>
-				<Monaco language={'logs'} value={`${output}\n`} />
+				<Monaco
+					language={'logs'}
+					value={`${output}\n`}
+					options={{ readOnly: true }}
+				/>
 			</ModalBody>
 		</Modal>
 	);

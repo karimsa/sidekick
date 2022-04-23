@@ -799,7 +799,7 @@ const ServiceLogs: React.FC<{
 				serviceName={serviceName}
 				devServerName={devServerName}
 			/>
-			<Monaco language={'log'} value={data} />
+			<Monaco language={'log'} value={data} options={{ readOnly: true }} />
 		</>
 	);
 };
@@ -888,6 +888,7 @@ const ServiceControlPanel: React.FC<{
 
 						<div>
 							<ServiceStopButton serviceName={selectedServerName} />
+							<ServiceRunScriptButton serviceName={selectedServerName} />
 						</div>
 					</div>
 				)}

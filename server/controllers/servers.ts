@@ -77,12 +77,22 @@ export const getServerHealth = createStreamingRpcMethod(
 	z.object({
 		name: z.string(),
 	}),
-	z.object({ healthStatus: z.nativeEnum(HealthStatus), version: z.string() }),
+	z.object({
+		healthStatus: z.nativeEnum(HealthStatus),
+		version: z.string(),
+	}),
 	async ({ name }, subscriber) => {
 		while (!subscriber.closed) {
-			subscriber.next(await HealthService.getServiceHealth(name));
+			const status = await HealthService.getServiceHealth(name);
+			// debugging hackery
+			Object.assign(status, { serviceName: name });
+			subscriber.next(status);
+
 			await new Promise<void>((resolve) => {
-				setTimeout(() => resolve(), 5e3);
+				HealthService.waitForPossibleHealthChange(name).subscribe({
+					complete: () => resolve(),
+					error: () => resolve(),
+				});
 			});
 		}
 	},

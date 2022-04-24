@@ -223,12 +223,16 @@ const ServiceList: React.FC<{
 		},
 		[serviceStatuses],
 	);
+	const selectedServerName = useServerName();
 	const visibleServices = useMemo(
 		() =>
 			services?.flatMap((service) =>
-				isServiceVisible(visibleTag, service) ? [service] : [],
+				isServiceVisible(visibleTag, service) ||
+				service.name === selectedServerName
+					? [service]
+					: [],
 			),
-		[isServiceVisible, services, visibleTag],
+		[isServiceVisible, selectedServerName, services, visibleTag],
 	);
 	const areAllVisibleServicesActive = useMemo(
 		() =>

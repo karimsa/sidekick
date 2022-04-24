@@ -4,6 +4,10 @@ import { assertUnreachable, objectKeys } from '../utils/util-types';
 import { ProcessManager } from '../utils/process-manager';
 import { HealthStatus, isActiveStatus } from '../utils/shared-types';
 import { ServiceBuildsService } from './service-builds';
+import EventEmitter from 'events';
+import { Observable } from 'rxjs';
+
+const emitter = new EventEmitter();
 
 export class HealthService {
 	static async getServiceHealth(name: string) {
@@ -124,6 +128,21 @@ export class HealthService {
 		}
 	}
 
+	static notifyHealthChange(name: string) {
+		emitter.emit(`update-${name}`);
+	}
+
+	static waitForPossibleHealthChange(name: string) {
+		return new Observable<void>((subscriber) => {
+			const notify = () => {
+				subscriber.next();
+				subscriber.complete();
+			};
+			emitter.once(`update-${name}`, () => notify());
+			setTimeout(() => notify(), 1000);
+		});
+	}
+
 	static async waitForHealthStatus(
 		name: string,
 		targetStatusList: HealthStatus[],
@@ -132,17 +151,21 @@ export class HealthService {
 		while (!abortController.signal.aborted) {
 			const currentStatus = await this.getServiceHealth(name);
 			if (targetStatusList.includes(currentStatus.healthStatus)) {
+				this.notifyHealthChange(name);
 				return currentStatus;
 			}
 		}
+		this.notifyHealthChange(name);
 	}
 
 	static async waitForActive(name: string, abortController: AbortController) {
 		while (!abortController.signal.aborted) {
 			const currentStatus = await this.getServiceHealth(name);
 			if (isActiveStatus(currentStatus.healthStatus)) {
+				this.notifyHealthChange(name);
 				return currentStatus;
 			}
 		}
+		this.notifyHealthChange(name);
 	}
 }

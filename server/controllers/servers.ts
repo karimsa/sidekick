@@ -13,7 +13,7 @@ import { z } from 'zod';
 import * as path from 'path';
 import { ServiceBuildsService } from '../../services/service-builds';
 import { split } from '../utils/split';
-import { merge } from 'rxjs';
+import { merge, Observable, Subscriber } from 'rxjs';
 
 export const getServices = createRpcMethod(z.object({}), async function () {
 	return ServiceList.getServices();
@@ -74,6 +74,31 @@ export const killProcesses = createRpcMethod(
 	},
 );
 
+type ServerHealthUpdate = {
+	healthStatus: HealthStatus;
+	version: string;
+	serviceName: string;
+};
+
+const watchServerHealth = async (
+	name: string,
+	subscriber: Subscriber<ServerHealthUpdate>,
+) => {
+	while (!subscriber.closed) {
+		subscriber.next({
+			...(await HealthService.getServiceHealth(name)),
+			serviceName: name,
+		});
+
+		await new Promise<void>((resolve) => {
+			HealthService.waitForPossibleHealthChange(name).subscribe({
+				complete: () => resolve(),
+				error: () => resolve(),
+			});
+		});
+	}
+};
+
 export const getBulkServerHealth = createStreamingRpcMethod(
 	z.object({}),
 	z.object({
@@ -83,40 +108,17 @@ export const getBulkServerHealth = createStreamingRpcMethod(
 	}),
 	async (_, subscriber) => {
 		const services = await ServiceList.getServices();
+
 		merge(
-			...services.map((serviceConfig) =>
-				getServerHealth({ name: serviceConfig.name }),
+			...services.map(
+				(serviceConfig) =>
+					new Observable<ServerHealthUpdate>((subscriber) => {
+						watchServerHealth(serviceConfig.name, subscriber).catch((error) => {
+							subscriber.error(error);
+						});
+					}),
 			),
 		).subscribe(subscriber);
-	},
-);
-
-/**
- * @deprecated This is a broken idea.
- */
-export const getServerHealth = createStreamingRpcMethod(
-	z.object({
-		name: z.string(),
-	}),
-	z.object({
-		serviceName: z.string(),
-		healthStatus: z.nativeEnum(HealthStatus),
-		version: z.string(),
-	}),
-	async ({ name }, subscriber) => {
-		while (!subscriber.closed) {
-			subscriber.next({
-				...(await HealthService.getServiceHealth(name)),
-				serviceName: name,
-			});
-
-			await new Promise<void>((resolve) => {
-				HealthService.waitForPossibleHealthChange(name).subscribe({
-					complete: () => resolve(),
-					error: () => resolve(),
-				});
-			});
-		}
 	},
 );
 

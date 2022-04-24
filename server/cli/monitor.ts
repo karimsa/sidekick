@@ -1,6 +1,6 @@
 import { HealthStatus, isActiveStatus } from '../../utils/shared-types';
 import * as readline from 'readline';
-import { getServerHealth, stopService } from '../controllers/servers';
+import { getBulkServerHealth, stopService } from '../controllers/servers';
 import { ServiceConfig, ServiceList } from '../../services/service-list';
 import ansi from 'ansi-escapes';
 import chalk from 'chalk';
@@ -87,26 +87,21 @@ function startStdinBuffer() {
 	);
 }
 
-async function startHealthUpdater(name: string) {
-	return new Promise<void>((resolve, reject) => {
-		getServerHealth({ name }).subscribe({
-			next: ({ healthStatus }) => {
-				state.services[name] = {
-					status: healthStatus,
-					lastChangedAt: new Date(),
-				};
-				state.lastUpdatedAt = new Date();
-			},
-			error: (err) => reject(err),
-			complete: () => resolve(),
-		});
+function startAllHealthUpdaters() {
+	getBulkServerHealth({}).subscribe({
+		next: ({ serviceName, healthStatus }) => {
+			state.services[serviceName] = {
+				status: healthStatus,
+				lastChangedAt: new Date(),
+			};
+			state.lastUpdatedAt = new Date();
+		},
+		error: (err) => {
+			console.error(err.stack);
+			process.exit(1);
+		},
+		complete: () => {},
 	});
-}
-
-async function startAllHealthUpdaters(services: ServiceConfig[]) {
-	await Promise.all(
-		services.map((service) => startHealthUpdater(service.name)),
-	);
 }
 
 function logAndOverwrite(msg: string) {
@@ -197,7 +192,7 @@ createCommand({
 		const services = await ServiceList.getServices();
 
 		startStdinBuffer();
-		startAllHealthUpdaters(services);
+		startAllHealthUpdaters();
 
 		clearScreen();
 

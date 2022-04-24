@@ -9,7 +9,7 @@ import { Spinner } from '../components/Spinner';
 import { CheckCircleFillIcon } from '@primer/octicons-react';
 
 type LogState = { isComplete: boolean; output: string };
-type LogAction = StreamingRpcAction<string>;
+type LogAction = StreamingRpcAction<string, never>;
 
 export const reduceStreamingLogs = [
 	(state: LogState, action: LogAction): LogState => {

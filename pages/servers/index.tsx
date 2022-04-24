@@ -68,6 +68,7 @@ import {
 	useBulkServiceHealth,
 	withBulkServiceHealthProvider,
 } from '../../hooks/useBulkServiceHealth';
+import { useLocalState } from '../../hooks/useLocalState';
 
 function useServerName() {
 	const router = useRouter();
@@ -828,7 +829,7 @@ const ServiceLogs: React.FC<{
 		}, []),
 		{ raw: '', json: [] },
 	);
-	const [jsonViewer, setJsonViewer] = useState(false);
+	const [jsonViewer, setJsonViewer] = useLocalState('use-json-viewer', Boolean);
 
 	return (
 		<>

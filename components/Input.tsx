@@ -5,6 +5,7 @@ interface InputProps {
 	className?: string;
 	value: string;
 	onChange(value: string): void;
+	placeholder?: string;
 }
 
 export const Input: React.FC<InputProps> = ({
@@ -12,6 +13,7 @@ export const Input: React.FC<InputProps> = ({
 	className,
 	value,
 	onChange,
+	placeholder,
 }) => {
 	return (
 		<input
@@ -19,6 +21,7 @@ export const Input: React.FC<InputProps> = ({
 			type={type}
 			value={value}
 			onChange={(evt) => onChange(evt.target.value)}
+			placeholder={placeholder}
 		/>
 	);
 };

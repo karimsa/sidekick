@@ -111,14 +111,16 @@ export class ProcessManager {
 		}
 	}
 
-	static async pause(name: string) {
+	static async pause(serviceName: string, devServerName: string) {
+		const name = this.getScopedName(serviceName, devServerName);
 		await ExecUtils.treeKill(
 			await this.getPID(name),
 			os.constants.signals.SIGSTOP,
 		);
 	}
 
-	static async resume(name: string) {
+	static async resume(serviceName: string, devServerName: string) {
+		const name = this.getScopedName(serviceName, devServerName);
 		await ExecUtils.treeKill(
 			await this.getPID(name),
 			os.constants.signals.SIGCONT,

@@ -207,6 +207,50 @@ export const stopService = createRpcMethod(
 	},
 );
 
+export const pauseService = createRpcMethod(
+	z.object({
+		name: z.string(),
+	}),
+	async ({ name }) => {
+		const serviceConfig = await ServiceList.getService(name);
+
+		await Promise.all(
+			objectEntries(serviceConfig.devServers).map(async ([devServerName]) => {
+				await ProcessManager.pause(name, devServerName);
+			}),
+		);
+		await HealthService.waitForHealthStatus(
+			name,
+			[HealthStatus.paused],
+			new AbortController(),
+		);
+
+		return { ok: true };
+	},
+);
+
+export const resumeService = createRpcMethod(
+	z.object({
+		name: z.string(),
+	}),
+	async ({ name }) => {
+		const serviceConfig = await ServiceList.getService(name);
+
+		await Promise.all(
+			objectEntries(serviceConfig.devServers).map(async ([devServerName]) => {
+				await ProcessManager.resume(name, devServerName);
+			}),
+		);
+		await HealthService.waitForHealthStatus(
+			name,
+			[HealthStatus.healthy, HealthStatus.failing, HealthStatus.partial],
+			new AbortController(),
+		);
+
+		return { ok: true };
+	},
+);
+
 export const prepareService = createStreamingRpcMethod(
 	z.object({
 		name: z.string(),

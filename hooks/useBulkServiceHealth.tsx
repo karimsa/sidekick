@@ -1,7 +1,7 @@
 import constate from 'constate';
 import { useStreamingRpcQuery } from './useStreamingQuery';
 import { getBulkServerHealth } from '../server/controllers/servers';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { HealthStatus } from '../utils/shared-types';
 import { RpcOutputType } from '../utils/http';
 import { toast } from 'react-hot-toast';
@@ -29,7 +29,7 @@ export const [BulkServiceHealthProvider, useBulkServiceHealth] = constate(
 			BulkServiceState
 		>(
 			getBulkServerHealth,
-			{},
+			useMemo(() => ({}), []),
 			useCallback((state, action): BulkServiceState => {
 				switch (action.type) {
 					case 'open':

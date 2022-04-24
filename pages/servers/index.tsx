@@ -9,9 +9,11 @@ import {
 	getServiceProcessInfo,
 	getServices,
 	getServiceScripts,
+	pauseService,
 	prepareService,
 	prepareStaleServices,
 	restartDevServer,
+	resumeService,
 	runServiceScript,
 	startService,
 	stopService,
@@ -32,6 +34,7 @@ import { Button } from '../../components/Button';
 import {
 	LinkExternalIcon,
 	NoEntryFillIcon,
+	NoEntryIcon,
 	PlayIcon,
 	StopIcon,
 	TerminalIcon,
@@ -614,7 +617,6 @@ const ServicePrepareButton: React.FC<{ serviceName: string }> = ({
 		<>
 			<Button
 				variant={'info'}
-				className={'ml-2'}
 				icon={<ToolsIcon />}
 				loading={query.isStreaming}
 				onClick={() => mutate({ name: serviceName })}
@@ -660,7 +662,6 @@ const ServiceRunScriptButton: React.FC<{ serviceName: string }> = ({
 			<DropdownContainer>
 				<Button
 					variant={'secondary'}
-					className={'ml-2'}
 					disabled={!!errFetchingScripts}
 					loading={isLoading}
 					icon={<TerminalIcon />}
@@ -710,6 +711,45 @@ const ServiceStopButton: React.FC<{ serviceName: string }> = memo(
 				onClick={() => stop({ name: serviceName })}
 			>
 				Stop servers
+			</Button>
+		);
+	},
+);
+
+const ServicePauseButton: React.FC<{ serviceName: string }> = memo(
+	function ServicePauseButton({ serviceName }) {
+		const { mutate: pause, isLoading: isPausing } = useRpcMutation(
+			pauseService,
+			{
+				onError: (error) => {
+					toast.error(String(error));
+				},
+			},
+		);
+		const { mutate: resume, isLoading: isResuming } = useRpcMutation(
+			resumeService,
+			{
+				onError: (error) => {
+					toast.error(String(error));
+				},
+			},
+		);
+		const serviceStatuses = useBulkServiceHealth();
+		const isServicePaused =
+			serviceStatuses[serviceName]?.healthStatus === HealthStatus.paused;
+
+		return (
+			<Button
+				variant={isServicePaused ? 'primary' : 'warning'}
+				loading={isPausing || isResuming}
+				icon={isServicePaused ? <PlayIcon /> : <NoEntryIcon />}
+				onClick={() =>
+					isServicePaused
+						? resume({ name: serviceName })
+						: pause({ name: serviceName })
+				}
+			>
+				{isServicePaused ? 'Resume' : 'Pause'} servers
 			</Button>
 		);
 	},
@@ -848,7 +888,7 @@ const ServiceControlPanel = () => {
 			<TabView href={`/servers/${selectedServerName}`}>
 				{(selectedServerStatus.healthStatus === HealthStatus.none ||
 					selectedServerStatus.healthStatus === HealthStatus.stale) && (
-					<div className={'flex items-center'}>
+					<div className={'flex items-center space-x-2'}>
 						<ServiceStartButton serviceName={selectedServerName} />
 						<ServicePrepareButton serviceName={selectedServerName} />
 						<ServiceRunScriptButton serviceName={selectedServerName} />
@@ -878,8 +918,9 @@ const ServiceControlPanel = () => {
 								) : null,
 							)}
 
-						<div>
+						<div className={'space-x-2'}>
 							<ServiceStopButton serviceName={selectedServerName} />
+							<ServicePauseButton serviceName={selectedServerName} />
 							<ServiceRunScriptButton serviceName={selectedServerName} />
 						</div>
 					</div>

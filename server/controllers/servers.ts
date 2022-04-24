@@ -8,7 +8,7 @@ import * as os from 'os';
 import { AbortController } from 'node-abort-controller';
 import { RunningProcessModel } from '../models/RunningProcess.model';
 import { HealthService } from '../../services/health';
-import { HealthStatus } from '../../utils/shared-types';
+import { HealthStatus, isActiveStatus } from '../../utils/shared-types';
 import { z } from 'zod';
 import * as path from 'path';
 import { ServiceBuildsService } from '../../services/service-builds';
@@ -312,7 +312,11 @@ export const bulkServiceAction = createRpcMethod(
 		}),
 		z.object({
 			serviceNames: z.array(z.string()),
-			action: z.union([z.literal('stop'), z.literal('pause')]),
+			action: z.union([
+				z.literal('stop'),
+				z.literal('pause'),
+				z.literal('resume'),
+			]),
 			targetEnvironment: z.undefined(),
 			environment: z.undefined(),
 		}),
@@ -341,6 +345,25 @@ export const bulkServiceAction = createRpcMethod(
 							break;
 
 						case 'pause':
+							if (
+								isActiveStatus(
+									(await HealthService.getServiceHealth(service.name))
+										.healthStatus,
+								)
+							) {
+								await pauseService.run({ name: service.name });
+							}
+							break;
+
+						case 'resume':
+							if (
+								isActiveStatus(
+									(await HealthService.getServiceHealth(service.name))
+										.healthStatus,
+								)
+							) {
+								await resumeService.run({ name: service.name });
+							}
 							break;
 
 						default:

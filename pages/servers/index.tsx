@@ -196,6 +196,16 @@ const ServiceList: React.FC = memo(function ServiceList() {
 			),
 		[serviceStatuses, visibleServices],
 	);
+	const areAllVisibleServicesPaused = useMemo(
+		() =>
+			visibleServices?.reduce(
+				(isHealthy, service) =>
+					isHealthy &&
+					serviceStatuses[service.name]?.healthStatus === HealthStatus.paused,
+				true,
+			),
+		[serviceStatuses, visibleServices],
+	);
 
 	const { mutate: performBulkAction, isLoading: isPerformingBulkAction } =
 		useRpcMutation(bulkServiceAction, {
@@ -289,17 +299,28 @@ const ServiceList: React.FC = memo(function ServiceList() {
 							<PrepareAllButton />
 						</Tooltip>
 
-						<Tooltip content={`Pause ${visibleTag.toLowerCase()} services`}>
+						<Tooltip
+							content={
+								areAllVisibleServicesPaused
+									? `Resume ${visibleTag.toLowerCase()} services`
+									: `Pause ${visibleTag.toLowerCase()} services`
+							}
+						>
 							<Button
-								disabled={true}
-								variant={'warning'}
+								variant={areAllVisibleServicesPaused ? 'primary' : 'warning'}
 								className={'w-full'}
 								size={'sm'}
 								loading={isPerformingBulkAction}
-								icon={<NoEntryFillIcon />}
+								icon={
+									areAllVisibleServicesPaused ? (
+										<PlayIcon />
+									) : (
+										<NoEntryFillIcon />
+									)
+								}
 								onClick={() =>
 									performBulkAction({
-										action: 'pause',
+										action: areAllVisibleServicesPaused ? 'resume' : 'pause',
 										serviceNames: visibleServices.map(
 											(service) => service.name,
 										),

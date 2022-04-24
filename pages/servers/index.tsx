@@ -842,7 +842,7 @@ const ServiceLogs: React.FC<{
 				<div className={'flex items-center'}>
 					<Toggle
 						id={'toggle-json'}
-						value={jsonViewer}
+						value={!!jsonViewer}
 						onChange={setJsonViewer}
 					/>
 					<label htmlFor={'toggle-json'} className={'ml-2 text-white'}>

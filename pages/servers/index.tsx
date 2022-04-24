@@ -1,10 +1,9 @@
 import * as React from 'react';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { withSidebar } from '../../components/Sidebar';
 import {
 	bulkServiceAction,
-	getServerHealth,
 	getService,
 	getServiceLogs,
 	getServiceProcessInfo,
@@ -27,7 +26,6 @@ import {
 	useStreamingRpcQuery,
 } from '../../hooks/useStreamingQuery';
 import { HealthStatus, isActiveStatus } from '../../utils/shared-types';
-import { RpcOutputType } from '../../utils/http';
 import { ServiceStatusBadge } from '../../components/ServiceStatusBadge';
 import { ZombieServiceControls } from '../../components/ZombieServiceControls';
 import { Button } from '../../components/Button';
@@ -54,9 +52,7 @@ import { Monaco } from '../../components/Monaco';
 import { Tab, Tabs, TabView } from '../../components/Tabs';
 import { AlertCard } from '../../components/AlertCard';
 import { Code } from '../../components/Code';
-import { assertUnreachable } from '../../utils/util-types';
 import { debugHooksChanged } from '../../hooks/debug-hooks';
-import isEqual from 'lodash/isEqual';
 import startCase from 'lodash/startCase';
 import type { ServiceConfig } from '../../services/service-list';
 import { Spinner } from '../../components/Spinner';
@@ -64,6 +60,11 @@ import { LogWindow, reduceStreamingLogs } from '../../hooks/useLogWindow';
 import { v4 as uuid } from 'uuid';
 import { Toggle } from '../../components/Toggle';
 import { JsonLogViewer } from '../../components/JsonLogViewer';
+import {
+	DefaultServiceStatus,
+	useBulkServiceHealth,
+	withBulkServiceHealthProvider,
+} from '../../hooks/useBulkServiceHealth';
 
 function useServerName() {
 	const router = useRouter();
@@ -79,59 +80,9 @@ function useServerName() {
 
 const ServiceListEntry: React.FC<{
 	serviceName: string;
-	healthStatus: HealthStatus;
-	onStatusUpdate(status: RpcOutputType<typeof getServerHealth>): void;
-}> = ({ serviceName, healthStatus, onStatusUpdate }) => {
+}> = ({ serviceName }) => {
 	const selectedServerName = useServerName();
-	const { data } = useStreamingRpcQuery(
-		getServerHealth,
-		useMemo(
-			() => ({
-				name: serviceName,
-			}),
-			[serviceName],
-		),
-		useCallback(
-			(
-				state: {
-					healthStatus: HealthStatus;
-					version: string;
-					error: string | null;
-				},
-				action,
-			) => {
-				switch (action.type) {
-					case 'open':
-						return { ...(state as any), error: null };
-					case 'data':
-						return { ...action.data, error: null };
-					case 'error':
-						return {
-							healthStatus: HealthStatus.failing,
-							version: state.version ?? '(unknown)',
-							error: action.error,
-						};
-					case 'end':
-						return {
-							healthStatus: HealthStatus.none,
-							version: state.version,
-							error: null,
-						};
-					default:
-						assertUnreachable(action);
-				}
-			},
-			[],
-		),
-		{ healthStatus: HealthStatus.none, version: '(unknown)', error: null },
-	);
-
-	const statusUpdateRef = useRef(onStatusUpdate);
-	statusUpdateRef.current = onStatusUpdate;
-
-	useEffect(() => {
-		statusUpdateRef.current(data);
-	}, [data]);
+	const serviceStatuses = useBulkServiceHealth();
 
 	return (
 		<li>
@@ -146,8 +97,10 @@ const ServiceListEntry: React.FC<{
 				>
 					<span>{serviceName}</span>
 					<ServiceStatusBadge
-						status={healthStatus}
-						error={data.error ?? undefined}
+						status={
+							serviceStatuses[serviceName]?.healthStatus ??
+							DefaultServiceStatus.healthStatus
+						}
 					/>
 				</a>
 			</Link>
@@ -184,12 +137,8 @@ const PrepareAllButton: React.FC = memo(function PrepareAllButton() {
 	);
 });
 
-const ServiceList: React.FC<{
-	serviceStatuses: Record<string, RpcOutputType<typeof getServerHealth>>;
-	setServiceStatuses(
-		statuses: Record<string, RpcOutputType<typeof getServerHealth>>,
-	): void;
-}> = memo(function ServiceList({ serviceStatuses, setServiceStatuses }) {
+const ServiceList: React.FC = memo(function ServiceList() {
+	const serviceStatuses = useBulkServiceHealth();
 	const { data: services } = useRpcQuery(
 		getServices,
 		{},
@@ -256,7 +205,6 @@ const ServiceList: React.FC<{
 
 	debugHooksChanged('ServiceList', {
 		serviceStatuses,
-		setServiceStatuses,
 		services,
 		showAllServices,
 		setShowAllServices,
@@ -364,20 +312,7 @@ const ServiceList: React.FC<{
 				</div>
 			)}
 			{visibleServices?.map((service) => (
-				<ServiceListEntry
-					key={service.name}
-					serviceName={service.name}
-					healthStatus={
-						serviceStatuses[service.name]?.healthStatus ?? HealthStatus.none
-					}
-					onStatusUpdate={(status) =>
-						!isEqual(serviceStatuses[service.name], status) &&
-						setServiceStatuses({
-							...serviceStatuses,
-							[service.name]: status,
-						})
-					}
-				/>
+				<ServiceListEntry key={service.name} serviceName={service.name} />
 			))}
 		</ul>
 	);
@@ -864,14 +799,11 @@ const ServiceLogs: React.FC<{
 	);
 };
 
-const ServiceControlPanel: React.FC<{
-	serviceStatuses: Record<string, RpcOutputType<typeof getServerHealth>>;
-}> = ({ serviceStatuses }) => {
+const ServiceControlPanel = () => {
 	const selectedServerName = useServerName()!;
-	const selectedServerStatus = serviceStatuses[selectedServerName] ?? {
-		healthStatus: HealthStatus.none,
-		version: '(unknown)',
-	};
+	const serviceStatuses = useBulkServiceHealth();
+	const selectedServerStatus =
+		serviceStatuses[selectedServerName] ?? DefaultServiceStatus;
 
 	const { data: serviceConfig, error } = useRpcQuery(
 		getService,
@@ -975,70 +907,65 @@ const ServiceControlPanel: React.FC<{
 	);
 };
 
-export default withSidebar(function Servers() {
-	const [serviceStatuses, setServiceStatuses] = useState<
-		Record<string, RpcOutputType<typeof getServerHealth>>
-	>({});
-	const selectedServerName = useServerName();
+export default withSidebar(
+	withBulkServiceHealthProvider(function Servers() {
+		const selectedServerName = useServerName();
+		const { data: services, error } = useRpcQuery(getServices, {});
 
-	const { data: services, error } = useRpcQuery(getServices, {});
+		return (
+			<>
+				<Head>
+					<title>Servers | Sidekick</title>
+				</Head>
 
-	return (
-		<>
-			<Head>
-				<title>Servers | Sidekick</title>
-			</Head>
-
-			<div className={'flex-auto'}>
-				<div className={'bg-slate-900 rounded h-full flex'}>
-					{error && (
-						<div className={'flex items-center justify-center w-full'}>
-							<AlertCard title={'Failed to load servers list'}>
-								The servers list could not be loaded.
-								<Code>{String(error)}</Code>
-							</AlertCard>
-						</div>
-					)}
-
-					{!services && !error && (
-						<div className={'flex items-center justify-center w-full'}>
-							<div className={'flex items-center'}>
-								<Spinner className={'text-white'} />
-								<span className={'ml-4 text-white text-lg'}>
-									Fetching services ...
-								</span>
+				<div className={'flex-auto'}>
+					<div className={'bg-slate-900 rounded h-full flex'}>
+						{error && (
+							<div className={'flex items-center justify-center w-full'}>
+								<AlertCard title={'Failed to load servers list'}>
+									The servers list could not be loaded.
+									<Code>{String(error)}</Code>
+								</AlertCard>
 							</div>
-						</div>
-					)}
+						)}
 
-					{services && services.length === 0 && (
-						<div className={'flex items-center justify-center w-full'}>
-							<AlertCard title={'No servers found.'}>
-								Looks like your project is not a lerna/yarn workspace, or is
-								empty. Create some packages that are visible to lerna/yarn to
-								get started.
-							</AlertCard>
-						</div>
-					)}
-
-					{!error && services && services.length > 0 && (
-						<>
-							<div className={'w-1/4'}>
-								<ServiceList
-									serviceStatuses={serviceStatuses}
-									setServiceStatuses={setServiceStatuses}
-								/>
-							</div>
-
-							{selectedServerName && (
-								<div className={'w-3/4 p-5'}>
-									<ServiceControlPanel serviceStatuses={serviceStatuses} />
+						{!services && !error && (
+							<div className={'flex items-center justify-center w-full'}>
+								<div className={'flex items-center'}>
+									<Spinner className={'text-white'} />
+									<span className={'ml-4 text-white text-lg'}>
+										Fetching services ...
+									</span>
 								</div>
-							)}
-						</>
-					)}
+							</div>
+						)}
+
+						{services && services.length === 0 && (
+							<div className={'flex items-center justify-center w-full'}>
+								<AlertCard title={'No servers found.'}>
+									Looks like your project is not a lerna/yarn workspace, or is
+									empty. Create some packages that are visible to lerna/yarn to
+									get started.
+								</AlertCard>
+							</div>
+						)}
+
+						{!error && services && services.length > 0 && (
+							<>
+								<div className={'w-1/4'}>
+									<ServiceList />
+								</div>
+
+								{selectedServerName && (
+									<div className={'w-3/4 p-5'}>
+										<ServiceControlPanel />
+									</div>
+								)}
+							</>
+						)}
+					</div>
 				</div>
-			</div>
-		</>
-	);
-});
+			</>
+		);
+	}),
+);

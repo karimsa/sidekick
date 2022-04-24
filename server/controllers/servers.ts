@@ -13,6 +13,7 @@ import { z } from 'zod';
 import * as path from 'path';
 import { ServiceBuildsService } from '../../services/service-builds';
 import { split } from '../utils/split';
+import { merge } from 'rxjs';
 
 export const getServices = createRpcMethod(z.object({}), async function () {
 	return ServiceList.getServices();
@@ -73,20 +74,41 @@ export const killProcesses = createRpcMethod(
 	},
 );
 
+export const getBulkServerHealth = createStreamingRpcMethod(
+	z.object({}),
+	z.object({
+		serviceName: z.string(),
+		healthStatus: z.nativeEnum(HealthStatus),
+		version: z.string(),
+	}),
+	async (_, subscriber) => {
+		const services = await ServiceList.getServices();
+		merge(
+			...services.map((serviceConfig) =>
+				getServerHealth({ name: serviceConfig.name }),
+			),
+		).subscribe(subscriber);
+	},
+);
+
+/**
+ * @deprecated This is a broken idea.
+ */
 export const getServerHealth = createStreamingRpcMethod(
 	z.object({
 		name: z.string(),
 	}),
 	z.object({
+		serviceName: z.string(),
 		healthStatus: z.nativeEnum(HealthStatus),
 		version: z.string(),
 	}),
 	async ({ name }, subscriber) => {
 		while (!subscriber.closed) {
-			const status = await HealthService.getServiceHealth(name);
-			// debugging hackery
-			Object.assign(status, { serviceName: name });
-			subscriber.next(status);
+			subscriber.next({
+				...(await HealthService.getServiceHealth(name)),
+				serviceName: name,
+			});
 
 			await new Promise<void>((resolve) => {
 				HealthService.waitForPossibleHealthChange(name).subscribe({

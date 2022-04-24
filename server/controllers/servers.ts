@@ -268,6 +268,11 @@ export const prepareStaleServices = createStreamingRpcMethod(
 	z.string(),
 	async function (_, subscriber) {
 		const services = await ServiceBuildsService.getStaleServices();
+		if (services.length === 0) {
+			subscriber.complete();
+			return;
+		}
+
 		const observable = await ServiceBuildsService.buildServices(services);
 		observable.subscribe(subscriber);
 	},

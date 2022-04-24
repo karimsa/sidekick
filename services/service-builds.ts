@@ -106,6 +106,10 @@ export class ServiceBuildsService {
 	}
 
 	static async buildServices(services: ServiceConfig[]) {
+		if (services.length === 0) {
+			throw new Error(`Cannot build zero services`);
+		}
+
 		const projectPath = await ConfigManager.getProjectPath();
 		return new Observable<string>((subscriber) => {
 			const buildStart = new Date();

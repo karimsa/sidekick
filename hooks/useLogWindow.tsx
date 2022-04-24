@@ -6,6 +6,7 @@ import { Button } from '../components/Button';
 import { Modal, ModalBody, ModalTitle } from '../components/Modal';
 import { Monaco } from '../components/Monaco';
 import { Spinner } from '../components/Spinner';
+import { CheckCircleFillIcon } from '@primer/octicons-react';
 
 type LogState = { isComplete: boolean; output: string };
 type LogAction = StreamingRpcAction<string>;
@@ -110,7 +111,13 @@ export const LogWindow: React.FC<{
 		>
 			<ModalTitle>
 				<span className={'flex items-center'}>
-					{!isComplete && <Spinner className={'mr-2 text-black'} />}
+					{isComplete ? (
+						<span className={'mr-2 flex items-center'}>
+							<CheckCircleFillIcon />
+						</span>
+					) : (
+						<Spinner className={'mr-2 text-black'} />
+					)}
 					{title}
 				</span>
 			</ModalTitle>

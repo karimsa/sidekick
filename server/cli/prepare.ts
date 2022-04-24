@@ -46,6 +46,11 @@ createCommand({
 				? await ServiceList.getServices()
 				: await ServiceBuildsService.getStaleServices();
 
+			if (staleServices.length === 0) {
+				console.log(`Found zero stale services`);
+				return;
+			}
+
 			if (dryRun) {
 				console.log(
 					fmt`Found ${staleServices.length} stale services: ${staleServices.map(

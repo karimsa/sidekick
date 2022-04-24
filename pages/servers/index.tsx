@@ -9,10 +9,12 @@ import {
 	getServiceProcessInfo,
 	getServices,
 	getServiceScripts,
+	pauseDevServer,
 	pauseService,
 	prepareService,
 	prepareStaleServices,
 	restartDevServer,
+	resumeDevServer,
 	resumeService,
 	runServiceScript,
 	startService,
@@ -397,7 +399,7 @@ const ServiceEditButton: React.FC<{
 		<>
 			<Button
 				className={'mb-5'}
-				variant={'warning'}
+				variant={'info'}
 				disabled={!!error}
 				loading={isStarting}
 				icon={<PlayIcon />}
@@ -782,6 +784,46 @@ const ServicePauseButton: React.FC<{ serviceName: string }> = memo(
 	},
 );
 
+const DevServerPauseButton: React.FC<{
+	serviceName: string;
+	devServer: string;
+}> = memo(function DevServerPauseButton({ serviceName, devServer }) {
+	const { mutate: pause, isLoading: isPausing } = useRpcMutation(
+		pauseDevServer,
+		{
+			onError: (error) => {
+				toast.error(String(error));
+			},
+		},
+	);
+	const { mutate: resume, isLoading: isResuming } = useRpcMutation(
+		resumeDevServer,
+		{
+			onError: (error) => {
+				toast.error(String(error));
+			},
+		},
+	);
+	const serviceStatuses = useBulkServiceHealth();
+	const isServicePaused =
+		serviceStatuses[serviceName]?.healthStatus === HealthStatus.paused;
+
+	return (
+		<Button
+			variant={isServicePaused ? 'primary' : 'warning'}
+			loading={isPausing || isResuming}
+			icon={isServicePaused ? <PlayIcon /> : <NoEntryIcon />}
+			onClick={() =>
+				isServicePaused
+					? resume({ serviceName, devServer })
+					: pause({ serviceName, devServer })
+			}
+		>
+			{isServicePaused ? 'Resume' : 'Pause'} server
+		</Button>
+	);
+});
+
 const ServiceLogs: React.FC<{
 	serviceName: string;
 	devServerName: string;
@@ -846,19 +888,24 @@ const ServiceLogs: React.FC<{
 
 	return (
 		<>
-			<ServiceEditButton
-				serviceName={serviceName}
-				devServerName={devServerName}
-				onRestart={() => setRefKey(uuid())}
-			/>
-			<Button
-				className={'ml-2'}
-				variant={'secondary'}
-				icon={<TrashIcon />}
-				onClick={() => dispatch({ type: 'reset' })}
-			>
-				Clear logs
-			</Button>
+			<div className={'space-x-2'}>
+				<ServiceEditButton
+					serviceName={serviceName}
+					devServerName={devServerName}
+					onRestart={() => setRefKey(uuid())}
+				/>
+				<DevServerPauseButton
+					serviceName={serviceName}
+					devServer={devServerName}
+				/>
+				<Button
+					variant={'secondary'}
+					icon={<TrashIcon />}
+					onClick={() => dispatch({ type: 'reset' })}
+				>
+					Clear logs
+				</Button>
+			</div>
 
 			<div className={'flex mb-4'}>
 				<div className={'flex items-center'}>

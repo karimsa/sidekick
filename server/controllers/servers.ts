@@ -229,6 +229,54 @@ export const pauseService = createRpcMethod(
 	},
 );
 
+export const pauseDevServer = createRpcMethod(
+	z.object({
+		serviceName: z.string(),
+		devServer: z.string(),
+	}),
+	async ({ serviceName, devServer }) => {
+		const serviceConfig = await ServiceList.getService(serviceName);
+		if (!serviceConfig.devServers[devServer]) {
+			throw new Error(
+				`Unrecognized dev server name: ${devServer} (under ${serviceName})`,
+			);
+		}
+
+		await ProcessManager.pause(serviceName, devServer);
+		await HealthService.waitForHealthStatus(
+			serviceName,
+			[HealthStatus.paused],
+			new AbortController(),
+		);
+
+		return { ok: true };
+	},
+);
+
+export const resumeDevServer = createRpcMethod(
+	z.object({
+		serviceName: z.string(),
+		devServer: z.string(),
+	}),
+	async ({ serviceName, devServer }) => {
+		const serviceConfig = await ServiceList.getService(serviceName);
+		if (!serviceConfig.devServers[devServer]) {
+			throw new Error(
+				`Unrecognized dev server name: ${devServer} (under ${serviceName})`,
+			);
+		}
+
+		await ProcessManager.resume(serviceName, devServer);
+		await HealthService.waitForHealthStatus(
+			serviceName,
+			[HealthStatus.healthy, HealthStatus.failing, HealthStatus.partial],
+			new AbortController(),
+		);
+
+		return { ok: true };
+	},
+);
+
 export const resumeService = createRpcMethod(
 	z.object({
 		name: z.string(),

@@ -23,7 +23,6 @@ import {
 import {
 	bulkServiceAction,
 	getBulkServerHealth,
-	getServerHealth,
 	getService,
 	getServiceLogs,
 	getServiceProcessInfo,
@@ -67,7 +66,6 @@ const methods: Record<string, RpcHandler<any, any>> = {
 const streamingMethods: Record<string, StreamingRpcHandler<any, any>> = {
 	getHeartbeat,
 	getBulkServerHealth,
-	getServerHealth,
 	getServiceLogs,
 	runServiceScript,
 	prepareService,

@@ -135,11 +135,13 @@ export class HealthService {
 	static waitForPossibleHealthChange(name: string) {
 		return new Observable<void>((subscriber) => {
 			const notify = () => {
+				emitter.removeListener(`update-${name}`, notify);
+				clearTimeout(timer);
 				subscriber.next();
 				subscriber.complete();
 			};
-			emitter.once(`update-${name}`, () => notify());
-			setTimeout(() => notify(), 1000);
+			const timer = setTimeout(() => notify(), 1000);
+			emitter.once(`update-${name}`, notify);
 		});
 	}
 

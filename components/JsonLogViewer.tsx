@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useMemo, useRef, useState } from 'react';
 import { Monaco } from './Monaco';
 import { Alert } from './AlertCard';
+import { useLocalState } from '../hooks/useLocalState';
 
 const pinoLogLevels: Record<string, string> = {
 	'10': 'trace',
@@ -66,7 +67,10 @@ const JsonLogEntry: React.FC<{ entry: unknown }> = ({ entry }) => {
 };
 
 export const JsonLogViewer: React.FC<{ logs: unknown[] }> = ({ logs }) => {
-	const [inputQuery, setInputQuery] = useState('return logs');
+	const [inputQuery = 'return logs', setInputQuery] = useLocalState(
+		'log-filter-fn',
+		String,
+	);
 	const { results, err } = useMemo(() => {
 		try {
 			const results = new Function('logs', inputQuery)(logs);

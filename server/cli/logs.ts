@@ -4,6 +4,18 @@ import { ServiceList } from '../../services/service-list';
 import { ProcessManager } from '../../utils/process-manager';
 import { split } from '../utils/split';
 
+const isJson = (data: string) => {
+	if (data[0] !== '{') {
+		return false;
+	}
+	try {
+		JSON.parse(data);
+		return true;
+	} catch {
+		return false;
+	}
+};
+
 createCommand({
 	name: 'logs',
 	description: 'Display the logs for a running service',
@@ -22,12 +34,17 @@ createCommand({
 			.boolean()
 			.optional()
 			.describe('If true, will keep the logs connected and streaming'),
+		json: z
+			.boolean()
+			.optional()
+			.describe('If true, will only show lines that contain valid json'),
 	}),
 	async action({
 		service: serviceName,
 		process: devServerFilter,
 		follow,
 		count,
+		json,
 	}) {
 		const serviceConfig = await ServiceList.getService(serviceName);
 		await Promise.all(
@@ -46,11 +63,19 @@ createCommand({
 							})
 								.pipe(split(/\r?\n/g))
 								.subscribe({
-									next: (data) =>
-										process.stdout.write(
-											(devServerFilter ? data : `[${devServer}] ${data}`) +
-												'\n',
-										),
+									next: (data) => {
+										if (json && isJson(data)) {
+											process.stdout.write(
+												(devServerFilter ? data : `[${devServer}] ${data}`) +
+													'\n',
+											);
+										} else if (!json) {
+											process.stdout.write(
+												(devServerFilter ? data : `[${devServer}] ${data}`) +
+													'\n',
+											);
+										}
+									},
 									error: (err) => reject(err),
 									complete: () => resolve(),
 								});

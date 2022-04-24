@@ -111,34 +111,36 @@ const ServiceListEntry: React.FC<{
 	);
 };
 
-const PrepareAllButton: React.FC = memo(function PrepareAllButton() {
-	const { mutate: runPrepare, ...query } = useLazyStreamingRpcQuery(
-		prepareStaleServices,
-		...reduceStreamingLogs,
-	);
-	return (
-		<>
-			<Button
-				variant={'info'}
-				className={'w-full'}
-				size={'sm'}
-				icon={<ToolsIcon />}
-				loading={query.isStreaming}
-				onClick={() => runPrepare({})}
-			>
-				Prepare
-			</Button>
+const PrepareAllButton: React.FC<{ loading: boolean }> = memo(
+	function PrepareAllButton({ loading }) {
+		const { mutate: runPrepare, ...query } = useLazyStreamingRpcQuery(
+			prepareStaleServices,
+			...reduceStreamingLogs,
+		);
+		return (
+			<>
+				<Button
+					variant={'info'}
+					className={'w-full'}
+					size={'sm'}
+					icon={<ToolsIcon />}
+					loading={query.isStreaming || loading}
+					onClick={() => runPrepare({})}
+				>
+					Prepare
+				</Button>
 
-			<LogWindow
-				windowId={`prepare-all`}
-				title={`Preparing all stale packages`}
-				successToast={`Successfully prepared!`}
-				loadingToast={'Preparing all stale packages'}
-				{...query}
-			/>
-		</>
-	);
-});
+				<LogWindow
+					windowId={`prepare-all`}
+					title={`Preparing all stale packages`}
+					successToast={`Successfully prepared!`}
+					loadingToast={'Preparing all stale packages'}
+					{...query}
+				/>
+			</>
+		);
+	},
+);
 
 const ServiceList: React.FC = memo(function ServiceList() {
 	const serviceStatuses = useBulkServiceHealth();
@@ -296,7 +298,7 @@ const ServiceList: React.FC = memo(function ServiceList() {
 
 					<div className={'px-5 pb-5 space-x-2 flex'}>
 						<Tooltip content={`Prepare ${visibleTag.toLowerCase()} services`}>
-							<PrepareAllButton />
+							<PrepareAllButton loading={isPerformingBulkAction} />
 						</Tooltip>
 
 						<Tooltip
@@ -329,7 +331,7 @@ const ServiceList: React.FC = memo(function ServiceList() {
 									})
 								}
 							>
-								Pause
+								{areAllVisibleServicesPaused ? 'Resume' : 'Pause'}
 							</Button>
 						</Tooltip>
 					</div>

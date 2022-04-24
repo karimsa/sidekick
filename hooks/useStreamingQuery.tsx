@@ -1,5 +1,5 @@
 import type { StreamingRpcHandler } from '../utils/http';
-import { useCallback, useEffect, useReducer, useState } from 'react';
+import { Dispatch, useCallback, useEffect, useReducer, useState } from 'react';
 import { io } from 'socket.io-client';
 import { v4 as uuid } from 'uuid';
 import jsonStableStringify from 'json-stable-stringify';
@@ -9,11 +9,12 @@ const socket = io(`http://${global.location?.hostname}:9010/`, {
 	autoConnect: !!global.window,
 });
 
-export type StreamingRpcAction<Data> =
+export type StreamingRpcAction<Data, CustomAction> =
 	| { type: 'open' }
 	| { type: 'data'; data: Data }
 	| { type: 'error'; error: string }
-	| { type: 'end' };
+	| { type: 'end' }
+	| CustomAction;
 
 export interface StreamOptions {
 	autoRetry?: boolean;
@@ -21,11 +22,19 @@ export interface StreamOptions {
 
 // TODO: Limit retries, auto retry on network change
 
-export function useStreamingRpcQuery<InputType, OutputType, State>(
+export function useStreamingRpcQuery<
+	InputType,
+	OutputType,
+	State,
+	CustomAction = never,
+>(
 	// this is the type of the handler at compile-time
 	rpcHandler: StreamingRpcHandler<InputType, OutputType>,
 	data: InputType,
-	reducer: (state: State, action: StreamingRpcAction<OutputType>) => State,
+	reducer: (
+		state: State,
+		action: StreamingRpcAction<OutputType, CustomAction>,
+	) => State,
 	initialState: State,
 	options?: StreamOptions,
 ) {
@@ -41,15 +50,23 @@ export function useStreamingRpcQuery<InputType, OutputType, State>(
 	return result;
 }
 
-export function useLazyStreamingRpcQuery<InputType, OutputType, State>(
+export function useLazyStreamingRpcQuery<
+	InputType,
+	OutputType,
+	State,
+	CustomAction = never,
+>(
 	rpcHandler: StreamingRpcHandler<InputType, OutputType>,
-	reducer: (state: State, action: StreamingRpcAction<OutputType>) => State,
+	reducer: (
+		state: State,
+		action: StreamingRpcAction<OutputType, CustomAction>,
+	) => State,
 	initialState: State,
 	options: StreamOptions = { autoRetry: true },
 ) {
 	const { methodName } = rpcHandler as unknown as { methodName: string };
 	const reducerWrapper = useCallback(
-		(state: State, action: StreamingRpcAction<OutputType>) => {
+		(state: State, action: StreamingRpcAction<OutputType, CustomAction>) => {
 			const nextState = reducer(state, action);
 			if (isEqual(nextState, state)) {
 				return state;
@@ -158,5 +175,6 @@ export function useLazyStreamingRpcQuery<InputType, OutputType, State>(
 		mutate: useCallback((data: InputType, key?: string) => {
 			setData({ payload: data, key: key ?? uuid() });
 		}, []),
+		dispatch: dispatch as Dispatch<CustomAction>,
 	};
 }

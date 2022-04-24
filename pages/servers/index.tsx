@@ -24,6 +24,7 @@ import { toast } from 'react-hot-toast';
 import classNames from 'classnames';
 import { useRouter } from 'next/router';
 import {
+	StreamingRpcAction,
 	useLazyStreamingRpcQuery,
 	useStreamingRpcQuery,
 } from '../../hooks/useStreamingQuery';
@@ -39,6 +40,7 @@ import {
 	StopIcon,
 	TerminalIcon,
 	ToolsIcon,
+	TrashIcon,
 	XCircleFillIcon,
 } from '@primer/octicons-react';
 import {
@@ -69,6 +71,7 @@ import {
 	withBulkServiceHealthProvider,
 } from '../../hooks/useBulkServiceHealth';
 import { useLocalState } from '../../hooks/useLocalState';
+import { RpcOutputType } from '../../utils/http';
 
 function useServerName() {
 	const router = useRouter();
@@ -784,7 +787,7 @@ const ServiceLogs: React.FC<{
 	devServerName: string;
 }> = ({ serviceName, devServerName }) => {
 	const [refKey, setRefKey] = useState('');
-	const { data } = useStreamingRpcQuery(
+	const { data, dispatch } = useStreamingRpcQuery(
 		getServiceLogs,
 		useMemo(
 			() => ({
@@ -794,39 +797,49 @@ const ServiceLogs: React.FC<{
 			}),
 			[devServerName, refKey, serviceName],
 		),
-		useCallback((state: { raw: string; json: unknown[] }, action) => {
-			switch (action.type) {
-				case 'open':
-					return { raw: '', json: [] };
-				case 'data':
-					if (action.data[0] === '{') {
+		useCallback(
+			(
+				state: { raw: string; json: unknown[] },
+				action: StreamingRpcAction<
+					RpcOutputType<typeof getServiceLogs>,
+					{ type: 'reset' }
+				>,
+			) => {
+				switch (action.type) {
+					case 'open':
+					case 'reset':
+						return { raw: '', json: [] };
+					case 'data':
+						if (action.data[0] === '{') {
+							return {
+								raw: state.raw + action.data + '\n',
+								json: [...state.json, JSON.parse(action.data)],
+							};
+						}
 						return {
 							raw: state.raw + action.data + '\n',
-							json: [...state.json, JSON.parse(action.data)],
+							json: state.json,
 						};
-					}
-					return {
-						raw: state.raw + action.data + '\n',
-						json: state.json,
-					};
-				case 'error':
-					return {
-						raw: `${state.raw}\n\nLog stream errored out: ${action.error}`,
-						json: [
-							...state.json,
-							{
-								level: 'error',
-								message: `Log stream errored out: ${action.error}`,
-							},
-						],
-					};
-				case 'end':
-					return {
-						raw: `${state.raw}\n\nLogs disconnected.`,
-						json: [...state.json],
-					};
-			}
-		}, []),
+					case 'error':
+						return {
+							raw: `${state.raw}\n\nLog stream errored out: ${action.error}`,
+							json: [
+								...state.json,
+								{
+									level: 'error',
+									message: `Log stream errored out: ${action.error}`,
+								},
+							],
+						};
+					case 'end':
+						return {
+							raw: `${state.raw}\n\nLogs disconnected.`,
+							json: [...state.json],
+						};
+				}
+			},
+			[],
+		),
 		{ raw: '', json: [] },
 	);
 	const [jsonViewer, setJsonViewer] = useLocalState('use-json-viewer', Boolean);
@@ -838,6 +851,15 @@ const ServiceLogs: React.FC<{
 				devServerName={devServerName}
 				onRestart={() => setRefKey(uuid())}
 			/>
+			<Button
+				className={'ml-2'}
+				variant={'secondary'}
+				icon={<TrashIcon />}
+				onClick={() => dispatch({ type: 'reset' })}
+			>
+				Clear logs
+			</Button>
+
 			<div className={'flex mb-4'}>
 				<div className={'flex items-center'}>
 					<Toggle

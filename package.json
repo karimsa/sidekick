@@ -21,7 +21,8 @@
     "lint-tsc": "tsc",
     "lint-prettier": "prettier --check components hooks pages server services utils",
     "lint-depcheck": "depcheck --ignores 'depcheck,kill-port,autoprefixer,postcss,tailwindcss'",
-    "pin": "syncpack fix-mismatches && syncpack set-semver-ranges"
+    "pin": "syncpack fix-mismatches && syncpack set-semver-ranges",
+    "release": "yarn lint && npm version"
   },
   "engines": {
     "node": ">= 12"

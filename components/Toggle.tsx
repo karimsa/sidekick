@@ -2,9 +2,10 @@ import * as React from 'react';
 import classNames from 'classnames';
 
 export const Toggle: React.FC<{
+	id: string;
 	value: boolean;
 	onChange(value: boolean): void;
-}> = ({ value, onChange }) => {
+}> = ({ id, value, onChange }) => {
 	return (
 		<div
 			className={classNames(
@@ -17,6 +18,7 @@ export const Toggle: React.FC<{
 			onClick={() => onChange(!value)}
 		>
 			<input
+				id={id}
 				type={'checkbox'}
 				className={
 					'rounded-full bg-white w-4 h-4 appearance-none cursor-pointer'

@@ -12,6 +12,7 @@ import { HealthStatus } from '../../utils/shared-types';
 import { z } from 'zod';
 import * as path from 'path';
 import { ServiceBuildsService } from '../../services/service-builds';
+import { split } from '../utils/split';
 
 export const getServices = createRpcMethod(z.object({}), async function () {
 	return ServiceList.getServices();
@@ -281,7 +282,9 @@ export const getServiceLogs = createStreamingRpcMethod(
 	async function ({ name, devServer }, subscriber) {
 		ProcessManager.watchLogs({
 			name: ProcessManager.getScopedName(name, devServer),
-		}).subscribe(subscriber);
+		})
+			.pipe(split(/\r?\n/g))
+			.subscribe(subscriber);
 	},
 );
 

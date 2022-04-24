@@ -62,6 +62,8 @@ import type { ServiceConfig } from '../../services/service-list';
 import { Spinner } from '../../components/Spinner';
 import { LogWindow, reduceStreamingLogs } from '../../hooks/useLogWindow';
 import { v4 as uuid } from 'uuid';
+import { Toggle } from '../../components/Toggle';
+import { JsonLogViewer } from '../../components/JsonLogViewer';
 
 function useServerName() {
 	const router = useRouter();
@@ -789,20 +791,42 @@ const ServiceLogs: React.FC<{
 			}),
 			[devServerName, refKey, serviceName],
 		),
-		useCallback((state: string, action) => {
+		useCallback((state: { raw: string; json: unknown[] }, action) => {
 			switch (action.type) {
 				case 'open':
-					return '';
+					return { raw: '', json: [] };
 				case 'data':
-					return state + action.data;
+					if (action.data[0] === '{') {
+						return {
+							raw: state.raw + action.data + '\n',
+							json: [...state.json, JSON.parse(action.data)],
+						};
+					}
+					return {
+						raw: state.raw + action.data + '\n',
+						json: state.json,
+					};
 				case 'error':
-					return `${state}\n\nLog stream errored out: ${action.error}`;
+					return {
+						raw: `${state.raw}\n\nLog stream errored out: ${action.error}`,
+						json: [
+							...state.json,
+							{
+								level: 'error',
+								message: `Log stream errored out: ${action.error}`,
+							},
+						],
+					};
 				case 'end':
-					return `${state}\n\nLogs disconnected.`;
+					return {
+						raw: `${state.raw}\n\nLogs disconnected.`,
+						json: [...state.json],
+					};
 			}
 		}, []),
-		'',
+		{ raw: '', json: [] },
 	);
+	const [jsonViewer, setJsonViewer] = useState(false);
 
 	return (
 		<>
@@ -811,7 +835,27 @@ const ServiceLogs: React.FC<{
 				devServerName={devServerName}
 				onRestart={() => setRefKey(uuid())}
 			/>
-			<Monaco language={'log'} value={data} options={{ readOnly: true }} />
+			<div className={'flex mb-4'}>
+				<div className={'flex items-center'}>
+					<Toggle
+						id={'toggle-json'}
+						value={jsonViewer}
+						onChange={setJsonViewer}
+					/>
+					<label htmlFor={'toggle-json'} className={'ml-2 text-white'}>
+						JSON Logs
+					</label>
+				</div>
+			</div>
+			{jsonViewer ? (
+				<JsonLogViewer logs={data.json} />
+			) : (
+				<Monaco
+					language={'log'}
+					value={data.raw}
+					options={{ readOnly: true }}
+				/>
+			)}
 		</>
 	);
 };

@@ -381,40 +381,37 @@ export const bulkServiceAction = createRpcMethod(
 			services.map(async (service) => {
 				if (serviceNames.includes(service.name)) {
 					servicesUpdated.push(service.name);
+					const isServiceActive = isActiveStatus(
+						(await HealthService.getServiceHealth(service.name)).healthStatus,
+					);
 
 					switch (action) {
 						case 'start':
-							await startService.run({
-								name: service.name,
-								targetEnvironment,
-								environment,
-							});
+							if (!isServiceActive) {
+								await startService.run({
+									name: service.name,
+									targetEnvironment,
+									environment,
+								});
+							}
 							break;
 
 						case 'stop':
-							await stopService.run({
-								name: service.name,
-							});
+							if (isServiceActive) {
+								await stopService.run({
+									name: service.name,
+								});
+							}
 							break;
 
 						case 'pause':
-							if (
-								isActiveStatus(
-									(await HealthService.getServiceHealth(service.name))
-										.healthStatus,
-								)
-							) {
+							if (isServiceActive) {
 								await pauseService.run({ name: service.name });
 							}
 							break;
 
 						case 'resume':
-							if (
-								isActiveStatus(
-									(await HealthService.getServiceHealth(service.name))
-										.healthStatus,
-								)
-							) {
+							if (isServiceActive) {
 								await resumeService.run({ name: service.name });
 							}
 							break;

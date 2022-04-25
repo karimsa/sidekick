@@ -824,6 +824,14 @@ const DevServerPauseButton: React.FC<{
 	);
 });
 
+const safeParse = (str: string) => {
+	try {
+		return JSON.parse(str);
+	} catch {
+		return null;
+	}
+};
+
 const ServiceLogs: React.FC<{
 	serviceName: string;
 	devServerName: string;
@@ -855,7 +863,7 @@ const ServiceLogs: React.FC<{
 						if (action.data[0] === '{') {
 							return {
 								raw: state.raw + action.data + '\n',
-								json: [...state.json, JSON.parse(action.data)],
+								json: [...state.json, safeParse(action.data)].filter(Boolean),
 							};
 						}
 						return {

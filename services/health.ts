@@ -84,10 +84,7 @@ export class HealthService {
 
 		// If the all the expected ports are responding, but the process manager was not able to
 		// locate all the processes, we have entered zombie mode
-		else if (
-			numRunningProcesses < numExpectedProcesses &&
-			numPortsHealthy > 0
-		) {
+		else if (numCreatedProcesses === 0 && numPortsHealthy > 0) {
 			return {
 				healthStatus: HealthStatus.zombie,
 				version: serviceConfig.version,

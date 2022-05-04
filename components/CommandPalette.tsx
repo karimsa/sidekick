@@ -3,6 +3,8 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Input } from './Input';
 import { Dropdown, DropdownButton, DropdownContainer } from './Dropdown';
 import { toast } from 'react-hot-toast';
+import { useLocalState } from '../hooks/useLocalState';
+import { z } from 'zod';
 
 export interface CommandPaletteCommand {
 	name: string;
@@ -27,12 +29,22 @@ const [CommandPaletteProvider, useCommandPalette] = constate(() => {
 
 export { useCommandPalette };
 
-function searchCommands(commands: CommandPaletteCommand[], query: string) {
+function searchCommands(
+	commands: CommandPaletteCommand[],
+	query: string,
+	cmdUsageFrequency: Record<string, number>,
+) {
 	if (!query.length) {
-		return commands.map((command) => ({
-			command,
-			matches: [],
-		}));
+		return commands
+			.map((command) => ({
+				command,
+				matches: [],
+			}))
+			.sort(
+				(a, b) =>
+					(cmdUsageFrequency[b.command.name] ?? 0) -
+					(cmdUsageFrequency[a.command.name] ?? 0),
+			);
 	}
 
 	return commands
@@ -55,6 +67,11 @@ function searchCommands(commands: CommandPaletteCommand[], query: string) {
 						},
 				  ];
 		})
+		.sort(
+			(a, b) =>
+				(cmdUsageFrequency[b.command.name] ?? 0) -
+				(cmdUsageFrequency[a.command.name] ?? 0),
+		)
 		.sort((a, b) => b.matches.length - a.matches.length);
 }
 
@@ -66,6 +83,10 @@ const CommandPaletteInternal: React.FC = memo(function CommandPaletteInternal({
 	const [activeCommandIndex, setActiveCommandIndex] = useState(-1);
 	const inputRef = useRef<HTMLInputElement | null>(null);
 	const { commands } = useCommandPalette();
+	const [cmdUsageFrequency, setCmdUsageFrequency] = useLocalState(
+		'cmdUsageFrequency',
+		(s) => z.record(z.string(), z.number()).parse(s),
+	);
 
 	useEffect(() => {
 		const onKeyDown = (evt: KeyboardEvent) => {
@@ -85,21 +106,30 @@ const CommandPaletteInternal: React.FC = memo(function CommandPaletteInternal({
 	}, []);
 
 	const matchingCommands = useMemo(
-		() => searchCommands(commands, query.trim()),
-		[commands, query],
+		() => searchCommands(commands, query.trim(), cmdUsageFrequency ?? {}),
+		[cmdUsageFrequency, commands, query],
 	);
-	const dispatchCommand = useCallback((command?: CommandPaletteCommand) => {
-		setOpen(false);
-		setQuery('');
+	const dispatchCommand = useCallback(
+		(command?: CommandPaletteCommand) => {
+			setOpen(false);
+			setQuery('');
 
-		try {
-			command?.action();
-		} catch (err: any) {
-			toast.error(
-				`Failed to dispatch command ${command?.name}: ${err.message ?? err}`,
-			);
-		}
-	}, []);
+			try {
+				if (command) {
+					setCmdUsageFrequency((cmds) => ({
+						...cmds,
+						[command.name]: (cmds?.[command.name] ?? 0) + 1,
+					}));
+					command.action();
+				}
+			} catch (err: any) {
+				toast.error(
+					`Failed to dispatch command ${command?.name}: ${err.message ?? err}`,
+				);
+			}
+		},
+		[setCmdUsageFrequency],
+	);
 
 	return (
 		<>

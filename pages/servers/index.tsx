@@ -154,8 +154,13 @@ const PrepareAllButton: React.FC<{ loading: boolean }> = memo(
 
 function useServiceTags(services?: ServiceConfig[]) {
 	return useMemo(
-		() =>
-			[...new Set(services?.flatMap((service) => service.tags) ?? [])].sort(),
+		() => [
+			'all',
+			'running',
+			...[...new Set(services?.flatMap((service) => service.tags) ?? [])]
+				.filter((tag) => !['all', 'running'].includes(tag))
+				.sort(),
+		],
 		[services],
 	);
 }

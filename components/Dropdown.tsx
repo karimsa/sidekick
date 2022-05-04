@@ -69,13 +69,17 @@ export const DropdownLink: React.FC<
 
 export const DropdownButton: React.FC<{
 	onClick(): void;
+	active?: boolean;
 	className?: string;
-}> = ({ onClick, className = '', children, ...props }) => {
+}> = ({ onClick, className = '', active, children, ...props }) => {
 	return (
 		<li>
 			<button
 				type={'button'}
-				className={`bg-slate-300 hover:bg-slate-400 p-2 block w-full text-left ${className}`}
+				className={classNames(`p-2 block w-full text-left ${className}`, {
+					'bg-slate-400': active,
+					'bg-slate-300 hover:bg-slate-400': !active,
+				})}
 				onClick={onClick}
 				{...props}
 			>

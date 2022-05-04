@@ -74,6 +74,10 @@ import {
 } from '../../hooks/useBulkServiceHealth';
 import { useLocalState } from '../../hooks/useLocalState';
 import { RpcOutputType } from '../../utils/http';
+import {
+	CommandPaletteCommand,
+	useCommandPalette,
+} from '../../components/CommandPalette';
 
 function useServerName() {
 	const router = useRouter();
@@ -148,6 +152,16 @@ const PrepareAllButton: React.FC<{ loading: boolean }> = memo(
 	},
 );
 
+function useServiceTags(services?: ServiceConfig[]) {
+	return useMemo(() => {
+		const builtinTags = ['running', 'all'];
+		const customTags = [
+			...new Set(services?.flatMap((service) => service.tags) ?? []),
+		].sort();
+		return [...builtinTags, ...customTags];
+	}, [services]);
+}
+
 const ServiceList: React.FC = memo(function ServiceList() {
 	const serviceStatuses = useBulkServiceHealth();
 	const { data: services } = useRpcQuery(
@@ -159,13 +173,7 @@ const ServiceList: React.FC = memo(function ServiceList() {
 			},
 		},
 	);
-	const serviceTags = useMemo(() => {
-		const builtinTags = ['running', 'all'];
-		const customTags = [
-			...new Set(services?.flatMap((service) => service.tags) ?? []),
-		].sort();
-		return [...builtinTags, ...customTags];
-	}, [services]);
+	const serviceTags = useServiceTags(services);
 
 	const [showAllServices, setShowAllServices] = useState(false);
 	const [visibleTag, setVisibleTag] = useState('running');
@@ -1049,10 +1057,91 @@ const ServiceControlPanel = () => {
 	);
 };
 
+function useDevServerCommands() {
+	const { mutate: start } = useRpcMutation(startService, {
+		onError(error: any, { name }) {
+			toast.error(`Failed to start ${name}: ${error.message ?? error}`);
+		},
+	});
+	const { mutate: stop } = useRpcMutation(stopService, {
+		onError(error: any, { name }) {
+			toast.error(`Failed to stop ${name}: ${error.message ?? error}`);
+		},
+	});
+	const { mutate: prepare, ...prepareQuery } = useLazyStreamingRpcQuery(
+		prepareService,
+		...reduceStreamingLogs,
+	);
+	const { mutate: prepareAll, ...prepareAllQuery } = useLazyStreamingRpcQuery(
+		prepareStaleServices,
+		...reduceStreamingLogs,
+	);
+
+	const { data: services } = useRpcQuery(getServices, {});
+	const serviceTags = useServiceTags(services);
+	const serviceStatuses = useBulkServiceHealth();
+	const { registerCommands } = useCommandPalette();
+
+	useEffect(() => {
+		if (!services) {
+			return;
+		}
+		return registerCommands([
+			{
+				name: 'Prepare all services',
+				action: () => prepareAll({}),
+			},
+			...serviceTags.map((serviceTag) => ({
+				name: `Start all ${serviceTag} services`,
+				action: () => {},
+			})),
+			...serviceTags.map((serviceTag) => ({
+				name: `Stop all ${serviceTag} services`,
+				action: () => {},
+			})),
+			...services.flatMap((service) => {
+				const healthStatus =
+					serviceStatuses[service.name]?.healthStatus ??
+					DefaultServiceStatus.healthStatus;
+				const commands: CommandPaletteCommand[] = [];
+
+				if (isActiveStatus(healthStatus)) {
+					commands.push({
+						name: `Stop ${service.name}`,
+						action: () =>
+							stop({
+								name: service.name,
+							}),
+					});
+				} else {
+					commands.push(
+						{
+							name: `Start ${service.name} in local`,
+							action: () =>
+								start({
+									name: service.name,
+									targetEnvironment: 'local',
+									environment: {},
+								}),
+						},
+						{
+							name: `Prepare ${service.name}`,
+							action: () => prepare({ name: service.name }),
+						},
+					);
+				}
+
+				return commands;
+			}),
+		]);
+	}, [prepare, registerCommands, serviceStatuses, services, start, stop]);
+}
+
 export default withSidebar(
 	withBulkServiceHealthProvider(function Servers() {
 		const selectedServerName = useServerName();
 		const { data: services, error } = useRpcQuery(getServices, {});
+		useDevServerCommands();
 
 		return (
 			<>

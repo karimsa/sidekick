@@ -9,6 +9,7 @@ import '../styles/globals.scss';
 import 'tippy.js/dist/tippy.css';
 import { useRpcQuery } from '../hooks/useQuery';
 import { getConfig } from '../server/controllers/config';
+import { CommandPalette } from '../components/CommandPalette';
 
 /**
  * Some toast decoration around next.js' async routing.
@@ -86,7 +87,9 @@ export default function MyApp({ Component, pageProps }: AppProps) {
 			<QueryClientProvider client={queryClient}>
 				<Toaster />
 				<QueryDevtools />
-				<Component {...pageProps} />
+				<CommandPalette>
+					<Component {...pageProps} />
+				</CommandPalette>
 			</QueryClientProvider>
 		</>
 	);

@@ -1070,6 +1070,7 @@ function useDevServerCommands() {
 	const serviceTags = useServiceTags(services);
 	const serviceStatuses = useBulkServiceHealth();
 	const { registerCommands } = useCommandPalette();
+	const router = useRouter();
 
 	useEffect(() => {
 		if (!services) {
@@ -1132,6 +1133,14 @@ function useDevServerCommands() {
 								),
 						},
 					);
+
+					Object.keys(service.devServers).forEach((devServer) => {
+						commands.push({
+							name: `Show ${service.name} ${devServer} logs`,
+							action: () =>
+								router.push(`/servers/${service.name}/logs/${devServer}`),
+						});
+					});
 				} else {
 					commands.push(
 						...environments.map((envName) => ({

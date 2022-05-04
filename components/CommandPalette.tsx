@@ -116,10 +116,10 @@ const CommandPaletteInternal: React.FC = memo(function CommandPaletteInternal({
 
 			try {
 				if (command) {
-					setCmdUsageFrequency((cmds) => ({
-						...cmds,
-						[command.name]: (cmds?.[command.name] ?? 0) + 1,
-					}));
+					setCmdUsageFrequency({
+						...cmdUsageFrequency,
+						[command.name]: (cmdUsageFrequency?.[command.name] ?? 0) + 1,
+					});
 					command.action();
 				}
 			} catch (err: any) {
@@ -128,7 +128,7 @@ const CommandPaletteInternal: React.FC = memo(function CommandPaletteInternal({
 				);
 			}
 		},
-		[setCmdUsageFrequency],
+		[cmdUsageFrequency, setCmdUsageFrequency],
 	);
 
 	return (

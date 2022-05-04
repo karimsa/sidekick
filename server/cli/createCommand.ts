@@ -95,7 +95,7 @@ function showCommandHelp(command: Command<any>) {
 	process.exit(1);
 }
 
-function getProjectDir(currentDir: string) {
+function getProjectDir(currentDir: string): string {
 	if (fs.existsSync(`${currentDir}/sidekick.config.ts`)) {
 		return currentDir;
 	}

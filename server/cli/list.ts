@@ -12,9 +12,9 @@ createCommand({
 		tag: z.string().optional().describe('Filter services by given tag'),
 	}),
 	async action({ json, tag }) {
-		const services = (await ServiceList.getServices()).filter(
-			(service) => !tag || service.tags.includes(tag),
-		);
+		const services = tag
+			? await ServiceList.getServicesByTag(tag)
+			: await ServiceList.getServices();
 		if (json) {
 			console.log(JSON.stringify(services, null, '\t'));
 		} else {
@@ -24,7 +24,7 @@ createCommand({
 					await Promise.all(
 						services.map(async (service) => [
 							service.name,
-							service.tags.length === 0 ? '-' : service.tags.join(', '),
+							service.rawTags.length === 0 ? '-' : service.rawTags.join(', '),
 							(
 								await ServiceBuildsService.getServiceSourceLastUpdated(service)
 							)?.toLocaleString() ?? 'never',

@@ -105,6 +105,7 @@ export const getBulkServerHealth = createStreamingRpcMethod(
 	z.object({
 		serviceName: z.string(),
 		healthStatus: z.nativeEnum(HealthStatus),
+		tags: z.array(z.string()),
 		version: z.string(),
 	}),
 	async (_, subscriber) => {

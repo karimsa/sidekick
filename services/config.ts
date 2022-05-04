@@ -13,7 +13,7 @@ const ConfigTypes = z.object({
 	extensions: z.record(z.string(), z.record(z.string(), z.unknown())),
 	showReactQueryDebugger: z.boolean(),
 	minifyExtensionClients: z.boolean(),
-	enableBetaFeatures: z.boolean().default(false),
+	enableBetaFeatures: z.boolean(),
 });
 type ConfigTypes = z.TypeOf<typeof ConfigTypes>;
 
@@ -47,6 +47,7 @@ const validateConfig = (config: any) =>
 				extensions: {},
 				showReactQueryDebugger: false,
 				minifyExtensionClients: true,
+				enableBetaFeatures: false,
 			},
 			config,
 		),

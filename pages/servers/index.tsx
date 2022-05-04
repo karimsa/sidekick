@@ -1078,10 +1078,14 @@ function useDevServerCommands() {
 		}
 
 		return registerCommands([
-			{
-				name: 'Prepare all services',
-				action: () => prepareAll({}),
-			},
+			...(config?.enableBetaFeatures
+				? [
+						{
+							name: 'Prepare all services',
+							action: () => prepareAll({}),
+						},
+				  ]
+				: []),
 			...environments.flatMap((targetEnvironment) =>
 				serviceTags.map((serviceTag) => ({
 					name: `Start ${serviceTag} services in ${targetEnvironment}`,
@@ -1152,10 +1156,14 @@ function useDevServerCommands() {
 									environment: {},
 								}),
 						})),
-						{
-							name: `Prepare ${service.name}`,
-							action: () => prepare({ name: service.name }),
-						},
+						...(config?.enableBetaFeatures
+							? [
+									{
+										name: `Prepare ${service.name}`,
+										action: () => prepare({ name: service.name }),
+									},
+							  ]
+							: []),
 					);
 				}
 

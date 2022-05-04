@@ -13,6 +13,7 @@ const ConfigTypes = z.object({
 	extensions: z.record(z.string(), z.record(z.string(), z.unknown())),
 	showReactQueryDebugger: z.boolean(),
 	minifyExtensionClients: z.boolean(),
+	enableBetaFeatures: z.boolean().default(false),
 });
 type ConfigTypes = z.TypeOf<typeof ConfigTypes>;
 

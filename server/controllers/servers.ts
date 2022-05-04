@@ -16,7 +16,15 @@ import { split } from '../utils/split';
 import { merge, Observable, Subscriber } from 'rxjs';
 
 export const getServices = createRpcMethod(z.object({}), async function () {
-	return ServiceList.getServices();
+	const services = await ServiceList.getServices();
+	return Promise.all(
+		services.map(async (service) => {
+			return {
+				...service,
+				tags: await ServiceList.getServiceTags(service.name),
+			};
+		}),
+	);
 });
 
 export const getZombieProcessInfo = createRpcMethod(
@@ -358,13 +366,13 @@ export const runServiceScript = createStreamingRpcMethod(
 export const bulkServiceAction = createRpcMethod(
 	z.union([
 		z.object({
-			serviceNames: z.array(z.string()),
+			serviceTag: z.string(),
 			action: z.literal('start'),
 			targetEnvironment: z.string(),
 			environment: z.record(z.string(), z.string()),
 		}),
 		z.object({
-			serviceNames: z.array(z.string()),
+			serviceTag: z.string(),
 			action: z.union([
 				z.literal('stop'),
 				z.literal('pause'),
@@ -374,51 +382,49 @@ export const bulkServiceAction = createRpcMethod(
 			environment: z.undefined(),
 		}),
 	]),
-	async ({ serviceNames, action, targetEnvironment, environment }) => {
-		const services = await ServiceList.getServices();
+	async ({ serviceTag, action, targetEnvironment, environment }) => {
+		const services = await ServiceList.getServicesByTag(serviceTag);
 		const servicesUpdated: string[] = [];
 		await Promise.all(
 			services.map(async (service) => {
-				if (serviceNames.includes(service.name)) {
-					servicesUpdated.push(service.name);
-					const isServiceActive = isActiveStatus(
-						(await HealthService.getServiceHealth(service.name)).healthStatus,
-					);
+				servicesUpdated.push(service.name);
+				const isServiceActive = isActiveStatus(
+					(await HealthService.getServiceHealth(service.name)).healthStatus,
+				);
 
-					switch (action) {
-						case 'start':
-							if (!isServiceActive) {
-								await startService.run({
-									name: service.name,
-									targetEnvironment,
-									environment,
-								});
-							}
-							break;
+				switch (action) {
+					case 'start':
+						if (!isServiceActive) {
+							await startService.run({
+								name: service.name,
+								targetEnvironment,
+								environment,
+							});
+						}
+						break;
 
-						case 'stop':
-							if (isServiceActive) {
-								await stopService.run({
-									name: service.name,
-								});
-							}
-							break;
+					case 'stop':
+						if (isServiceActive) {
+							await stopService.run({
+								name: service.name,
+							});
+						}
+						break;
 
-						case 'pause':
-							if (isServiceActive) {
-								await pauseService.run({ name: service.name });
-							}
-							break;
+					case 'pause':
+						if (isServiceActive) {
+							await pauseService.run({ name: service.name });
+						}
+						break;
 
-						case 'resume':
-							if (isServiceActive) {
-								await resumeService.run({ name: service.name });
-							}
-							break;
+					case 'resume':
+						if (isServiceActive) {
+							await resumeService.run({ name: service.name });
+						}
+						break;
 
-						default:
-							assertUnreachable(action);
-					}
+					default:
+						assertUnreachable(action);
 				}
 			}),
 		);

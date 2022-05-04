@@ -20,9 +20,7 @@ const [CommandPaletteProvider, useCommandPalette] = constate(() => {
 		registerCommands: useCallback((newCommands: CommandPaletteCommand[]) => {
 			setCommands((cmds) => [...cmds, ...newCommands]);
 			return () =>
-				setCommands((cmds) =>
-					cmds.filter((c) => !newCommands.some((cmd) => cmd.name === c.name)),
-				);
+				setCommands((cmds) => cmds.filter((cmd) => !newCommands.includes(cmd)));
 		}, []),
 	};
 });

@@ -6,6 +6,8 @@ import * as execa from 'execa';
 import { parseJson } from '../utils/json';
 import { z } from 'zod';
 import { CacheService } from './cache';
+import { HealthService } from './health';
+import { HealthStatus } from '../utils/shared-types';
 
 export interface ServiceConfig {
 	name: string;
@@ -30,6 +32,26 @@ interface PartialServiceEntry {
 export class ServiceList {
 	static async getServices() {
 		return this.loadServicesFromPaths(await this.getServiceDefinitions());
+	}
+
+	static async getServiceTags(name: string) {
+		const serviceConfig = await this.getService(name);
+		const tags = ['all', ...serviceConfig.tags];
+		const health = await HealthService.getServiceHealth(serviceConfig.name);
+		if (health.healthStatus !== HealthStatus.none) {
+			tags.push('running');
+		}
+		return tags;
+	}
+
+	static async getServicesByTag(serviceTag: string) {
+		const services: ServiceConfig[] = [];
+		for (const service of await this.getServices()) {
+			if ((await this.getServiceTags(service.name)).includes(serviceTag)) {
+				services.push(service);
+			}
+		}
+		return services;
 	}
 
 	static async getService(name: string) {

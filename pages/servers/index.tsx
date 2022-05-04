@@ -153,13 +153,11 @@ const PrepareAllButton: React.FC<{ loading: boolean }> = memo(
 );
 
 function useServiceTags(services?: ServiceConfig[]) {
-	return useMemo(() => {
-		const builtinTags = ['running', 'all'];
-		const customTags = [
-			...new Set(services?.flatMap((service) => service.tags) ?? []),
-		].sort();
-		return [...builtinTags, ...customTags];
-	}, [services]);
+	return useMemo(
+		() =>
+			[...new Set(services?.flatMap((service) => service.tags) ?? [])].sort(),
+		[services],
+	);
 }
 
 const ServiceList: React.FC = memo(function ServiceList() {
@@ -177,30 +175,15 @@ const ServiceList: React.FC = memo(function ServiceList() {
 
 	const [showAllServices, setShowAllServices] = useState(false);
 	const [visibleTag, setVisibleTag] = useState('running');
-	const isServiceVisible = useCallback(
-		(visibleTag: string, service: ServiceConfig) => {
-			if (visibleTag === 'all') {
-				return true;
-			}
-			if (visibleTag === 'running') {
-				return (
-					serviceStatuses[service.name]?.healthStatus !== HealthStatus.none
-				);
-			}
-			return service.tags.includes(visibleTag);
-		},
-		[serviceStatuses],
-	);
 	const selectedServerName = useServerName();
 	const visibleServices = useMemo(
 		() =>
 			services?.flatMap((service) =>
-				isServiceVisible(visibleTag, service) ||
-				service.name === selectedServerName
+				service.tags.includes(visibleTag) || service.name === selectedServerName
 					? [service]
 					: [],
 			),
-		[isServiceVisible, selectedServerName, services, visibleTag],
+		[selectedServerName, services, visibleTag],
 	);
 	const areAllVisibleServicesActive = useMemo(
 		() =>
@@ -275,9 +258,7 @@ const ServiceList: React.FC = memo(function ServiceList() {
 								onClick={() =>
 									performBulkAction({
 										action: 'start',
-										serviceNames: visibleServices.map(
-											(service) => service.name,
-										),
+										serviceTag: visibleTag,
 										targetEnvironment: 'local',
 										environment: {},
 									})
@@ -297,9 +278,7 @@ const ServiceList: React.FC = memo(function ServiceList() {
 								onClick={() =>
 									performBulkAction({
 										action: 'stop',
-										serviceNames: visibleServices.map(
-											(service) => service.name,
-										),
+										serviceTag: visibleTag,
 										targetEnvironment: undefined,
 										environment: undefined,
 									})
@@ -337,9 +316,7 @@ const ServiceList: React.FC = memo(function ServiceList() {
 								onClick={() =>
 									performBulkAction({
 										action: areAllVisibleServicesPaused ? 'resume' : 'pause',
-										serviceNames: visibleServices.map(
-											(service) => service.name,
-										),
+										serviceTag: visibleTag,
 										targetEnvironment: undefined,
 										environment: undefined,
 									})
@@ -1086,6 +1063,10 @@ function useDevServerCommands() {
 
 	const { data: services } = useRpcQuery(getServices, {});
 	const { data: config } = useRpcQuery(getConfig, {});
+	const environments = useMemo(
+		() => (config ? Object.keys(config.environments) : []),
+		[config],
+	);
 	const serviceTags = useServiceTags(services);
 	const serviceStatuses = useBulkServiceHealth();
 	const { registerCommands } = useCommandPalette();
@@ -1094,19 +1075,34 @@ function useDevServerCommands() {
 		if (!services) {
 			return;
 		}
+
 		return registerCommands([
 			{
 				name: 'Prepare all services',
 				action: () => prepareAll({}),
 			},
-			...serviceTags.map((serviceTag) => ({
-				name: `Start ${serviceTag} services`,
-				action: () => {},
-			})),
-			...serviceTags.map((serviceTag) => ({
-				name: `Stop ${serviceTag} services`,
-				action: () => {},
-			})),
+			...environments.flatMap((targetEnvironment) =>
+				serviceTags.map((serviceTag) => ({
+					name: `Start ${serviceTag} services in ${targetEnvironment}`,
+					action: () =>
+						performBulkAction({
+							action: 'start',
+							serviceTag,
+							targetEnvironment,
+							environment: {},
+						}),
+				})),
+			),
+			...(['stop', 'pause', 'resume'] as const).flatMap((action) =>
+				serviceTags.map((serviceTag) => ({
+					name: `${action} ${serviceTag} services`,
+					action: () =>
+						performBulkAction({
+							action,
+							serviceTag,
+						}),
+				})),
+			),
 			...services.flatMap((service) => {
 				const healthStatus =
 					serviceStatuses[service.name]?.healthStatus ??
@@ -1138,17 +1134,15 @@ function useDevServerCommands() {
 					);
 				} else {
 					commands.push(
-						...(config
-							? Object.keys(config.environments).map((envName) => ({
-									name: `Start ${service.name} in ${envName}`,
-									action: () =>
-										start({
-											name: service.name,
-											targetEnvironment: envName,
-											environment: {},
-										}),
-							  }))
-							: []),
+						...environments.map((envName) => ({
+							name: `Start ${service.name} in ${envName}`,
+							action: () =>
+								start({
+									name: service.name,
+									targetEnvironment: envName,
+									environment: {},
+								}),
+						})),
 						{
 							name: `Prepare ${service.name}`,
 							action: () => prepare({ name: service.name }),
@@ -1161,6 +1155,8 @@ function useDevServerCommands() {
 		]);
 	}, [
 		config,
+		environments,
+		performBulkAction,
 		prepare,
 		prepareAll,
 		registerCommands,

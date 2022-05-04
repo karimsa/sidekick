@@ -157,7 +157,7 @@ function useServiceTags(services?: ServiceConfig[]) {
 		() => [
 			'all',
 			'running',
-			...[...new Set(services?.flatMap((service) => service.tags) ?? [])]
+			...[...new Set(services?.flatMap((service) => service.rawTags) ?? [])]
 				.filter((tag) => !['all', 'running'].includes(tag))
 				.sort(),
 		],
@@ -184,12 +184,15 @@ const ServiceList: React.FC = memo(function ServiceList() {
 	const visibleServices = useMemo(
 		() =>
 			services?.flatMap((service) =>
-				service.tags.includes(visibleTag) || service.name === selectedServerName
+				(serviceStatuses[service.name] ?? DefaultServiceStatus).tags.includes(
+					visibleTag,
+				) || service.name === selectedServerName
 					? [service]
 					: [],
 			),
-		[selectedServerName, services, visibleTag],
+		[selectedServerName, serviceStatuses, services, visibleTag],
 	);
+
 	const areAllVisibleServicesActive = useMemo(
 		() =>
 			visibleServices?.reduce(

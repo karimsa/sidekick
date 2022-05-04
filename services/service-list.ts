@@ -20,7 +20,7 @@ export interface ServiceConfig {
 	ports: { type: 'http' | 'tcp'; port: number }[];
 	actions: { label: string; command: string }[];
 	devServers: Record<string, string>;
-	tags: string[];
+	rawTags: string[];
 }
 
 interface PartialServiceEntry {
@@ -36,7 +36,7 @@ export class ServiceList {
 
 	static async getServiceTags(name: string) {
 		const serviceConfig = await this.getService(name);
-		const tags = ['all', ...serviceConfig.tags];
+		const tags = ['all', ...serviceConfig.rawTags];
 		const health = await HealthService.getServiceHealth(serviceConfig.name);
 		if (health.healthStatus !== HealthStatus.none) {
 			tags.push('running');
@@ -253,7 +253,7 @@ export class ServiceList {
 			devServers: devServers ?? {
 				all: 'npm start',
 			},
-			tags: tags ?? [],
+			rawTags: tags ?? [],
 			disableStaleChecks: !!disableStaleChecks,
 			sourceFiles: sourceFiles ?? ['./src/**/*.{js,jsx,ts,tsx}'],
 			outputFiles: outputFiles ?? ['./dist/**/*.js'],

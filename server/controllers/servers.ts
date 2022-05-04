@@ -16,15 +16,7 @@ import { split } from '../utils/split';
 import { merge, Observable, Subscriber } from 'rxjs';
 
 export const getServices = createRpcMethod(z.object({}), async function () {
-	const services = await ServiceList.getServices();
-	return Promise.all(
-		services.map(async (service) => {
-			return {
-				...service,
-				tags: await ServiceList.getServiceTags(service.name),
-			};
-		}),
-	);
+	return ServiceList.getServices();
 });
 
 export const getZombieProcessInfo = createRpcMethod(
@@ -84,6 +76,7 @@ export const killProcesses = createRpcMethod(
 
 type ServerHealthUpdate = {
 	healthStatus: HealthStatus;
+	tags: string[];
 	version: string;
 	serviceName: string;
 };

@@ -8,11 +8,12 @@ import { toast } from 'react-hot-toast';
 
 export type BulkServiceStatus = Record<
 	string,
-	{ healthStatus: HealthStatus; version: string }
+	{ healthStatus: HealthStatus; tags: string[]; version: string }
 >;
 
 export const DefaultServiceStatus = {
 	healthStatus: HealthStatus.none,
+	tags: ['all'],
 	version: '(unknown)',
 };
 

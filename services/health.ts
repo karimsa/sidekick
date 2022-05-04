@@ -70,6 +70,7 @@ export class HealthService {
 		) {
 			return {
 				healthStatus: HealthStatus.healthy,
+				tags: ['all', 'running', ...serviceConfig.rawTags],
 				version: serviceConfig.version,
 			};
 		}
@@ -78,6 +79,7 @@ export class HealthService {
 		else if (numSuspendedProcesses > 0) {
 			return {
 				healthStatus: HealthStatus.paused,
+				tags: ['all', 'running', ...serviceConfig.rawTags],
 				version: serviceConfig.version,
 			};
 		}
@@ -87,6 +89,7 @@ export class HealthService {
 		else if (numCreatedProcesses === 0 && numPortsHealthy > 0) {
 			return {
 				healthStatus: HealthStatus.zombie,
+				tags: ['all', 'running', ...serviceConfig.rawTags],
 				version: serviceConfig.version,
 			};
 		}
@@ -98,6 +101,7 @@ export class HealthService {
 		) {
 			return {
 				healthStatus: HealthStatus.failing,
+				tags: ['all', 'running', ...serviceConfig.rawTags],
 				version: serviceConfig.version,
 			};
 		}
@@ -110,16 +114,19 @@ export class HealthService {
 		) {
 			return {
 				healthStatus: HealthStatus.partial,
+				tags: ['all', 'running', ...serviceConfig.rawTags],
 				version: serviceConfig.version,
 			};
 		} else if (await ServiceBuildsService.isServiceStale(serviceConfig)) {
 			return {
 				healthStatus: HealthStatus.stale,
+				tags: ['all', 'running', ...serviceConfig.rawTags],
 				version: serviceConfig.version,
 			};
 		} else {
 			return {
 				healthStatus: HealthStatus.none,
+				tags: ['all', ...serviceConfig.rawTags],
 				version: serviceConfig.version,
 			};
 		}

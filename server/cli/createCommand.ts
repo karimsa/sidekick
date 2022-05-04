@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import parseArgs from 'minimist';
-import path from 'path';
+import * as fs from 'fs';
+import * as path from 'path';
 import { objectEntries, objectKeys } from '../../utils/util-types';
 import { fmt } from '../../utils/fmt';
 
@@ -94,6 +95,16 @@ function showCommandHelp(command: Command<any>) {
 	process.exit(1);
 }
 
+function getProjectDir(currentDir: string) {
+	if (fs.existsSync(`${currentDir}/sidekick.config.ts`)) {
+		return currentDir;
+	}
+	if (currentDir === '/') {
+		throw new Error(`Could not find sidekick.config.ts file`);
+	}
+	return getProjectDir(path.dirname(currentDir));
+}
+
 setImmediate(async () => {
 	try {
 		const commandName = process.argv[2];
@@ -134,9 +145,8 @@ setImmediate(async () => {
 				targetDirectory?.[0] === '~'
 					? path.join(process.env.HOME!, targetDirectory.substring(1))
 					: targetDirectory;
-			const projectDir = path.resolve(
-				process.cwd(),
-				normalizedDirectory ?? '.',
+			const projectDir = getProjectDir(
+				path.resolve(process.cwd(), normalizedDirectory ?? '.'),
 			);
 			process.env.PROJECT_PATH = projectDir;
 

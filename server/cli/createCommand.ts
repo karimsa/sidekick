@@ -95,14 +95,18 @@ function showCommandHelp(command: Command<any>) {
 	process.exit(1);
 }
 
-function getProjectDir(currentDir: string): string {
+function getProjectDir(currentDir: string, checkedDirs: string[]): string {
 	if (fs.existsSync(`${currentDir}/sidekick.config.ts`)) {
 		return currentDir;
 	}
 	if (currentDir === '/') {
-		throw new Error(`Could not find sidekick.config.ts file`);
+		throw new Error(
+			`Could not find sidekick.config.ts file\nChecked:\n${checkedDirs
+				.map((dir) => `\t${dir}`)
+				.join('\n')}`,
+		);
 	}
-	return getProjectDir(path.dirname(currentDir));
+	return getProjectDir(path.dirname(currentDir), [...checkedDirs, currentDir]);
 }
 
 setImmediate(async () => {
@@ -135,7 +139,9 @@ setImmediate(async () => {
 			.intersection(
 				command.options,
 				z.object({
-					targetDirectory: z.string({ description: '' }).default('./'),
+					targetDirectory: z
+						.string({ description: '' })
+						.default(process.env.PROJECT_PATH || './'),
 				}),
 			)
 			.safeParse(args);
@@ -147,6 +153,7 @@ setImmediate(async () => {
 					: targetDirectory;
 			const projectDir = getProjectDir(
 				path.resolve(process.cwd(), normalizedDirectory ?? '.'),
+				[],
 			);
 			process.env.PROJECT_PATH = projectDir;
 

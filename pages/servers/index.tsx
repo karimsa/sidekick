@@ -1058,12 +1058,12 @@ const ServiceControlPanel = () => {
 };
 
 function useDevServerCommands() {
-	const { mutate: start } = useRpcMutation(startService, {
+	const { mutateAsync: start } = useRpcMutation(startService, {
 		onError(error: any, { name }) {
 			toast.error(`Failed to start ${name}: ${error.message ?? error}`);
 		},
 	});
-	const { mutate: stop } = useRpcMutation(stopService, {
+	const { mutateAsync: stop } = useRpcMutation(stopService, {
 		onError(error: any, { name }) {
 			toast.error(`Failed to stop ${name}: ${error.message ?? error}`);
 		},
@@ -1076,8 +1076,16 @@ function useDevServerCommands() {
 		prepareStaleServices,
 		...reduceStreamingLogs,
 	);
+	const { mutateAsync: performBulkAction } = useRpcMutation(bulkServiceAction, {
+		onError(error: any, data) {
+			toast.error(
+				`Failed to ${data.action} services: ${error.message ?? error}`,
+			);
+		},
+	});
 
 	const { data: services } = useRpcQuery(getServices, {});
+	const { data: config } = useRpcQuery(getConfig, {});
 	const serviceTags = useServiceTags(services);
 	const serviceStatuses = useBulkServiceHealth();
 	const { registerCommands } = useCommandPalette();
@@ -1092,11 +1100,11 @@ function useDevServerCommands() {
 				action: () => prepareAll({}),
 			},
 			...serviceTags.map((serviceTag) => ({
-				name: `Start all ${serviceTag} services`,
+				name: `Start ${serviceTag} services`,
 				action: () => {},
 			})),
 			...serviceTags.map((serviceTag) => ({
-				name: `Stop all ${serviceTag} services`,
+				name: `Stop ${serviceTag} services`,
 				action: () => {},
 			})),
 			...services.flatMap((service) => {
@@ -1106,24 +1114,41 @@ function useDevServerCommands() {
 				const commands: CommandPaletteCommand[] = [];
 
 				if (isActiveStatus(healthStatus)) {
-					commands.push({
-						name: `Stop ${service.name}`,
-						action: () =>
-							stop({
-								name: service.name,
-							}),
-					});
-				} else {
 					commands.push(
 						{
-							name: `Start ${service.name} in local`,
+							name: `Stop ${service.name}`,
 							action: () =>
-								start({
+								stop({
 									name: service.name,
-									targetEnvironment: 'local',
-									environment: {},
 								}),
 						},
+						{
+							name: `Restart ${service.name}`,
+							action: () =>
+								stop({
+									name: service.name,
+								}).then(() =>
+									start({
+										name: service.name,
+										targetEnvironment: 'local',
+										environment: {},
+									}),
+								),
+						},
+					);
+				} else {
+					commands.push(
+						...(config
+							? Object.keys(config.environments).map((envName) => ({
+									name: `Start ${service.name} in ${envName}`,
+									action: () =>
+										start({
+											name: service.name,
+											targetEnvironment: envName,
+											environment: {},
+										}),
+							  }))
+							: []),
 						{
 							name: `Prepare ${service.name}`,
 							action: () => prepare({ name: service.name }),
@@ -1134,7 +1159,17 @@ function useDevServerCommands() {
 				return commands;
 			}),
 		]);
-	}, [prepare, registerCommands, serviceStatuses, services, start, stop]);
+	}, [
+		config,
+		prepare,
+		prepareAll,
+		registerCommands,
+		serviceStatuses,
+		serviceTags,
+		services,
+		start,
+		stop,
+	]);
 }
 
 export default withSidebar(

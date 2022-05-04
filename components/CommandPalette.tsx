@@ -2,6 +2,7 @@ import constate from 'constate';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Input } from './Input';
 import { Dropdown, DropdownButton, DropdownContainer } from './Dropdown';
+import { toast } from 'react-hot-toast';
 
 export interface CommandPaletteCommand {
 	name: string;
@@ -30,7 +31,7 @@ export { useCommandPalette };
 
 function searchCommands(commands: CommandPaletteCommand[], query: string) {
 	if (!query.length) {
-		return commands.slice(0, 5).map((command) => ({
+		return commands.map((command) => ({
 			command,
 			matches: [],
 		}));
@@ -56,8 +57,7 @@ function searchCommands(commands: CommandPaletteCommand[], query: string) {
 						},
 				  ];
 		})
-		.sort((a, b) => b.matches.length - a.matches.length)
-		.slice(0, 5);
+		.sort((a, b) => b.matches.length - a.matches.length);
 }
 
 const CommandPaletteInternal: React.FC = memo(function CommandPaletteInternal({
@@ -77,9 +77,12 @@ const CommandPaletteInternal: React.FC = memo(function CommandPaletteInternal({
 				setQuery('');
 				setActiveCommandIndex(0);
 				inputRef.current?.focus();
+			} else if (evt.key === 'Escape') {
+				evt.preventDefault();
+				setOpen(false);
 			}
 		};
-		window.addEventListener('keydown', onKeyDown, { capture: true });
+		window.addEventListener('keydown', onKeyDown);
 		return () => window.removeEventListener('keydown', onKeyDown);
 	}, []);
 
@@ -87,6 +90,18 @@ const CommandPaletteInternal: React.FC = memo(function CommandPaletteInternal({
 		() => searchCommands(commands, query.trim()),
 		[commands, query],
 	);
+	const dispatchCommand = useCallback((command?: CommandPaletteCommand) => {
+		setOpen(false);
+		setQuery('');
+
+		try {
+			command?.action();
+		} catch (err: any) {
+			toast.error(
+				`Failed to dispatch command ${command?.name}: ${err.message ?? err}`,
+			);
+		}
+	}, []);
 
 	return (
 		<>
@@ -113,8 +128,9 @@ const CommandPaletteInternal: React.FC = memo(function CommandPaletteInternal({
 								} else if (evt.key === 'ArrowUp') {
 									setActiveCommandIndex((i) => Math.max(0, i - 1));
 								} else if (evt.key === 'Enter') {
-									matchingCommands[activeCommandIndex]?.command.action();
-									setOpen(false);
+									dispatchCommand(
+										matchingCommands[activeCommandIndex]?.command,
+									);
 								}
 							}}
 							autoFocus
@@ -122,11 +138,11 @@ const CommandPaletteInternal: React.FC = memo(function CommandPaletteInternal({
 
 						{matchingCommands.length > 0 && (
 							<DropdownContainer className={'w-full'}>
-								<Dropdown show={true} onClose={() => {}}>
-									{matchingCommands.map((cmd, index) => (
+								<Dropdown show={true} onClose={() => setOpen(false)}>
+									{matchingCommands.slice(0, 5).map((cmd, index) => (
 										<DropdownButton
 											key={cmd.command.name}
-											onClick={() => cmd.command.action()}
+											onClick={() => dispatchCommand(cmd.command)}
 											active={activeCommandIndex === index}
 										>
 											{cmd.command.name
@@ -144,6 +160,11 @@ const CommandPaletteInternal: React.FC = memo(function CommandPaletteInternal({
 												})}
 										</DropdownButton>
 									))}
+									{matchingCommands.length > 5 && (
+										<DropdownButton className={'text-sm'} onClick={() => {}}>
+											and {matchingCommands.length - 5} hidden options...
+										</DropdownButton>
+									)}
 								</Dropdown>
 							</DropdownContainer>
 						)}

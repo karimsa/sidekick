@@ -69,7 +69,7 @@ const CommandPaletteInternal: React.FC = memo(function CommandPaletteInternal({
 
 	useEffect(() => {
 		const onKeyDown = (evt: KeyboardEvent) => {
-			if (evt.metaKey && evt.key === 'p') {
+			if ((evt.metaKey || evt.ctrlKey) && evt.key === 'p') {
 				evt.preventDefault();
 				setOpen(true);
 				setQuery('');

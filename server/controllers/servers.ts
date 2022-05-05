@@ -227,12 +227,17 @@ export const stopService = createRpcMethod(
 		const serviceConfig = await ServiceList.getService(name);
 
 		await ServiceList.withServiceStateLock(serviceConfig, async () => {
-			await Promise.all(
+			const results = await Promise.allSettled(
 				objectEntries(serviceConfig.devServers).map(async ([devServerName]) => {
 					await ProcessManager.stop(name, devServerName);
 					await ProcessManager.removeLogFile(name, devServerName);
 				}),
 			);
+			if (results.some((r) => r.status === 'rejected')) {
+				debug(fmt`Failed to stop service: ${results}`);
+				throw new Error(`Failed to stop service, unknown error`);
+			}
+
 			await HealthService.waitForHealthStatus(
 				name,
 				[HealthStatus.none],

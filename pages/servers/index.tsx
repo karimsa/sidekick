@@ -1185,6 +1185,7 @@ function useDevServerCommands() {
 		prepare,
 		prepareAll,
 		registerCommands,
+		router,
 		serviceStatuses,
 		serviceTags,
 		services,

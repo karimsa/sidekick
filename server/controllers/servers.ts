@@ -15,6 +15,10 @@ import * as path from 'path';
 import { ServiceBuildsService } from '../services/service-builds';
 import { split } from '../utils/split';
 import { merge, Observable, Subscriber } from 'rxjs';
+import createDebug from 'debug';
+import { fmt } from '../utils/fmt';
+
+const debug = createDebug('sidekick:servers');
 
 export const getServices = createRpcMethod(z.object({}), async function () {
 	return ServiceList.getServices();
@@ -176,38 +180,36 @@ export const startService = createRpcMethod(
 				throw new Error(`Cannot start ${serviceConfig.name}, already running`);
 			}
 
-			try {
-				await Promise.all(
-					objectEntries(serviceConfig.devServers).map(
-						([devServerName, runCommand]) => {
-							return ProcessManager.start(
-								name,
-								devServerName,
-								runCommand,
-								serviceConfig.location,
-								{
-									cwd: serviceConfig.location,
-									env: envVars as any,
-								},
-							).then((pid) => startedPids.push(pid));
-						},
-					),
-				);
-			} catch (err) {
-				await Promise.all(
+			const results = await Promise.allSettled(
+				objectEntries(serviceConfig.devServers).map(
+					([devServerName, runCommand]) => {
+						return ProcessManager.start(
+							name,
+							devServerName,
+							runCommand,
+							serviceConfig.location,
+							{
+								cwd: serviceConfig.location,
+								env: envVars as any,
+							},
+						).then((pid) => startedPids.push(pid));
+					},
+				),
+			);
+			if (results.some((r) => r.status === 'rejected')) {
+				debug(fmt`Failed to start services: ${results}`);
+				const killResults = await Promise.allSettled(
 					startedPids.map((pid) =>
 						ExecUtils.treeKill(pid, constants.signals.SIGKILL),
 					),
-				).catch(async (err) => {
-					throw Object.assign(
-						new Error(
-							`Failed to start service, there might be zombie processes running in the background`,
-						),
-						{ cause: err },
+				);
+				if (killResults.some((r) => r.status === 'rejected')) {
+					debug(fmt`Failed to kill services: ${killResults}`);
+					throw new Error(
+						`Failed to start service, there might be zombie processes running in the background`,
 					);
-				});
-
-				throw err;
+				}
+				throw new Error(`Failed to start service, unknown error`);
 			}
 
 			await HealthService.waitForActive(name, new AbortController());

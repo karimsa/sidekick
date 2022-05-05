@@ -80,7 +80,8 @@ const streamingMethods: Record<string, StreamingRpcHandler<any, any>> = {
 	prepareStaleServices,
 };
 
-const corsConfig = { origin: ['http://localhost:9001'] };
+const isDevelopment = !process.env.NODE_ENV || process.env.NODE_ENV === 'development';
+const corsConfig = { origin: isDevelopment ? true : ['http://localhost:9001'] };
 
 app.use(cors(corsConfig));
 app.options('/api/rpc/:methodName', (req, res) => {
@@ -99,7 +100,7 @@ app.post(
 	}),
 );
 
-if (process.env.NODE_ENV === 'production') {
+if (!isDevelopment) { 
 	process.chdir(__dirname);
 
 	app.use(morgan('dev'));

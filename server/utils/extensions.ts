@@ -12,18 +12,16 @@ import babelPresetTypescript from '@babel/preset-typescript';
 import babelPresetReact from '@babel/preset-react';
 // @ts-ignore
 import babelPluginTransformModules from '@babel/plugin-transform-modules-commonjs';
-import createDebug from 'debug';
 import EsbuildNodeModulesPolyfill from '@esbuild-plugins/node-modules-polyfill';
-import { fmt } from './fmt';
 import { ParserOptions } from '@babel/parser';
 import { OperationContext } from '@orthly/context';
 import * as fs from 'fs';
 import * as path from 'path';
 import ms from 'ms';
 import { CacheService } from '../services/cache';
+import { Logger } from '../services/logger';
 
-const debug = createDebug('sidekick:extensions');
-const verbose = createDebug('sidekick:extensions:verbose');
+const logger = new Logger('extensions');
 const resolveAsync = util.promisify(resolveModulePath);
 
 const BabelParserOptions: ParserOptions = {
@@ -56,10 +54,10 @@ export class ExtensionBuilder {
 			}),
 		);
 		if (cacheEntry) {
-			debug(`Cache hit for extension client: ${extensionId}`);
+			logger.debug(`Cache hit for extension client`, { extensionId });
 			return cacheEntry as ClientResult;
 		}
-		debug(`Cache miss for extension client: ${extensionId}`);
+		logger.debug(`Cache miss for extension client`, { extensionId });
 
 		const clientCode = await ctx.timePromise(
 			'bundle client',
@@ -108,10 +106,10 @@ export class ExtensionBuilder {
 			}),
 		);
 		if (cacheEntry) {
-			debug(`Cache hit for extension server: ${extensionId}`);
+			logger.debug(`Cache hit for extension server`, { extensionId });
 			return cacheEntry;
 		}
-		debug(`Cache miss for extension server: ${extensionId}`);
+		logger.debug(`Cache miss for extension server`, { extensionId });
 
 		const serverCode = await this.buildServerBundle(ctx, {
 			filePath,
@@ -208,7 +206,7 @@ export class ExtensionBuilder {
 				code: rawCode,
 			}),
 		);
-		verbose(fmt`Rolled up extension: ${{ filePath, code: rolledUpCode }}`);
+		logger.debug(`Rolled up extension`, { filePath, code: rolledUpCode });
 
 		const fullAst = (await ctx.timePromise(
 			'parse code',
@@ -252,7 +250,7 @@ export class ExtensionBuilder {
 		});
 		timer.end();
 		ctx.setValues({ serverExports });
-		debug(fmt`Determined server-side exports: ${serverExports}`);
+		logger.debug(`Determined server-side exports`, { serverExports });
 
 		return { filePath, fullAst, code: rolledUpCode, serverExports };
 	}

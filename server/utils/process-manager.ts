@@ -2,17 +2,14 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as childProcess from 'child_process';
-
-import createDebug from 'debug';
 import omitBy from 'lodash/omitBy';
 
 import { ConfigManager } from '../services/config';
 import { ExecUtils } from './exec';
-import { fmt } from './fmt';
 import { RunningProcessModel } from '../models/RunningProcess.model';
+import { Logger } from '../services/logger';
 
-const debug = createDebug('sidekick:process');
-
+const logger = new Logger('process');
 const ProcessLogsDirectory = path.join(ConfigManager.getSidekickPath(), 'logs');
 
 fs.promises.mkdir(ProcessLogsDirectory, { recursive: true }).catch((error) => {
@@ -56,7 +53,11 @@ export class ProcessManager {
 		);
 		child.unref();
 		const pid = child.pid;
-		debug(fmt`Started ${name} with pid ${pid}: ${cmd}`);
+		logger.debug(`Started process`, {
+			name,
+			pid,
+			cmd,
+		});
 		if (!pid) {
 			throw new Error(`Failed to get pid of child`);
 		}
@@ -166,7 +167,6 @@ export class ProcessManager {
 	static async isPidRunning(pid: number): Promise<boolean> {
 		try {
 			process.kill(pid, 0);
-			debug(fmt`Found ${name} running at ${pid}`);
 			return true;
 		} catch (error: any) {
 			// ESRCH means the signal failed to send
@@ -185,7 +185,6 @@ export class ProcessManager {
 		try {
 			const pid = await this.getPID(name);
 			process.kill(pid, 0);
-			debug(fmt`Found ${name} running at ${pid}`);
 			return true;
 		} catch (error: any) {
 			// ESRCH means the signal failed to send

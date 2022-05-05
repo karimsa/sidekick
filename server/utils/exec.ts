@@ -1,7 +1,6 @@
 import * as childProcess from 'child_process';
 import { SpawnOptionsWithStdioTuple } from 'child_process';
 import * as os from 'os';
-import createDebug from 'debug';
 import treeKill from 'tree-kill';
 import * as path from 'path';
 import * as tmp from 'tmp-promise';
@@ -13,9 +12,11 @@ import { ConfigManager } from '../services/config';
 import { ProcessManager } from './process-manager';
 import { AbortController } from 'node-abort-controller';
 import { Observable } from 'rxjs';
+import { Logger } from '../services/logger';
 
-const debug = createDebug('sidekick:exec');
-const verbose = createDebug('sidekick:exec:verbose');
+const logger = new Logger('exec');
+const isDevelopment =
+	!process.env.NODE_ENV || process.env.NODE_ENV === 'development';
 
 type RunOptions = Omit<childProcess.ExecOptions, 'env'> & {
 	stdin?: string;
@@ -66,7 +67,6 @@ export class ExecUtils {
                 process.exit()
             }, 30e3);
             `;
-		verbose(fmt`Script generated: ${script}`);
 		await fs.promises.writeFile(tmpFilePath, script);
 
 		// TODO: Handle node versioning
@@ -78,11 +78,14 @@ export class ExecUtils {
 			{ ...options, cwd: projectDir },
 		);
 		const resData = await fs.promises.readFile(outputSocket, 'utf8');
-		debug(fmt`JS code returned: ${resData.slice(0, 50)}... (${tmpFilePath})`);
+		logger.debug(`JS code returned`, {
+			data: resData.slice(0, 50),
+			tmpFilePath,
+		});
 
 		// act on result
 		const { type, result, error } = JSON.parse(resData);
-		if (type === 'success' || !debug.enabled) {
+		if (type === 'success') {
 			// delete temporary files
 			await fs.promises.unlink(tmpFilePath);
 			await fs.promises.unlink(outputSocket);
@@ -118,21 +121,18 @@ export class ExecUtils {
 				},
 			};
 
-			debug(
-				fmt`Starting process with ${{
-					...childProcessOptions,
-					cmdPath,
-					args,
-					env: '(omitted)',
-				}}`,
-			);
+			logger.debug(`Starting process`, {
+				...childProcessOptions,
+				cmdPath,
+				args,
+				env: '(omitted)',
+			});
 			const child = childProcess.spawn(cmdPath, args, childProcessOptions);
 			child.on('spawn', () => {
-				debug(fmt`${cmdPath} got a pid: ${child.pid}`);
+				logger.debug(`Process got a pid`, { pid: child.pid, cmdPath });
 			});
 			child.stdout!.on('data', (chunk) => {
 				const chunkStr = chunk.toString('utf8');
-				debug(fmt`stdout: ${stripAnsi(chunkStr)}`);
 				stdout += chunkStr;
 				options?.onStdout?.(chunkStr);
 			});
@@ -144,7 +144,7 @@ export class ExecUtils {
 				reject(error);
 			});
 			child.on('exit', (code) => {
-				debug(fmt`Process exited with code ${code}`);
+				logger.debug(`Process exited`, { code, cmdPath });
 				if (options?.ignoreExitCode || code === 0) {
 					resolve(stdout);
 				} else {
@@ -175,7 +175,7 @@ export class ExecUtils {
 		options?: Omit<execa.Options, 'stdio' | 'stdout' | 'stderr'>,
 	) {
 		return new Observable<string>((subscriber) => {
-			debug(fmt`Starting streaming command: ${command}`);
+			logger.debug(`Starting streaming command`, { command });
 			const child = execa.command(command, {
 				stdin: 'ignore',
 				...options,
@@ -191,10 +191,10 @@ export class ExecUtils {
 			child
 				.then(() => subscriber.complete())
 				.catch((error) => subscriber.error(error))
-				.then(() => debug(fmt`Process exited`));
+				.then(() => logger.debug(fmt`Streaming process exited`, { command }));
 			return () => {
 				if (child.connected) {
-					debug(fmt`Received abort signal, killing process: ${command}`);
+					logger.debug(`Received abort signal, killing process`, { command });
 					child.kill();
 				}
 			};

@@ -1,4 +1,7 @@
 import * as uuid from 'uuid';
+import { Logger } from '../services/logger';
+
+const logger = new Logger('mux');
 
 export class Mutex {
 	private static readonly mutexState = new Map<
@@ -11,7 +14,7 @@ export class Mutex {
 		return new Promise<() => Promise<void>>((resolve) => {
 			const state = this.mutexState.get(name);
 			if (state && Date.now() < Number(state?.expiration)) {
-				console.log(`mux ${name} unavailable, will wait`);
+				logger.debug(`mux unavailable, will wait`, { name });
 				state.waiters.push(() => {
 					console.log(`mux ${name} acquired (late)`);
 					this.mutexState.set(name, {
@@ -22,7 +25,7 @@ export class Mutex {
 					resolve(() => this.release(name, id));
 				});
 			} else {
-				console.log(`mux ${name} acquired`);
+				logger.debug(`mux acquired`, { name });
 				this.mutexState.set(name, {
 					id,
 					expiration: Date.now() + timeout,
@@ -34,18 +37,18 @@ export class Mutex {
 	}
 
 	private static async release(name: string, id: string) {
-		console.log(`mux ${name} released`);
+		logger.debug(`mux released`, { name });
 		const state = this.mutexState.get(name);
 		if (state?.id !== id && Date.now() < Number(state?.expiration)) {
 			throw new Error(`Cannot release mutex that has been taken`);
 		}
 		const nextWaiter = state?.waiters.shift();
 		if (nextWaiter) {
-			console.log(`mux ${name} passing`);
+			logger.debug(`mux passing`, { name });
 			nextWaiter();
 			return;
 		}
-		console.log(`mux ${name} deleting`);
+		logger.debug(`mux deleting`, { name });
 		this.mutexState.delete(name);
 	}
 

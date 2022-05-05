@@ -15,10 +15,9 @@ import * as path from 'path';
 import { ServiceBuildsService } from '../services/service-builds';
 import { split } from '../utils/split';
 import { merge, Observable, Subscriber } from 'rxjs';
-import createDebug from 'debug';
-import { fmt } from '../utils/fmt';
+import { Logger } from '../services/logger';
 
-const debug = createDebug('sidekick:servers');
+const logger = new Logger('servers');
 
 export const getServices = createRpcMethod(z.object({}), async function () {
 	return ServiceList.getServices();
@@ -197,14 +196,14 @@ export const startService = createRpcMethod(
 				),
 			);
 			if (results.some((r) => r.status === 'rejected')) {
-				debug(fmt`Failed to start services: ${results}`);
+				logger.debug(`Failed to start services`, { results });
 				const killResults = await Promise.allSettled(
 					startedPids.map((pid) =>
 						ExecUtils.treeKill(pid, constants.signals.SIGKILL),
 					),
 				);
 				if (killResults.some((r) => r.status === 'rejected')) {
-					debug(fmt`Failed to kill services: ${killResults}`);
+					logger.debug(`Failed to kill services`, { killResults });
 					throw new Error(
 						`Failed to start service, there might be zombie processes running in the background`,
 					);
@@ -234,7 +233,7 @@ export const stopService = createRpcMethod(
 				}),
 			);
 			if (results.some((r) => r.status === 'rejected')) {
-				debug(fmt`Failed to stop service: ${results}`);
+				logger.debug(`Failed to stop service`, { results });
 				throw new Error(`Failed to stop service, unknown error`);
 			}
 

@@ -5,10 +5,10 @@ import { ConfigManager } from './config';
 
 const logFile = path.resolve(ConfigManager.getSidekickPath(), 'logs.db');
 console.log(`Logs will be written to: ${logFile}`);
-const logDest =
-	process.env.NODE_ENV !== 'production'
-		? { write: process.stdout.write.bind(process.stdout), reopen() {} }
-		: createPino.destination(logFile);
+const isProduction = process.env.NODE_ENV === 'production';
+const logDest = isProduction
+	? createPino.destination(logFile)
+	: { write: process.stdout.write.bind(process.stdout), reopen() {} };
 const pino = createPino(
 	{
 		level: 'debug',
@@ -68,4 +68,6 @@ export class Logger {
 	}
 }
 
-setTimeout(() => Logger['rotateLogs'](), 1);
+if (isProduction) {
+	setTimeout(() => Logger['rotateLogs'](), 1);
+}

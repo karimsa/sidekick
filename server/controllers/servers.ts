@@ -5,6 +5,7 @@ import { assertUnreachable, objectEntries } from '../utils/util-types';
 import { ProcessManager } from '../utils/process-manager';
 import { ExecUtils } from '../utils/exec';
 import * as os from 'os';
+import { constants } from 'os';
 import { AbortController } from 'node-abort-controller';
 import { RunningProcessModel } from '../models/RunningProcess.model';
 import { HealthService } from '../services/health';
@@ -163,24 +164,54 @@ export const startService = createRpcMethod(
 			...envVarsFromTarget,
 		};
 
-		await Promise.all(
-			objectEntries(serviceConfig.devServers).map(
-				([devServerName, runCommand]) => {
-					return ProcessManager.start(
-						name,
-						devServerName,
-						runCommand,
-						serviceConfig.location,
-						{
-							cwd: serviceConfig.location,
-							env: envVars as any,
-						},
-					);
-				},
-			),
-		);
+		await ServiceList.withServiceStateLock(serviceConfig, async () => {
+			const startedPids: number[] = [];
 
-		await HealthService.waitForActive(name, new AbortController());
+			if (
+				isActiveStatus(
+					(await HealthService.getServiceHealth(serviceConfig.name))
+						.healthStatus,
+				)
+			) {
+				throw new Error(`Cannot start ${serviceConfig.name}, already running`);
+			}
+
+			try {
+				await Promise.all(
+					objectEntries(serviceConfig.devServers).map(
+						([devServerName, runCommand]) => {
+							return ProcessManager.start(
+								name,
+								devServerName,
+								runCommand,
+								serviceConfig.location,
+								{
+									cwd: serviceConfig.location,
+									env: envVars as any,
+								},
+							).then((pid) => startedPids.push(pid));
+						},
+					),
+				);
+			} catch (err) {
+				await Promise.all(
+					startedPids.map((pid) =>
+						ExecUtils.treeKill(pid, constants.signals.SIGKILL),
+					),
+				).catch(async (err) => {
+					throw Object.assign(
+						new Error(
+							`Failed to start service, there might be zombie processes running in the background`,
+						),
+						{ cause: err },
+					);
+				});
+
+				throw err;
+			}
+
+			await HealthService.waitForActive(name, new AbortController());
+		});
 
 		return { ok: true };
 	},
@@ -193,17 +224,19 @@ export const stopService = createRpcMethod(
 	async ({ name }) => {
 		const serviceConfig = await ServiceList.getService(name);
 
-		await Promise.all(
-			objectEntries(serviceConfig.devServers).map(async ([devServerName]) => {
-				await ProcessManager.stop(name, devServerName);
-				await ProcessManager.removeLogFile(name, devServerName);
-			}),
-		);
-		await HealthService.waitForHealthStatus(
-			name,
-			[HealthStatus.none],
-			new AbortController(),
-		);
+		await ServiceList.withServiceStateLock(serviceConfig, async () => {
+			await Promise.all(
+				objectEntries(serviceConfig.devServers).map(async ([devServerName]) => {
+					await ProcessManager.stop(name, devServerName);
+					await ProcessManager.removeLogFile(name, devServerName);
+				}),
+			);
+			await HealthService.waitForHealthStatus(
+				name,
+				[HealthStatus.none],
+				new AbortController(),
+			);
+		});
 
 		return { ok: true };
 	},
@@ -216,16 +249,18 @@ export const pauseService = createRpcMethod(
 	async ({ name }) => {
 		const serviceConfig = await ServiceList.getService(name);
 
-		await Promise.all(
-			objectEntries(serviceConfig.devServers).map(async ([devServerName]) => {
-				await ProcessManager.pause(name, devServerName);
-			}),
-		);
-		await HealthService.waitForHealthStatus(
-			name,
-			[HealthStatus.paused],
-			new AbortController(),
-		);
+		await ServiceList.withServiceStateLock(serviceConfig, async () => {
+			await Promise.all(
+				objectEntries(serviceConfig.devServers).map(async ([devServerName]) => {
+					await ProcessManager.pause(name, devServerName);
+				}),
+			);
+			await HealthService.waitForHealthStatus(
+				name,
+				[HealthStatus.paused],
+				new AbortController(),
+			);
+		});
 
 		return { ok: true };
 	},
@@ -244,12 +279,14 @@ export const pauseDevServer = createRpcMethod(
 			);
 		}
 
-		await ProcessManager.pause(serviceName, devServer);
-		await HealthService.waitForHealthStatus(
-			serviceName,
-			[HealthStatus.paused],
-			new AbortController(),
-		);
+		await ServiceList.withServiceStateLock(serviceConfig, async () => {
+			await ProcessManager.pause(serviceName, devServer);
+			await HealthService.waitForHealthStatus(
+				serviceName,
+				[HealthStatus.paused],
+				new AbortController(),
+			);
+		});
 
 		return { ok: true };
 	},
@@ -268,12 +305,14 @@ export const resumeDevServer = createRpcMethod(
 			);
 		}
 
-		await ProcessManager.resume(serviceName, devServer);
-		await HealthService.waitForHealthStatus(
-			serviceName,
-			[HealthStatus.healthy, HealthStatus.failing, HealthStatus.partial],
-			new AbortController(),
-		);
+		await ServiceList.withServiceStateLock(serviceConfig, async () => {
+			await ProcessManager.resume(serviceName, devServer);
+			await HealthService.waitForHealthStatus(
+				serviceName,
+				[HealthStatus.healthy, HealthStatus.failing, HealthStatus.partial],
+				new AbortController(),
+			);
+		});
 
 		return { ok: true };
 	},
@@ -286,16 +325,18 @@ export const resumeService = createRpcMethod(
 	async ({ name }) => {
 		const serviceConfig = await ServiceList.getService(name);
 
-		await Promise.all(
-			objectEntries(serviceConfig.devServers).map(async ([devServerName]) => {
-				await ProcessManager.resume(name, devServerName);
-			}),
-		);
-		await HealthService.waitForHealthStatus(
-			name,
-			[HealthStatus.healthy, HealthStatus.failing, HealthStatus.partial],
-			new AbortController(),
-		);
+		await ServiceList.withServiceStateLock(serviceConfig, async () => {
+			await Promise.all(
+				objectEntries(serviceConfig.devServers).map(async ([devServerName]) => {
+					await ProcessManager.resume(name, devServerName);
+				}),
+			);
+			await HealthService.waitForHealthStatus(
+				name,
+				[HealthStatus.healthy, HealthStatus.failing, HealthStatus.partial],
+				new AbortController(),
+			);
+		});
 
 		return { ok: true };
 	},
@@ -447,29 +488,32 @@ export const restartDevServer = createRpcMethod(
 		resetLogs: z.boolean(),
 	}),
 	async ({ serviceName, devServer, environment, resetLogs }) => {
-		const processInfo = await RunningProcessModel.repository.findOne({
-			_id: ProcessManager.getScopedName(serviceName, devServer),
+		const serviceConfig = await ServiceList.getService(serviceName);
+		await ServiceList.withServiceStateLock(serviceConfig, async () => {
+			const processInfo = await RunningProcessModel.repository.findOne({
+				_id: ProcessManager.getScopedName(serviceName, devServer),
+			});
+			if (!processInfo) {
+				throw new Error(`Could not find running process matching query`);
+			}
+
+			await ProcessManager.stop(serviceName, devServer);
+
+			if (resetLogs) {
+				await ProcessManager.removeLogFile(serviceName, devServer);
+			}
+
+			await ProcessManager.start(
+				serviceName,
+				devServer,
+				processInfo.devServerScript,
+				processInfo.workdir,
+				{
+					cwd: processInfo.workdir,
+					env: environment as any,
+				},
+			);
 		});
-		if (!processInfo) {
-			throw new Error(`Could not find running process matching query`);
-		}
-
-		await ProcessManager.stop(serviceName, devServer);
-
-		if (resetLogs) {
-			await ProcessManager.removeLogFile(serviceName, devServer);
-		}
-
-		await ProcessManager.start(
-			serviceName,
-			devServer,
-			processInfo.devServerScript,
-			processInfo.workdir,
-			{
-				cwd: processInfo.workdir,
-				env: environment as any,
-			},
-		);
 
 		return { ok: true };
 	},

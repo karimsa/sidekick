@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { CacheService } from './cache';
 import { HealthService } from './health';
 import { HealthStatus } from '../utils/shared-types';
+import { Mutex } from '../utils/mutex';
 
 export interface ServiceConfig {
 	name: string;
@@ -65,6 +66,13 @@ export class ServiceList {
 			throw new Error(`Could not find a service with the name: ${name}`);
 		}
 		return this.loadServiceFromPath(serviceDefn);
+	}
+
+	static async withServiceStateLock(
+		serviceConfig: ServiceConfig,
+		fn: () => Promise<void>,
+	) {
+		return Mutex.withMutex(serviceConfig.name, 5000, fn);
 	}
 
 	private static async getServiceDefinitions() {

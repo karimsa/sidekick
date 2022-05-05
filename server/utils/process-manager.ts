@@ -61,15 +61,25 @@ export class ProcessManager {
 			throw new Error(`Failed to get pid of child`);
 		}
 
-		await RunningProcessModel.repository.insert({
-			_id: name,
-			pid,
-			serviceName,
-			devServerName,
-			devServerScript: cmd,
-			workdir: appDir,
-			environment: env as any,
-		});
+		try {
+			await RunningProcessModel.repository.insert({
+				_id: name,
+				pid,
+				serviceName,
+				devServerName,
+				devServerScript: cmd,
+				workdir: appDir,
+				environment: env as any,
+			});
+		} catch (err: any) {
+			console.error(err.stack);
+			throw Object.assign(
+				new Error(`Started service, but failed to record pid in sidekick`),
+				{ cause: err },
+			);
+		}
+
+		return pid;
 	}
 
 	static watchLogs({

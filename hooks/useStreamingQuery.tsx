@@ -1,4 +1,4 @@
-import type { StreamingRpcHandler } from '../utils/http';
+import type { StreamingRpcHandler } from '../server/utils/http';
 import { Dispatch, useCallback, useEffect, useReducer, useState } from 'react';
 import { io } from 'socket.io-client';
 import { v4 as uuid } from 'uuid';

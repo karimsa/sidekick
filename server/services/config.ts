@@ -146,23 +146,23 @@ export class ConfigManager {
 		return path.resolve(home, '.sidekick');
 	}
 
-    private static async fileExists(filePath: string) {
-        try {
-            await fs.promises.stat(filePath)
-            return true
-        } catch {
-            return false
-        }
-    }
+	private static async fileExists(filePath: string) {
+		try {
+			await fs.promises.stat(filePath);
+			return true;
+		} catch {
+			return false;
+		}
+	}
 
 	static async getProjectPath() {
 		const projectPath = process.env.PROJECT_PATH;
 		if (!projectPath) {
 			throw new Error(`$PROJECT_PATH is missing from the env`);
 		}
-        if (!await this.fileExists(`${projectPath}/sidekick.config.ts`)) {
-            throw new Error(`Could not find sidekick.config.ts in ${projectPath}`)
-        }
+		if (!(await this.fileExists(`${projectPath}/sidekick.config.ts`))) {
+			throw new Error(`Could not find sidekick.config.ts in ${projectPath}`);
+		}
 		return projectPath;
 	}
 

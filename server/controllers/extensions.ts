@@ -1,9 +1,9 @@
 import * as path from 'path';
 
-import { createRpcMethod } from '../../utils/http';
-import { ExtensionBuilder } from '../../utils/extensions';
-import { ConfigManager } from '../../services/config';
-import { ExecUtils } from '../../utils/exec';
+import { createRpcMethod } from '../utils/http';
+import { ExtensionBuilder } from '../utils/extensions';
+import { ConfigManager } from '../services/config';
+import { ExecUtils } from '../utils/exec';
 import { z } from 'zod';
 
 export const getExtensions = createRpcMethod(z.object({}), async function () {

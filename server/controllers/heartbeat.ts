@@ -1,4 +1,4 @@
-import { createStreamingRpcMethod } from '../../utils/http';
+import { createStreamingRpcMethod } from '../utils/http';
 import { z } from 'zod';
 
 export const getHeartbeat = createStreamingRpcMethod(

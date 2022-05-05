@@ -2,7 +2,7 @@ import * as React from 'react';
 import { AnchorHTMLAttributes, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import classNames from 'classnames';
-import { isElmWithinTarget } from '../utils/isElmWithTarget';
+import { isElmWithinTarget } from '../server/utils/isElmWithTarget';
 
 export const DropdownContainer: React.FC<{ className?: string }> = ({
 	className,

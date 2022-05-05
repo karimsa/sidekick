@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { ConfigManager } from '../../services/config';
-import { createRpcMethod } from '../../utils/http';
+import { ConfigManager } from '../services/config';
+import { createRpcMethod } from '../utils/http';
 
 export const getConfig = createRpcMethod(z.object({}), async function () {
 	const config = await ConfigManager.createProvider();

@@ -1,11 +1,11 @@
-import { HealthStatus, isActiveStatus } from '../../utils/shared-types';
+import { HealthStatus, isActiveStatus } from '../utils/shared-types';
 import * as readline from 'readline';
 import { getBulkServerHealth, stopService } from '../controllers/servers';
-import { ServiceConfig, ServiceList } from '../../services/service-list';
+import { ServiceConfig, ServiceList } from '../services/service-list';
 import ansi from 'ansi-escapes';
 import chalk from 'chalk';
 import ms from 'ms';
-import { objectEntries } from '../../utils/util-types';
+import { objectEntries } from '../utils/util-types';
 import { createCommand } from './createCommand';
 import { z } from 'zod';
 

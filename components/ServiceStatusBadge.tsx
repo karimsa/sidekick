@@ -1,9 +1,9 @@
 import * as React from 'react';
 import { memo } from 'react';
-import { HealthStatus } from '../utils/shared-types';
+import { HealthStatus } from '../server/utils/shared-types';
 import Tooltip from '@tippyjs/react';
 import { AlertFillIcon, XCircleFillIcon } from '@primer/octicons-react';
-import { assertUnreachable } from '../utils/util-types';
+import { assertUnreachable } from '../server/utils/util-types';
 
 export const ServiceStatusBadge: React.FC<{
 	status: HealthStatus;

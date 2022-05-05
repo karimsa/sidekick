@@ -12,10 +12,10 @@ import { UseMutationOptions, UseQueryOptions } from 'react-query';
 import { z } from 'zod';
 import { getConfig, updateConfig } from '../server/controllers/config';
 import { useRpcMutation } from './useMutation';
-import { RpcInputType, RpcOutputType, validate } from '../utils/http';
+import { RpcInputType, RpcOutputType, validate } from '../server/utils/http';
 import * as ReactDOM from 'react-dom';
 import { useRouter } from 'next/router';
-import { loadModule } from '../utils/load-module';
+import { loadModule } from '../server/utils/load-module';
 import omit from 'lodash/omit';
 import * as tslib from 'tslib';
 

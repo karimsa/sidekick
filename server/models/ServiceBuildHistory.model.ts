@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Model } from '../utils/Model';
-import { ServiceConfig } from '../../services/service-list';
+import { ServiceConfig } from '../services/service-list';
 
 export class ServiceBuildHistoryModel extends Model(
 	'service-build-history',

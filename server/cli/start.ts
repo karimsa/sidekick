@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import execa from 'execa';
-import { testHttp } from '../../utils/healthcheck';
+import { testHttp } from '../utils/healthcheck';
 import { createCommand } from './createCommand';
 import { z } from 'zod';
 

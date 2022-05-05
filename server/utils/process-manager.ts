@@ -9,7 +9,7 @@ import omitBy from 'lodash/omitBy';
 import { ConfigManager } from '../services/config';
 import { ExecUtils } from './exec';
 import { fmt } from './fmt';
-import { RunningProcessModel } from '../server/models/RunningProcess.model';
+import { RunningProcessModel } from '../models/RunningProcess.model';
 
 const debug = createDebug('sidekick:process');
 

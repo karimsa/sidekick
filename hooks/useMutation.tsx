@@ -5,7 +5,7 @@ import {
 } from 'react-query';
 
 import axios from 'axios';
-import type { RpcHandler } from '../utils/http';
+import type { RpcHandler } from '../server/utils/http';
 
 function useRpcMutationInternal<InputType, OutputType>(
 	// this is the type of the handler at runtime

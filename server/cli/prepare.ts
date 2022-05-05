@@ -1,8 +1,8 @@
 import { createCommand } from './createCommand';
 import { z } from 'zod';
-import { ServiceList } from '../../services/service-list';
-import { ServiceBuildsService } from '../../services/service-builds';
-import { fmt } from '../../utils/fmt';
+import { ServiceList } from '../services/service-list';
+import { ServiceBuildsService } from '../services/service-builds';
+import { fmt } from '../utils/fmt';
 
 createCommand({
 	name: 'prepare',

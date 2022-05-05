@@ -1,6 +1,6 @@
 import globby from 'globby';
 import maxBy from 'lodash/maxBy';
-import { ServiceBuildHistoryModel } from '../server/models/ServiceBuildHistory.model';
+import { ServiceBuildHistoryModel } from '../models/ServiceBuildHistory.model';
 import { ServiceConfig, ServiceList } from './service-list';
 import { ExecUtils } from '../utils/exec';
 import { ConfigManager } from './config';

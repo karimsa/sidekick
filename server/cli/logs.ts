@@ -1,11 +1,11 @@
 import { createCommand } from './createCommand';
 import { z } from 'zod';
-import { ServiceList } from '../../services/service-list';
-import { ProcessManager } from '../../utils/process-manager';
+import { ServiceList } from '../services/service-list';
+import { ProcessManager } from '../utils/process-manager';
 import { split } from '../utils/split';
 import chalk from 'chalk';
-import { isActiveStatus } from '../../utils/shared-types';
-import { HealthService } from '../../services/health';
+import { isActiveStatus } from '../utils/shared-types';
+import { HealthService } from '../services/health';
 
 const colors = [chalk.yellow, chalk.cyan, chalk.magenta, chalk.red];
 

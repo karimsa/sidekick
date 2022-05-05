@@ -1,6 +1,6 @@
 import classNames from 'classnames';
 import { createContext, useContext, useRef } from 'react';
-import { isElmWithinTarget } from '../utils/isElmWithTarget';
+import { isElmWithinTarget } from '../server/utils/isElmWithTarget';
 import { XIcon } from '@primer/octicons-react';
 
 interface ModalProps {

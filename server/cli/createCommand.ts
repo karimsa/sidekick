@@ -2,8 +2,8 @@ import { z } from 'zod';
 import parseArgs from 'minimist';
 import * as fs from 'fs';
 import * as path from 'path';
-import { objectEntries, objectKeys } from '../../utils/util-types';
-import { fmt } from '../../utils/fmt';
+import { objectEntries, objectKeys } from '../utils/util-types';
+import { fmt } from '../utils/fmt';
 
 interface Command<Options> {
 	name: string;

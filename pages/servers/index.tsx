@@ -30,7 +30,7 @@ import {
 	useLazyStreamingRpcQuery,
 	useStreamingRpcQuery,
 } from '../../hooks/useStreamingQuery';
-import { HealthStatus, isActiveStatus } from '../../utils/shared-types';
+import { HealthStatus, isActiveStatus } from '../../server/utils/shared-types';
 import { ServiceStatusBadge } from '../../components/ServiceStatusBadge';
 import { ZombieServiceControls } from '../../components/ZombieServiceControls';
 import { Button } from '../../components/Button';
@@ -61,7 +61,7 @@ import { AlertCard } from '../../components/AlertCard';
 import { Code } from '../../components/Code';
 import { debugHooksChanged } from '../../hooks/debug-hooks';
 import startCase from 'lodash/startCase';
-import type { ServiceConfig } from '../../services/service-list';
+import type { ServiceConfig } from '../../server/services/service-list';
 import { Spinner } from '../../components/Spinner';
 import { LogWindow, reduceStreamingLogs } from '../../hooks/useLogWindow';
 import { v4 as uuid } from 'uuid';
@@ -73,7 +73,7 @@ import {
 	withBulkServiceHealthProvider,
 } from '../../hooks/useBulkServiceHealth';
 import { useLocalState } from '../../hooks/useLocalState';
-import { RpcOutputType } from '../../utils/http';
+import { RpcOutputType } from '../../server/utils/http';
 import {
 	CommandPaletteCommand,
 	useCommandPalette,
@@ -1206,9 +1206,14 @@ export default withSidebar(
 				</Head>
 
 				<div className={'flex-auto'}>
-                    <div className={'flex justify-end mb-5'}>
-                        <p className={'text-xs text-white'}>Use <span className={'p-1 rounded bg-slate-300 text-black'}>Cmd</span> + <span className={'p-1 rounded bg-slate-300 text-black'}>P</span> to access the command palette.</p>
-                    </div>
+					<div className={'flex justify-end mb-5'}>
+						<p className={'text-xs text-white'}>
+							Use{' '}
+							<span className={'p-1 rounded bg-slate-300 text-black'}>Cmd</span>{' '}
+							+ <span className={'p-1 rounded bg-slate-300 text-black'}>P</span>{' '}
+							to access the command palette.
+						</p>
+					</div>
 					<div className={'bg-slate-900 rounded h-full flex'}>
 						{error && (
 							<div className={'flex items-center justify-center w-full'}>

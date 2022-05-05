@@ -15,11 +15,11 @@
     "start": "npm-run-all -p start-*",
     "start-web": "next start",
     "start-api": "nodemon -x '(node server.dist.js 2>&1 | tee ~/.sidekick/server.log) || true'",
-    "format": "prettier --write components hooks pages server services utils",
+    "format": "prettier --write components hooks pages server",
     "lint": "npm-run-all -p lint-*",
     "lint-eslint": "next lint",
     "lint-tsc": "tsc",
-    "lint-prettier": "prettier --check components hooks pages server services utils",
+    "lint-prettier": "prettier --check components hooks pages server",
     "lint-depcheck": "depcheck --ignores 'depcheck,kill-port,autoprefixer,postcss,tailwindcss'",
     "pin": "syncpack fix-mismatches && syncpack set-semver-ranges",
     "release": "yarn lint && npm version"

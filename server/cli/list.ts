@@ -1,8 +1,8 @@
-import { ServiceList } from '../../services/service-list';
+import { ServiceList } from '../services/service-list';
 import { createCommand } from './createCommand';
 import { z } from 'zod';
 import { printTable } from '../utils/printTable';
-import { ServiceBuildsService } from '../../services/service-builds';
+import { ServiceBuildsService } from '../services/service-builds';
 
 createCommand({
 	name: 'list',

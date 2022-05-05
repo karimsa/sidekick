@@ -1,6 +1,6 @@
 import Datastore, { UpdateOptions } from 'nedb';
 import path from 'path';
-import { ConfigManager } from '../../services/config';
+import { ConfigManager } from '../services/config';
 import { z } from 'zod';
 
 export class Repository<T extends { _id: string }> {

@@ -6,14 +6,14 @@ import { Server as SocketServer, Socket } from 'socket.io';
 import morgan from 'morgan';
 import next from 'next';
 
-import { fmt } from '../utils/fmt';
+import { fmt } from './utils/fmt';
 import {
 	APIError,
 	route,
 	RpcHandler,
 	StreamingRpcHandler,
 	validate,
-} from '../utils/http';
+} from './utils/http';
 import { getConfig, updateConfig } from './controllers/config';
 import {
 	getExtensionClient,
@@ -80,7 +80,8 @@ const streamingMethods: Record<string, StreamingRpcHandler<any, any>> = {
 	prepareStaleServices,
 };
 
-const isDevelopment = !process.env.NODE_ENV || process.env.NODE_ENV === 'development';
+const isDevelopment =
+	!process.env.NODE_ENV || process.env.NODE_ENV === 'development';
 const corsConfig = { origin: isDevelopment ? true : ['http://localhost:9001'] };
 
 app.use(cors(corsConfig));
@@ -100,7 +101,7 @@ app.post(
 	}),
 );
 
-if (!isDevelopment) { 
+if (!isDevelopment) {
 	process.chdir(__dirname);
 
 	app.use(morgan('dev'));

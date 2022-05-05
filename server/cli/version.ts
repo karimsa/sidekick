@@ -1,4 +1,4 @@
-import { fmt } from '../../utils/fmt';
+import { fmt } from '../utils/fmt';
 import { version } from '../../package.json';
 import { createCommand } from './createCommand';
 import { z } from 'zod';

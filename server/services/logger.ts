@@ -5,7 +5,10 @@ import { ConfigManager } from './config';
 
 const logFile = path.resolve(ConfigManager.getSidekickPath(), 'logs.db');
 console.log(`Logs will be written to: ${logFile}`);
-const logDest = createPino.destination(logFile);
+const logDest =
+	process.env.NODE_ENV !== 'production'
+		? { write: process.stdout.write.bind(process.stdout), reopen() {} }
+		: createPino.destination(logFile);
 const pino = createPino(
 	{
 		level: 'debug',
@@ -52,8 +55,6 @@ export class Logger {
 				logger.info(
 					`Logs truncated to ${content.bytesRead} bytes (exceeded 1GB in size)`,
 				);
-			} else {
-				logger.debug(`Skipping truncation, log file is ${stats.size} bytes`);
 			}
 
 			await logFd.close();

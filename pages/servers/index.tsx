@@ -179,7 +179,10 @@ const ServiceList: React.FC = memo(function ServiceList() {
 	const serviceTags = useServiceTags(services);
 
 	const [showAllServices, setShowAllServices] = useState(false);
-	const [visibleTag, setVisibleTag] = useState('running');
+	const [visibleTag = 'running', setVisibleTag] = useLocalState(
+		'selected-tag-view',
+		String,
+	);
 	const selectedServerName = useServerName();
 	const visibleServices = useMemo(
 		() =>

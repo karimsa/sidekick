@@ -1108,7 +1108,7 @@ function useDevServerCommands() {
 			),
 			...(['stop', 'pause', 'resume'] as const).flatMap((action) =>
 				serviceTags.map((serviceTag) => ({
-					name: `${action} ${serviceTag} services`,
+					name: `${startCase(action)} ${serviceTag} services`,
 					action: () =>
 						performBulkAction({
 							action,

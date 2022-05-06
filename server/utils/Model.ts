@@ -12,7 +12,7 @@ export class Repository<T extends { _id: string }> {
 	) {
 		this.db = new Datastore({
 			filename: path.resolve(ConfigManager.getSidekickPath(), `${name}.db`),
-			autoload: true,
+			autoload: !process.env.CI,
 		});
 	}
 

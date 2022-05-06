@@ -2,14 +2,16 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { pino as createPino } from 'pino';
 import { ConfigManager } from './config';
+import getConfig from 'next/config';
 
 const logFile = path.resolve(ConfigManager.getSidekickPath(), 'logs.db');
-const isProduction = process.env.NODE_ENV === 'production' && !global.window;
-if (isProduction) {
+const isLogPersistenceEnabled =
+	process.env.NODE_ENV === 'production' && !getConfig();
+if (isLogPersistenceEnabled) {
 	console.log(`Logs will be written to: ${logFile}`);
 }
 
-const logDest = isProduction
+const logDest = isLogPersistenceEnabled
 	? createPino.destination(logFile)
 	: { write: process.stdout.write.bind(process.stdout), reopen() {} };
 const pino = createPino(
@@ -71,6 +73,6 @@ export class Logger {
 	}
 }
 
-if (isProduction) {
+if (isLogPersistenceEnabled) {
 	setTimeout(() => Logger['rotateLogs'](), 1);
 }

@@ -2,6 +2,7 @@ import Datastore, { UpdateOptions } from 'nedb';
 import path from 'path';
 import { ConfigManager } from '../services/config';
 import { z } from 'zod';
+import getConfig from 'next/config';
 
 export class Repository<T extends { _id: string }> {
 	protected readonly db: Datastore;
@@ -12,7 +13,7 @@ export class Repository<T extends { _id: string }> {
 	) {
 		this.db = new Datastore({
 			filename: path.resolve(ConfigManager.getSidekickPath(), `${name}.db`),
-			autoload: !process.env.CI,
+			autoload: !getConfig(),
 		});
 	}
 

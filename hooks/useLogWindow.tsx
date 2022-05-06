@@ -1,12 +1,14 @@
-import { StreamingRpcAction } from './useStreamingQuery';
+import { StreamingRpcAction, useStreamingRpcQuery } from './useStreamingQuery';
 import * as React from 'react';
-import { memo, useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { Button } from '../components/Button';
 import { Modal, ModalBody, ModalTitle } from '../components/Modal';
 import { Monaco } from '../components/Monaco';
 import { Spinner } from '../components/Spinner';
 import { CheckCircleFillIcon } from '@primer/octicons-react';
+import constate from 'constate';
+import { StreamingRpcHandler } from '../server/utils/http';
 
 type LogState = { isComplete: boolean; output: string };
 type LogAction = StreamingRpcAction<string, never>;
@@ -36,21 +38,60 @@ export const reduceStreamingLogs = [
 	{ autoRetry: false },
 ] as const;
 
-export const LogWindow: React.FC<{
-	windowId: string;
+// TODO: Clear entry from remoteCalls after completion/failure
+
+interface LogWindowRemoteCall<T> {
+	id: string;
 	title: string;
 	successToast: string;
 	loadingToast: string;
-	data: LogState;
-	isStreaming: boolean;
-}> = memo(function LogWindow({
-	windowId,
+	method: StreamingRpcHandler<T, string>;
+	data: T;
+}
+
+const [LogWindowManagerProvider, useLogWindowManagerState] = constate(() => {
+	const [remoteCalls, setRemoteCalls] = useState<LogWindowRemoteCall<any>[]>(
+		[],
+	);
+	return { remoteCalls, setRemoteCalls };
+});
+
+export function useLogWindow<T>(
+	id: string,
+	method: StreamingRpcHandler<T, string>,
+) {
+	const { remoteCalls, setRemoteCalls } = useLogWindowManagerState();
+	return {
+		mutate: useCallback(
+			function dispatchRemoteCall<T>(
+				remoteCall: Omit<LogWindowRemoteCall<T>, 'method' | 'id'>,
+			) {
+				setRemoteCalls((remoteCalls) => [
+					...remoteCalls.filter((rc) => rc.id !== id),
+					{ ...remoteCall, method, id },
+				]);
+			},
+			[id, method, setRemoteCalls],
+		),
+		isRunning: useMemo(
+			() => remoteCalls.some((rc) => rc.id === id),
+			[id, remoteCalls],
+		),
+	};
+}
+
+const LogWindowController: React.FC<LogWindowRemoteCall<any>> = ({
+	method,
+	data,
+	id,
 	title,
 	successToast,
 	loadingToast,
-	data: { isComplete, output },
-	isStreaming,
-}) {
+}) => {
+	const {
+		data: { isComplete, output },
+		isStreaming,
+	} = useStreamingRpcQuery(method, data, ...reduceStreamingLogs);
 	const [isModalVisible, setModalVisible] = useState(false);
 	const showLoadingToast = useCallback(
 		() =>
@@ -63,31 +104,31 @@ export const LogWindow: React.FC<{
 						size={'sm'}
 						onClick={() => {
 							setModalVisible(true);
-							toast.dismiss(windowId);
+							toast.dismiss(id);
 						}}
 					>
 						Logs
 					</Button>
 				</div>,
 				{
-					id: windowId,
+					id,
 					duration: Infinity,
 					position: 'bottom-right',
 				},
 			),
-		[loadingToast, windowId],
+		[loadingToast, id],
 	);
 	useEffect(() => {
 		if (isComplete) {
 			toast.success(successToast, {
-				id: windowId,
+				id,
 				duration: 1e3,
 				position: 'bottom-right',
 			});
 		} else if (isStreaming) {
 			showLoadingToast();
 		} else {
-			toast.dismiss(windowId);
+			toast.dismiss(id);
 		}
 	}, [
 		isComplete,
@@ -95,7 +136,7 @@ export const LogWindow: React.FC<{
 		loadingToast,
 		showLoadingToast,
 		successToast,
-		windowId,
+		id,
 	]);
 
 	return (
@@ -130,4 +171,24 @@ export const LogWindow: React.FC<{
 			</ModalBody>
 		</Modal>
 	);
-});
+};
+
+const LogWindowManagerInternal: React.FC = () => {
+	const { remoteCalls } = useLogWindowManagerState();
+	return (
+		<>
+			{remoteCalls.map((remoteCall) => (
+				<LogWindowController key={remoteCall.id} {...remoteCall} />
+			))}
+		</>
+	);
+};
+
+export const LogWindowManager: React.FC = ({ children }) => {
+	return (
+		<LogWindowManagerProvider>
+			{children}
+			<LogWindowManagerInternal />
+		</LogWindowManagerProvider>
+	);
+};

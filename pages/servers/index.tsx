@@ -63,7 +63,7 @@ import { debugHooksChanged } from '../../hooks/debug-hooks';
 import startCase from 'lodash/startCase';
 import type { ServiceConfig } from '../../server/services/service-list';
 import { Spinner } from '../../components/Spinner';
-import { LogWindow, reduceStreamingLogs } from '../../hooks/useLogWindow';
+import { reduceStreamingLogs, useLogWindow } from '../../hooks/useLogWindow';
 import { v4 as uuid } from 'uuid';
 import { Toggle } from '../../components/Toggle';
 import { JsonLogViewer } from '../../components/JsonLogViewer';
@@ -123,31 +123,28 @@ const ServiceListEntry: React.FC<{
 
 const PrepareAllButton: React.FC<{ loading: boolean }> = memo(
 	function PrepareAllButton({ loading }) {
-		const { mutate: runPrepare, ...query } = useLazyStreamingRpcQuery(
+		const { mutate: runPrepare, isRunning } = useLogWindow(
+			'prepare-all',
 			prepareStaleServices,
-			...reduceStreamingLogs,
 		);
 		return (
-			<>
-				<Button
-					variant={'info'}
-					className={'w-full'}
-					size={'sm'}
-					icon={<ToolsIcon />}
-					loading={query.isStreaming || loading}
-					onClick={() => runPrepare({})}
-				>
-					Prepare
-				</Button>
-
-				<LogWindow
-					windowId={`prepare-all`}
-					title={`Preparing all stale packages`}
-					successToast={`Successfully prepared!`}
-					loadingToast={'Preparing all stale packages'}
-					{...query}
-				/>
-			</>
+			<Button
+				variant={'info'}
+				className={'w-full'}
+				size={'sm'}
+				icon={<ToolsIcon />}
+				loading={isRunning || loading}
+				onClick={() =>
+					runPrepare({
+						title: `Preparing all stale packages`,
+						successToast: `Successfully prepared!`,
+						loadingToast: 'Preparing all stale packages',
+						data: {},
+					})
+				}
+			>
+				Prepare
+			</Button>
 		);
 	},
 );
@@ -634,29 +631,27 @@ const ServiceStartButton: React.FC<{ serviceName: string }> = memo(
 const ServicePrepareButton: React.FC<{ serviceName: string }> = ({
 	serviceName,
 }) => {
-	const { mutate, ...query } = useLazyStreamingRpcQuery(
+	const { mutate, isRunning } = useLogWindow(
+		`prepare-${serviceName}`,
 		prepareService,
-		...reduceStreamingLogs,
 	);
-	return (
-		<>
-			<Button
-				variant={'info'}
-				icon={<ToolsIcon />}
-				loading={query.isStreaming}
-				onClick={() => mutate({ name: serviceName })}
-			>
-				Prepare
-			</Button>
 
-			<LogWindow
-				windowId={`prepare-${serviceName}`}
-				title={`Preparing ${serviceName}`}
-				successToast={`Successfully prepared ${serviceName}!`}
-				loadingToast={'Preparing'}
-				{...query}
-			/>
-		</>
+	return (
+		<Button
+			variant={'info'}
+			icon={<ToolsIcon />}
+			loading={isRunning}
+			onClick={() =>
+				mutate({
+					title: `Preparing ${serviceName}`,
+					successToast: `Successfully prepared ${serviceName}!`,
+					loadingToast: `Preparing ${serviceName}`,
+					data: { name: serviceName },
+				})
+			}
+		>
+			Prepare
+		</Button>
 	);
 };
 
@@ -677,46 +672,41 @@ const ServiceRunScriptButton: React.FC<{ serviceName: string }> = ({
 		},
 	);
 	const [menuOpen, setMenuOpen] = useState(false);
-	const { mutate: runScript, ...query } = useLazyStreamingRpcQuery(
+	const { mutate: runScript, isRunning } = useLogWindow(
+		`script-${serviceName}`,
 		runServiceScript,
-		...reduceStreamingLogs,
 	);
 
 	return (
-		<>
-			<DropdownContainer>
-				<Button
-					variant={'secondary'}
-					disabled={!!errFetchingScripts}
-					loading={isLoading}
-					icon={<TerminalIcon />}
-					onClick={() => setMenuOpen(true)}
-				>
-					Run script
-				</Button>
-				<Dropdown show={menuOpen} onClose={() => setMenuOpen(false)}>
-					{serviceScripts?.map((scriptName) => (
-						<DropdownButton
-							key={scriptName}
-							onClick={() => {
-								runScript({ serviceName, scriptName });
-								setMenuOpen(false);
-							}}
-						>
-							{scriptName}
-						</DropdownButton>
-					))}
-				</Dropdown>
-			</DropdownContainer>
-
-			<LogWindow
-				windowId={`script-${serviceName}`}
-				title={`Running`}
-				successToast={`Successfully ran script!`}
-				loadingToast={`Running ...`}
-				{...query}
-			/>
-		</>
+		<DropdownContainer>
+			<Button
+				variant={'secondary'}
+				disabled={!!errFetchingScripts}
+				loading={isRunning || isLoading}
+				icon={<TerminalIcon />}
+				onClick={() => setMenuOpen(true)}
+			>
+				Run script
+			</Button>
+			<Dropdown show={menuOpen} onClose={() => setMenuOpen(false)}>
+				{serviceScripts?.map((scriptName) => (
+					<DropdownButton
+						key={scriptName}
+						onClick={() => {
+							runScript({
+								title: `Running`,
+								successToast: `Successfully ran script!`,
+								loadingToast: `Running ...`,
+								data: { serviceName, scriptName },
+							});
+							setMenuOpen(false);
+						}}
+					>
+						{scriptName}
+					</DropdownButton>
+				))}
+			</Dropdown>
+		</DropdownContainer>
 	);
 };
 

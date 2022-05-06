@@ -10,6 +10,7 @@ import 'tippy.js/dist/tippy.css';
 import { useRpcQuery } from '../hooks/useQuery';
 import { getConfig } from '../server/controllers/config';
 import { CommandPalette } from '../components/CommandPalette';
+import { LogWindowManager } from '../hooks/useLogWindow';
 
 /**
  * Some toast decoration around next.js' async routing.
@@ -88,7 +89,9 @@ export default function MyApp({ Component, pageProps }: AppProps) {
 				<Toaster />
 				<QueryDevtools />
 				<CommandPalette>
-					<Component {...pageProps} />
+					<LogWindowManager>
+						<Component {...pageProps} />
+					</LogWindowManager>
 				</CommandPalette>
 			</QueryClientProvider>
 		</>

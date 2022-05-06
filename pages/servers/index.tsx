@@ -138,6 +138,7 @@ const PrepareAllButton: React.FC<{ loading: boolean }> = memo(
 					runPrepare({
 						title: `Preparing all stale packages`,
 						successToast: `Successfully prepared!`,
+						errorToast: `Failed to prepare`,
 						loadingToast: 'Preparing all stale packages',
 						data: {},
 					})
@@ -645,6 +646,7 @@ const ServicePrepareButton: React.FC<{ serviceName: string }> = ({
 				mutate({
 					title: `Preparing ${serviceName}`,
 					successToast: `Successfully prepared ${serviceName}!`,
+					errorToast: `Failed to prepare: ${serviceName}`,
 					loadingToast: `Preparing ${serviceName}`,
 					data: { name: serviceName },
 				})
@@ -696,6 +698,7 @@ const ServiceRunScriptButton: React.FC<{ serviceName: string }> = ({
 							runScript({
 								title: `Running`,
 								successToast: `Successfully ran script!`,
+								errorToast: `Script failed`,
 								loadingToast: `Running ...`,
 								data: { serviceName, scriptName },
 							});

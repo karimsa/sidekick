@@ -1049,6 +1049,10 @@ function useDevServerCommands() {
 		},
 	});
 	const { mutate: prepare } = useLogWindow('prepare-no-id-yet', prepareService);
+	const { mutate: runScript } = useLogWindow(
+		'run-script-no-id-yet',
+		runServiceScript,
+	);
 	const { mutate: prepareAll } = useLogWindow(
 		'prepare-all',
 		prepareStaleServices,
@@ -1181,6 +1185,24 @@ function useDevServerCommands() {
 					);
 				}
 
+				Object.keys(service.scripts).forEach((scriptName) => {
+					commands.push({
+						name: `Run ${scriptName} in ${service.name}`,
+						action: () =>
+							runScript({
+								id: `script-${service.name}`,
+								title: `Running ${scriptName}`,
+								successToast: `Successfully ran ${scriptName}!`,
+								errorToast: `Failed to run: ${scriptName}`,
+								loadingToast: `Running ${scriptName}`,
+								data: {
+									serviceName: service.name,
+									scriptName,
+								},
+							}),
+					});
+				});
+
 				return commands;
 			}),
 		]);
@@ -1192,6 +1214,7 @@ function useDevServerCommands() {
 		prepareAll,
 		registerCommands,
 		router,
+		runScript,
 		serviceStatuses,
 		serviceTags,
 		services,

@@ -10,7 +10,7 @@ createCommand({
 	async action() {
 		console.log(
 			fmt`${{
-				sidekick: version,
+				sidekick: `${version}-${process.env.NODE_ENV || 'development'}`,
 				node: process.version,
 			}}`,
 		);

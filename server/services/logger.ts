@@ -69,10 +69,10 @@ export class Logger {
 			);
 		}
 
-		setTimeout(() => Logger['rotateLogs'](), 30e3);
+		setTimeout(() => Logger['rotateLogs'](), 30e3).unref();
 	}
 }
 
 if (isLogPersistenceEnabled) {
-	setTimeout(() => Logger['rotateLogs'](), 1);
+	setTimeout(() => Logger['rotateLogs'](), 1).unref();
 }

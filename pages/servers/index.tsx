@@ -27,7 +27,6 @@ import classNames from 'classnames';
 import { useRouter } from 'next/router';
 import {
 	StreamingRpcAction,
-	useLazyStreamingRpcQuery,
 	useStreamingRpcQuery,
 } from '../../hooks/useStreamingQuery';
 import { HealthStatus, isActiveStatus } from '../../server/utils/shared-types';
@@ -63,7 +62,7 @@ import { debugHooksChanged } from '../../hooks/debug-hooks';
 import startCase from 'lodash/startCase';
 import type { ServiceConfig } from '../../server/services/service-list';
 import { Spinner } from '../../components/Spinner';
-import { reduceStreamingLogs, useLogWindow } from '../../hooks/useLogWindow';
+import { useLogWindow } from '../../hooks/useLogWindow';
 import { v4 as uuid } from 'uuid';
 import { Toggle } from '../../components/Toggle';
 import { JsonLogViewer } from '../../components/JsonLogViewer';
@@ -1049,13 +1048,10 @@ function useDevServerCommands() {
 			toast.error(`Failed to stop ${name}: ${error.message ?? error}`);
 		},
 	});
-	const { mutate: prepare, ...prepareQuery } = useLazyStreamingRpcQuery(
-		prepareService,
-		...reduceStreamingLogs,
-	);
-	const { mutate: prepareAll, ...prepareAllQuery } = useLazyStreamingRpcQuery(
+	const { mutate: prepare } = useLogWindow('prepare-no-id-yet', prepareService);
+	const { mutate: prepareAll } = useLogWindow(
+		'prepare-all',
 		prepareStaleServices,
-		...reduceStreamingLogs,
 	);
 	const { mutateAsync: performBulkAction } = useRpcMutation(bulkServiceAction, {
 		onError(error: any, data) {
@@ -1076,20 +1072,28 @@ function useDevServerCommands() {
 	const { registerCommands } = useCommandPalette();
 	const router = useRouter();
 
+	debugHooksChanged('devCommands', {
+		prepare,
+		prepareAll,
+	});
+
 	useEffect(() => {
 		if (!services) {
 			return;
 		}
 
 		return registerCommands([
-			...(config?.enableBetaFeatures
-				? [
-						{
-							name: 'Prepare all services',
-							action: () => prepareAll({}),
-						},
-				  ]
-				: []),
+			{
+				name: 'Prepare all services',
+				action: () =>
+					prepareAll({
+						title: `Preparing all stale packages`,
+						successToast: `Successfully prepared!`,
+						errorToast: `Failed to prepare`,
+						loadingToast: 'Preparing all stale packages',
+						data: {},
+					}),
+			},
 			...environments.flatMap((targetEnvironment) =>
 				serviceTags.map((serviceTag) => ({
 					name: `Start ${serviceTag} services in ${targetEnvironment}`,
@@ -1160,14 +1164,20 @@ function useDevServerCommands() {
 									environment: {},
 								}),
 						})),
-						...(config?.enableBetaFeatures
-							? [
-									{
-										name: `Prepare ${service.name}`,
-										action: () => prepare({ name: service.name }),
+						{
+							name: `Prepare ${service.name}`,
+							action: () =>
+								prepare({
+									id: `prepare-${service.name}`,
+									title: `Preparing ${service.name}`,
+									successToast: `Successfully prepared ${service.name}!`,
+									errorToast: `Failed to prepare: ${service.name}`,
+									loadingToast: `Preparing ${service.name}`,
+									data: {
+										name: service.name,
 									},
-							  ]
-							: []),
+								}),
+						},
 					);
 				}
 

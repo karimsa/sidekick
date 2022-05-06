@@ -63,11 +63,14 @@ export function useLogWindow<T>(
 	return {
 		mutate: useCallback(
 			function dispatchRemoteCall<T>(
-				remoteCall: Omit<LogWindowRemoteCall<T>, 'method' | 'id'>,
+				remoteCall: Omit<LogWindowRemoteCall<T>, 'method' | 'id'> & {
+					id?: string;
+				},
 			) {
+				const finalId = remoteCall.id ?? id;
 				setRemoteCalls((remoteCalls) => [
-					...remoteCalls.filter((rc) => rc.id !== id),
-					{ ...remoteCall, method, id },
+					...remoteCalls.filter((rc) => rc.id !== finalId),
+					{ ...remoteCall, method, id: remoteCall.id ?? finalId },
 				]);
 			},
 			[id, method, setRemoteCalls],

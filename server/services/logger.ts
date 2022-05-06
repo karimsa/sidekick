@@ -4,8 +4,11 @@ import { pino as createPino } from 'pino';
 import { ConfigManager } from './config';
 
 const logFile = path.resolve(ConfigManager.getSidekickPath(), 'logs.db');
-console.log(`Logs will be written to: ${logFile}`);
-const isProduction = process.env.NODE_ENV === 'production';
+const isProduction = process.env.NODE_ENV === 'production' && !global.window;
+if (isProduction) {
+	console.log(`Logs will be written to: ${logFile}`);
+}
+
 const logDest = isProduction
 	? createPino.destination(logFile)
 	: { write: process.stdout.write.bind(process.stdout), reopen() {} };

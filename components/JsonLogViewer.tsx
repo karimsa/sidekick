@@ -5,6 +5,7 @@ import { Monaco } from './Monaco';
 import { Alert } from './AlertCard';
 import { useLocalState } from '../hooks/useLocalState';
 import classNames from 'classnames';
+import { ErrorBoundary } from 'react-error-boundary';
 
 const pinoLogLevels: Record<string, string> = {
 	'10': 'trace',
@@ -78,9 +79,12 @@ const JsonLogEntry: React.FC<{ entry: unknown }> = ({ entry }) => {
 	);
 };
 
-export const JsonLogViewer: React.FC<{ logs: unknown[] }> = ({ logs }) => {
+export const JsonLogViewer: React.FC<{ viewerId: string; logs: unknown[] }> = ({
+	viewerId,
+	logs,
+}) => {
 	const [inputQuery = 'return logs', setInputQuery] = useLocalState(
-		'log-filter-fn',
+		`${viewerId}:log-filter`,
 		String,
 	);
 	const { results, err } = useMemo(() => {
@@ -125,9 +129,14 @@ export const JsonLogViewer: React.FC<{ logs: unknown[] }> = ({ logs }) => {
 					) : (
 						<p>No logs yet.</p>
 					))}
-				{resultsRef.current.map((logEntry, idx) => (
-					<JsonLogEntry key={idx} entry={logEntry} />
-				))}
+				<ErrorBoundary
+					resetKeys={resultsRef.current}
+					fallback={<p>Failed to render logs, please check your filter.</p>}
+				>
+					{resultsRef.current.map((logEntry, idx) => (
+						<JsonLogEntry key={idx} entry={logEntry} />
+					))}
+				</ErrorBoundary>
 			</ul>
 		</>
 	);

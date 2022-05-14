@@ -916,7 +916,10 @@ const ServiceLogs: React.FC<{
 				</div>
 			</div>
 			{jsonViewer ? (
-				<JsonLogViewer logs={data.json} />
+				<JsonLogViewer
+					viewerId={`${serviceName}-${devServerName}`}
+					logs={data.json}
+				/>
 			) : (
 				<Monaco
 					language={'log'}

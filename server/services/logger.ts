@@ -5,15 +5,29 @@ import { ConfigManager } from './config';
 import getConfig from 'next/config';
 
 const logFile = path.resolve(ConfigManager.getSidekickPath(), 'logs.db');
-const isLogPersistenceEnabled =
-	process.env.NODE_ENV === 'production' && !getConfig();
+const isLogPersistenceEnabled = !getConfig();
 if (isLogPersistenceEnabled) {
 	console.log(`Logs will be written to: ${logFile}`);
 }
 
-const logDest = isLogPersistenceEnabled
-	? createPino.destination(logFile)
-	: { write: process.stdout.write.bind(process.stdout), reopen() {} };
+function safePinoDest() {
+	if (!isLogPersistenceEnabled) {
+		return createPino.destination(1);
+	}
+
+	try {
+		fs.mkdirSync(ConfigManager.getSidekickPath(), { recursive: true });
+
+		const dest = createPino.destination(logFile);
+		setTimeout(() => Logger['rotateLogs'](), 1).unref();
+		return dest;
+	} catch (err: any) {
+		console.warn(`Failed to open log file: ${err.message ?? err}`);
+		return { write() {}, reopen() {} };
+	}
+}
+
+const logDest = safePinoDest();
 const pino = createPino(
 	{
 		level: 'debug',
@@ -71,8 +85,4 @@ export class Logger {
 
 		setTimeout(() => Logger['rotateLogs'](), 30e3).unref();
 	}
-}
-
-if (isLogPersistenceEnabled) {
-	setTimeout(() => Logger['rotateLogs'](), 1).unref();
 }

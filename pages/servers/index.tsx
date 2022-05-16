@@ -880,7 +880,10 @@ const ServiceLogs: React.FC<{
 		),
 		{ raw: '', json: [] },
 	);
-	const [jsonViewer, setJsonViewer] = useLocalState('use-json-viewer', Boolean);
+	const [jsonViewer, setJsonViewer] = useLocalState(
+		`${serviceName}-${devServerName}:use-json-viewer`,
+		Boolean,
+	);
 
 	return (
 		<>

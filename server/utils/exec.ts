@@ -2,7 +2,6 @@ import * as childProcess from 'child_process';
 import { SpawnOptionsWithStdioTuple } from 'child_process';
 import * as os from 'os';
 import treeKill from 'tree-kill';
-import * as path from 'path';
 import * as tmp from 'tmp-promise';
 import stripAnsi from 'strip-ansi';
 import * as execa from 'execa';
@@ -43,11 +42,7 @@ export class ExecUtils {
 		const script = `
             const fs = require('fs')
             const path = require('path')
-            const resolve = require('${path.resolve(
-							__dirname,
-							'node_modules',
-							'resolve',
-						)}').sync
+            const resolve = require('${require.resolve('resolve')}').sync
             const root = process.cwd()
             const fakeRequire = p => require(resolve(p, { basedir: '${projectDir}' }))
             const entryPoint = ${remoteFn}

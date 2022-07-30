@@ -15,7 +15,7 @@
     "start": "npm-run-all -p start-*",
     "start-web": "next start",
     "start-api": "nodemon -x 'node server.dist.js || true'",
-    "format": "prettier --write components hooks pages server",
+    "format": "prettier --no-color --write components hooks pages server",
     "lint": "npm-run-all -p lint-*",
     "lint-eslint": "next lint",
     "lint-tsc": "tsc",

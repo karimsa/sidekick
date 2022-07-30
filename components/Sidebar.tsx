@@ -124,9 +124,7 @@ export function withSidebar<T>(Main: React.FC<T>): React.FC<T> {
 			<>
 				{/* Avoid rendering sidebar on the server, because we need localStorage to correctly render */}
 				{global.window && <Sidebar isOpen={!!isOpen} setOpen={setOpen} />}
-				<main
-					className={'flex flex-col flex-auto p-5 bg-slate-700 overflow-auto'}
-				>
+				<main className={'flex flex-col flex-auto p-5 bg-slate-700'}>
 					<div className={'w-full d-flex flex-initial'}>
 						{/*    <InboxItems />*/}
 					</div>

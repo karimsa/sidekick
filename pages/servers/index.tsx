@@ -231,12 +231,7 @@ const ServiceList: React.FC = memo(function ServiceList() {
 	});
 
 	return (
-		<ul
-			className={'overflow-auto h-full'}
-			style={{
-				maxHeight: 'calc(100vh - (2*1.25rem))',
-			}}
-		>
+		<div className={'flex flex-col h-full'}>
 			{serviceTags && visibleServices && (
 				<div>
 					<div className={'p-5'}>
@@ -336,10 +331,13 @@ const ServiceList: React.FC = memo(function ServiceList() {
 					</div>
 				</div>
 			)}
-			{visibleServices?.map((service) => (
-				<ServiceListEntry key={service.name} serviceName={service.name} />
-			))}
-		</ul>
+
+			<ul className={'flex flex-col flex-auto overflow-auto'}>
+				{visibleServices?.map((service) => (
+					<ServiceListEntry key={service.name} serviceName={service.name} />
+				))}
+			</ul>
+		</div>
 	);
 });
 
@@ -1241,7 +1239,7 @@ export default withSidebar(
 					<title>Servers | Sidekick</title>
 				</Head>
 
-				<div className={'flex-auto'}>
+				<div className={'h-full flex-auto flex flex-col'}>
 					<div className={'flex justify-end mb-5'}>
 						<p className={'text-xs text-white'}>
 							Use{' '}
@@ -1250,7 +1248,7 @@ export default withSidebar(
 							to access the command palette.
 						</p>
 					</div>
-					<div className={'bg-slate-900 rounded h-full flex'}>
+					<div className={'bg-slate-900 rounded flex flex-auto min-h-0'}>
 						{error && (
 							<div className={'flex items-center justify-center w-full'}>
 								<AlertCard title={'Failed to load servers list'}>

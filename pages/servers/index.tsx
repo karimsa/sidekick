@@ -1286,7 +1286,7 @@ export default withSidebar(
 								</div>
 
 								{selectedServerName && (
-									<div className={'w-3/4 p-5'}>
+									<div className={'flex flex-col w-3/4 p-5'}>
 										<ServiceControlPanel />
 									</div>
 								)}

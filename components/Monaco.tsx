@@ -5,8 +5,18 @@ import Editor, {
 } from '@monaco-editor/react';
 import * as React from 'react';
 
+type ModifiedDiffEditorProps = Omit<
+	DiffEditorProps,
+	'original' | 'modified'
+> & {
+	// Uses defaultValue as the original in diff editor
+	defaultValue: string;
+	// Uses value as the modified in diff editor
+	value: string;
+};
+
 type MonacoProps =
-	| ({ diff: true } & DiffEditorProps)
+	| ({ diff: true } & ModifiedDiffEditorProps)
 	| ({ diff?: false } & EditorProps);
 
 export const Monaco: React.FC<MonacoProps> = (props) => {
@@ -16,7 +26,8 @@ export const Monaco: React.FC<MonacoProps> = (props) => {
 				<DiffEditor
 					theme={'vs-dark'}
 					height={'100%'}
-					language={'javascript'}
+					original={props.defaultValue}
+					modified={props.value}
 					{...props}
 				/>
 			</div>

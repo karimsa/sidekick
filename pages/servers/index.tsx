@@ -1152,6 +1152,19 @@ function useDevServerCommands() {
 									}),
 								),
 						},
+						...service.ports.flatMap((port) => {
+							if (port.type !== 'http') {
+								return [];
+							}
+
+							const link = `http://localhost:${port.port}`;
+							return [
+								{
+									name: `Open ${service.name} (${link})`,
+									action: () => window.open(link, '_blank'),
+								},
+							];
+						}),
 					);
 
 					Object.keys(service.devServers).forEach((devServer) => {

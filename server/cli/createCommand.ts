@@ -9,7 +9,9 @@ interface Command<Options> {
 	name: string;
 	description: string;
 	options: z.Schema<Options>;
-	action: (options: Options & { projectDir: string }) => Promise<void>;
+	action: (
+		options: Options & { projectDir: string; args: string[] },
+	) => Promise<void>;
 }
 
 const commands: Command<any>[] = [];
@@ -157,7 +159,7 @@ setImmediate(async () => {
 			);
 			process.env.PROJECT_PATH = projectDir;
 
-			await command.action({ ...options, projectDir });
+			await command.action({ ...options, projectDir, args: args._ });
 		} else {
 			const { fieldErrors, formErrors } = result.error.flatten();
 			if (formErrors.length > 0) {

@@ -20,7 +20,7 @@
     "lint-eslint": "next lint",
     "lint-tsc": "tsc",
     "lint-prettier": "prettier --check components hooks pages server",
-    "lint-depcheck": "depcheck --ignores 'depcheck,kill-port,autoprefixer,postcss,tailwindcss,@monaco-editor/loader'",
+    "lint-depcheck": "depcheck --ignores 'depcheck,kill-port,autoprefixer,postcss,tailwindcss,@monaco-editor/loader,lerna'",
     "pin": "syncpack fix-mismatches && syncpack set-semver-ranges",
     "release": "yarn lint && npm version"
   },

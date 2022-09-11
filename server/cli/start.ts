@@ -25,7 +25,7 @@ createCommand({
 				stdin: 'ignore',
 				env: {
 					...process.env,
-					DEBUG: 'sidekick:*',
+					SIDEKICK: 'true',
 					NODE_ENV: 'production',
 					PROJECT_PATH: projectDir,
 					SIDEKICK_PORT: String(port),

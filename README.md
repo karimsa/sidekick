@@ -8,8 +8,13 @@ yarn add -D @karimsa/sidekick@next
 ```
 
 ## Usage
+Once Sidekick is installed, you can run it using
 
-TODO: Write things.
+```
+yarn sidekick start
+```
+
+Open the url it prints out in your browser, and you'll be able to manage your development servers from there.
 
 ## Release channels
 

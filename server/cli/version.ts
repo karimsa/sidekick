@@ -2,17 +2,29 @@ import { fmt } from '../utils/fmt';
 import { version } from '../../package.json';
 import { createCommand } from './createCommand';
 import { z } from 'zod';
+import { ConfigManager } from '../services/config';
+import { getCurrentVersion } from './upgrade';
+
+export async function getSidekickVersion() {
+	const config = await ConfigManager.createProvider();
+	const releaseChannel = await config.getValue('releaseChannel');
+
+	return {
+		version:
+			releaseChannel === 'stable'
+				? version
+				: `${version}-${await getCurrentVersion(releaseChannel)}`,
+		mode: process.env.NODE_ENV || 'development',
+		releaseChannel,
+		node: process.version,
+	};
+}
 
 createCommand({
 	name: 'version',
 	description: 'Print version info',
 	options: z.object({}),
 	async action() {
-		console.log(
-			fmt`${{
-				sidekick: `${version}-${process.env.NODE_ENV || 'development'}`,
-				node: process.version,
-			}}`,
-		);
+		console.log(fmt`${await getSidekickVersion()}`);
 	},
 });

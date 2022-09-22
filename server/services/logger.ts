@@ -6,9 +6,6 @@ import getConfig from 'next/config';
 
 const logFile = path.resolve(ConfigManager.getSidekickPath(), 'logs.db');
 const isLogPersistenceEnabled = !getConfig();
-if (isLogPersistenceEnabled) {
-	console.log(`Logs will be written to: ${logFile}`);
-}
 
 function safePinoDest() {
 	if (!isLogPersistenceEnabled) {

@@ -4,6 +4,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { objectEntries, objectKeys } from '../utils/util-types';
 import { fmt } from '../utils/fmt';
+import { ConfigManager } from '../services/config';
+import execa from 'execa';
 
 interface Command<Options> {
 	name: string;
@@ -112,6 +114,29 @@ function getProjectDir(currentDir: string, checkedDirs: string[]): string {
 }
 
 setImmediate(async () => {
+	const config = await ConfigManager.createProvider();
+	const releaseChannel = await config.getValue('releaseChannel');
+
+	if (
+		(await ConfigManager.getActiveChannel()) !== releaseChannel &&
+		!ConfigManager.isDevelopment
+	) {
+		await execa
+			.node(
+				path.resolve(
+					await ConfigManager.getChannelDir(releaseChannel),
+					'cli.dist.js',
+				),
+				process.argv.slice(2),
+				{
+					stdio: 'inherit',
+				},
+			)
+			.catch(() => process.exit(1));
+		process.exit();
+		return;
+	}
+
 	try {
 		const commandName = process.argv[2];
 		if (!commandName || commandName[0] === '-') {
@@ -174,6 +199,8 @@ setImmediate(async () => {
 			console.error('');
 			showCommandHelp(command);
 		}
+
+		process.exit();
 	} catch (error: any) {
 		console.error(error.stack || error);
 		process.exit(1);

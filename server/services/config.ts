@@ -14,6 +14,7 @@ const ConfigTypes = z.object({
 	showReactQueryDebugger: z.boolean(),
 	minifyExtensionClients: z.boolean(),
 	enableBetaFeatures: z.boolean(),
+	releaseChannel: z.enum(['stable', 'beta', 'nightly']),
 });
 type ConfigTypes = z.TypeOf<typeof ConfigTypes>;
 
@@ -48,6 +49,7 @@ const validateConfig = (config: any) =>
 				showReactQueryDebugger: false,
 				minifyExtensionClients: true,
 				enableBetaFeatures: false,
+				releaseChannel: 'stable',
 			},
 			config,
 		),
@@ -226,4 +228,28 @@ export class ConfigManager {
 			throw new Error(`Failed to load package.json: ${error.message || error}`);
 		}
 	}
+
+	static async getChannelDir(channel: 'beta' | 'nightly' | 'stable') {
+		if (channel === 'stable') {
+			return path.resolve(
+				await ConfigManager.getProjectPath(),
+				'node_modules',
+				'@karimsa/sidekick',
+			);
+		}
+		return path.resolve(ConfigManager.getSidekickPath(), 'channels', channel);
+	}
+
+	static async getActiveChannel() {
+		const processPath = process.argv[1];
+		if (processPath.startsWith(await this.getChannelDir('beta'))) {
+			return 'beta';
+		}
+		if (processPath.startsWith(await this.getChannelDir('nightly'))) {
+			return 'nightly';
+		}
+		return 'stable';
+	}
+
+	static isDevelopment = process.env.NODE_ENV === 'development';
 }

@@ -5,6 +5,7 @@
     "access": "public"
   },
   "scripts": {
+    "cli": "node cli.dist.js",
     "dev": "npm-run-all -p dev-*",
     "dev-web": "next dev -p 9001",
     "dev-build": "node esbuild -w",

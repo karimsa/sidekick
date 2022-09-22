@@ -5,3 +5,5 @@ import './list';
 import './prepare';
 import './logs';
 import './run';
+import './upgrade';
+import './set-channel';

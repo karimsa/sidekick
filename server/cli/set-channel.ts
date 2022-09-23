@@ -5,7 +5,6 @@ import { fmt } from '../utils/fmt';
 import * as fs from 'fs';
 import path from 'path';
 import { getSidekickVersion } from './version';
-import { fileExists } from '../utils/fileExists';
 
 createCommand({
 	name: 'set-channel',
@@ -21,12 +20,20 @@ createCommand({
 		const isChannelInstalled =
 			releaseChannel === 'stable'
 				? true
-				: await fileExists(
-						path.resolve(
-							await ConfigManager.getChannelDir(releaseChannel),
-							'package.json',
-						),
-				  );
+				: await fs.promises
+						.stat(
+							path.resolve(
+								await ConfigManager.getChannelDir(releaseChannel),
+								'package.json',
+							),
+						)
+						.then(() => true)
+						.catch((err) => {
+							if (err.code === 'ENOENT') {
+								return false;
+							}
+							throw err;
+						});
 		if (!isChannelInstalled) {
 			throw new Error(
 				`Channel ${releaseChannel} is not installed (use \`yarn sidekick upgrade --channel=${releaseChannel}\` to install it`,
@@ -39,27 +46,6 @@ createCommand({
 			await config.setValue('releaseChannel', releaseChannel);
 		} else {
 			console.log(fmt`Release channel is already ${releaseChannel}`);
-		}
-
-		const sidekickBetaCliPath = ConfigManager.getSidekickBetaCli();
-		try {
-			await fs.promises.unlink(sidekickBetaCliPath);
-		} catch (err: any) {
-			if (err.code !== 'ENOENT') {
-				throw err;
-			}
-		}
-
-		// For beta/nightly, setup the global symlink
-		if (releaseChannel !== 'stable') {
-			await fs.promises.symlink(
-				path.resolve(
-					await ConfigManager.getChannelDir(releaseChannel),
-					'cli.dist.js',
-				),
-				sidekickBetaCliPath,
-			);
-			await fs.promises.chmod(sidekickBetaCliPath, 0o755);
 		}
 
 		console.log(fmt`${await getSidekickVersion()}`);

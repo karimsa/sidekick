@@ -6,7 +6,6 @@ import omit from 'lodash/omit';
 import { z } from 'zod';
 import { loadModule } from '../utils/load-module';
 import { Defined } from '../utils/util-types';
-import { fileExists } from '../utils/fileExists';
 
 const ConfigTypes = z.object({
 	environments: z.record(z.string(), z.record(z.string(), z.string())),
@@ -145,12 +144,21 @@ export class ConfigManager {
 		return path.resolve(home, '.sidekick');
 	}
 
+	private static async fileExists(filePath: string) {
+		try {
+			await fs.promises.stat(filePath);
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
 	static async getProjectPath() {
 		const projectPath = process.env.PROJECT_PATH;
 		if (!projectPath) {
 			throw new Error(`$PROJECT_PATH is missing from the env`);
 		}
-		if (!(await fileExists(`${projectPath}/sidekick.config.ts`))) {
+		if (!(await this.fileExists(`${projectPath}/sidekick.config.ts`))) {
 			throw new Error(`Could not find sidekick.config.ts in ${projectPath}`);
 		}
 		return projectPath;
@@ -237,10 +245,6 @@ export class ConfigManager {
 			return 'nightly';
 		}
 		return 'stable';
-	}
-
-	static getSidekickBetaCli() {
-		return path.resolve(ConfigManager.getSidekickPath(), 'sidekick-cli');
 	}
 
 	static isDevelopment = process.env.NODE_ENV === 'development';

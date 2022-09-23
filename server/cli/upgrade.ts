@@ -6,7 +6,6 @@ import axios from 'axios';
 import execa from 'execa';
 import { ConfigManager } from '../services/config';
 import { fmt } from '../utils/fmt';
-import { fileExists } from '../utils/fileExists';
 
 const RC_BRANCHES = {
 	nightly: 'develop',
@@ -14,17 +13,21 @@ const RC_BRANCHES = {
 } as const;
 
 export async function getCurrentVersion(channel: 'beta' | 'nightly') {
-	if (
-		await fileExists(
+	try {
+		await fs.promises.stat(
 			path.resolve(await ConfigManager.getChannelDir(channel), 'package.json'),
-		)
-	) {
-		const { stdout } = await execa.command(`git log -n1 --pretty=%H`, {
-			cwd: await ConfigManager.getChannelDir(channel),
-		});
-		return stdout.trim();
+		);
+	} catch (err: any) {
+		if (err.code === 'ENOENT') {
+			return null;
+		}
+		throw err;
 	}
-	return null;
+
+	const { stdout } = await execa.command(`git log -n1 --pretty=%H`, {
+		cwd: await ConfigManager.getChannelDir(channel),
+	});
+	return stdout.trim();
 }
 
 async function getLatestVersion(channel: 'beta' | 'nightly') {
@@ -42,9 +45,15 @@ async function getLatestVersion(channel: 'beta' | 'nightly') {
 
 async function upgradeSidekick(channel: 'beta' | 'nightly') {
 	const channelDir = await ConfigManager.getChannelDir(channel);
-	const isBetaInstalled = await fileExists(
-		path.resolve(channelDir, 'package.json'),
-	);
+	const isBetaInstalled = await fs.promises
+		.stat(path.resolve(channelDir, 'package.json'))
+		.then(() => true)
+		.catch((err) => {
+			if (err.code === 'ENOENT') {
+				return false;
+			}
+			throw err;
+		});
 	if (!isBetaInstalled) {
 		console.log(fmt`Installing ${channel} channel ...`);
 		await fs.promises.mkdir(channelDir, {

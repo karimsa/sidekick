@@ -3,11 +3,13 @@ import * as path from 'path';
 import * as os from 'os';
 import * as childProcess from 'child_process';
 import omitBy from 'lodash/omitBy';
+import execa from 'execa';
 
 import { ConfigManager } from '../services/config';
 import { ExecUtils } from './exec';
 import { RunningProcessModel } from '../models/RunningProcess.model';
 import { Logger } from '../services/logger';
+import { memoize } from './memoize';
 
 const logger = new Logger('process');
 const ProcessLogsDirectory = path.join(ConfigManager.getSidekickPath(), 'logs');
@@ -16,6 +18,50 @@ fs.promises.mkdir(ProcessLogsDirectory, { recursive: true }).catch((error) => {
 	console.error(error);
 	process.exit(1);
 });
+
+const getLastRebootTime = memoize(async () => {
+	try {
+		const { stdout } = await execa.command(`last reboot`);
+		const lines = stdout.split(/\r?\n/g);
+		const date = new Date();
+
+		// This will be something like: 'Oct 22 05:13'
+		const [month, dayOfMonth, time] = lines
+			.slice(0, 1)[0]!
+			.trim()
+			.split(/\s+/g)
+			.slice(-3);
+		const [hour, min] = time.split(':');
+		date.setMonth(
+			[
+				'Jan',
+				'Feb',
+				'Mar',
+				'Apr',
+				'May',
+				'Jun',
+				'Jul',
+				'Aug',
+				'Sep',
+				'Oct',
+				'Nov',
+				'Dec',
+			].indexOf(month),
+		);
+		date.setDate(Number(dayOfMonth));
+		date.setHours(Number(hour));
+		date.setMinutes(Number(min));
+
+		if (String(date).includes('Invalid')) {
+			throw new Error(`Failed to parse`);
+		}
+
+		return date;
+	} catch {
+		return new Date(0);
+	}
+});
+getLastRebootTime().catch(() => {});
 
 export class ProcessManager {
 	private static getProcessLogFile(name: string) {
@@ -201,8 +247,20 @@ export class ProcessManager {
 	}
 
 	static async isProcessCreated(name: string): Promise<boolean> {
-		return !!(await RunningProcessModel.repository.findOne({
+		const entry = await RunningProcessModel.repository.findOne({
 			_id: name,
-		}));
+		});
+		if (!entry || !entry.startedAt) {
+			return !!entry;
+		}
+
+		const lastReboot = (await getLastRebootTime()).toISOString();
+		if (entry.startedAt > lastReboot) {
+			return true;
+		}
+		await RunningProcessModel.repository.remove({
+			_id: name,
+		});
+		return false;
 	}
 }

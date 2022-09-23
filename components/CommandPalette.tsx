@@ -5,14 +5,41 @@ import { Dropdown, DropdownButton, DropdownContainer } from './Dropdown';
 import { toast } from 'react-hot-toast';
 import { useLocalState } from '../hooks/useLocalState';
 import { z } from 'zod';
+import { useRpcQuery } from '../hooks/useQuery';
+import { getConfig } from '../server/controllers/config';
+import { useAsyncCallback } from 'react-async-hook';
+import { Defined } from '../server/utils/util-types';
 
 export interface CommandPaletteCommand {
 	name: string;
+	hotKey?: {
+		key: string;
+		metaKey?: boolean;
+		ctrlKey?: boolean;
+		altKey?: boolean;
+		shiftKey?: boolean;
+	};
 	action: () => void;
+}
+
+function hotKeyString(hotKey: CommandPaletteCommand['hotKey']): string {
+	if (!hotKey) {
+		return ``;
+	}
+	return [
+		hotKey.metaKey && 'Cmd',
+		hotKey.ctrlKey && 'Ctrl',
+		hotKey.altKey && 'Alt',
+		hotKey.shiftKey && 'Shift',
+		hotKey.key,
+	]
+		.filter(Boolean)
+		.join(' + ');
 }
 
 const [CommandPaletteProvider, useCommandPalette] = constate(() => {
 	const [commands, setCommands] = useState<CommandPaletteCommand[]>([]);
+
 	return {
 		commands,
 		registerCommand: useCallback((command: CommandPaletteCommand) => {
@@ -75,6 +102,92 @@ function searchCommands(
 		.sort((a, b) => b.matches.length - a.matches.length);
 }
 
+function isHotkeyPressed(
+	evt: KeyboardEvent,
+	hotKey: CommandPaletteCommand['hotKey'],
+) {
+	if (!hotKey) {
+		return false;
+	}
+	return (
+		(hotKey.metaKey === undefined || hotKey.metaKey === evt.metaKey) &&
+		(hotKey.ctrlKey === undefined || hotKey.ctrlKey === evt.ctrlKey) &&
+		(hotKey.shiftKey === undefined || hotKey.shiftKey === evt.shiftKey) &&
+		(hotKey.key === undefined || hotKey.key === evt.key)
+	);
+}
+
+function getHotKeyFromString(keyString: string) {
+	const hotKey: Defined<CommandPaletteCommand['hotKey']> = {
+		key: '\0',
+	};
+
+	for (const key of keyString.toLowerCase().split(/\s+/g)) {
+		switch (key) {
+			case 'command':
+			case 'cmd':
+			case 'meta':
+			case 'super':
+			case 'win':
+				hotKey.metaKey = true;
+				break;
+
+			case 'ctrl':
+				hotKey.ctrlKey = true;
+				break;
+
+			case 'alt':
+				hotKey.altKey = true;
+				break;
+
+			case 'shift':
+				hotKey.shiftKey = true;
+				break;
+
+			default:
+				hotKey.key = key;
+				break;
+		}
+	}
+
+	if (hotKey.key === '\0') {
+		toast.error(`Invalid key mapping: '${keyString}'`);
+		return null;
+	}
+
+	return hotKey;
+}
+
+async function executeKeyMapping({
+	code,
+	onOpen,
+	onClose,
+	commands,
+}: {
+	code: string;
+	onOpen(): void;
+	onClose(): void;
+	commands: CommandPaletteCommand[];
+}) {
+	const runKeyMapping = new Function(
+		`__sidekickHelpers`,
+		`return (function(){ with (__sidekickHelpers) { ${code} } }())`,
+	);
+	return runKeyMapping({
+		commandPalette: {
+			open: () => onOpen(),
+			close: () => onClose(),
+			runByName(name: string) {
+				const cmd = commands.find((cmd) => cmd.name === name);
+				if (!cmd) {
+					throw new Error(`Unrecognized command: '${name}'`);
+				}
+				cmd.action();
+			},
+		},
+	});
+}
+
 const CommandPaletteInternal: React.FC = memo(function CommandPaletteInternal({
 	children,
 }) {
@@ -87,23 +200,94 @@ const CommandPaletteInternal: React.FC = memo(function CommandPaletteInternal({
 		'cmdUsageFrequency',
 		(s) => z.record(z.string(), z.number()).parse(s),
 	);
+	const { data: config, error: errLoadingConfig } = useRpcQuery(getConfig, {});
+
+	useEffect(() => {
+		if (errLoadingConfig) {
+			toast.error(
+				`Failed to load config, some commands might be missing from the command palette`,
+			);
+		}
+	}, [errLoadingConfig]);
+
+	const { execute: runKeyMapping, error } = useAsyncCallback(executeKeyMapping);
+	useEffect(() => {
+		if (error) {
+			toast.error(`Key mapping command failed: ${error}`);
+		}
+	}, [error]);
+
+	const userKeyMappings = useMemo(() => {
+		if (config) {
+			return Object.entries(config.keyMappings ?? {}).map(
+				([keyString, code]) => ({
+					hotKey: getHotKeyFromString(keyString),
+					code,
+				}),
+			);
+		}
+		return [];
+	}, [config]);
 
 	useEffect(() => {
 		const onKeyDown = (evt: KeyboardEvent) => {
-			if ((evt.metaKey || evt.ctrlKey) && evt.key === 'p') {
+			// Let user defined mappings come first
+			const matchingUserKeyMapping = config?.enableKeyMappings
+				? userKeyMappings.find(
+						(keyMapping) =>
+							keyMapping?.hotKey && isHotkeyPressed(evt, keyMapping.hotKey),
+				  )
+				: null;
+			if (matchingUserKeyMapping) {
+				evt.preventDefault();
+				runKeyMapping({
+					commands,
+					onOpen: () => {
+						setOpen(true);
+						setQuery('');
+						setActiveCommandIndex(0);
+						inputRef.current?.focus();
+					},
+					onClose: () => {
+						setOpen(false);
+					},
+					code: matchingUserKeyMapping.code,
+				});
+				return;
+			}
+
+			// As fallback
+			if (
+				!config?.enableKeyMappings &&
+				(evt.metaKey || evt.ctrlKey) &&
+				evt.key === 'p'
+			) {
 				evt.preventDefault();
 				setOpen(true);
 				setQuery('');
 				setActiveCommandIndex(0);
 				inputRef.current?.focus();
-			} else if (evt.key === 'Escape') {
+			}
+
+			// Builtin for closing the command panel
+			if (evt.key === 'Escape') {
 				evt.preventDefault();
 				setOpen(false);
+				return;
+			}
+
+			// Finally, try matching with a registered command
+			const matchingCmd = commands.find((cmd) =>
+				isHotkeyPressed(evt, cmd.hotKey),
+			);
+			if (matchingCmd) {
+				evt.preventDefault();
+				matchingCmd.action();
 			}
 		};
 		window.addEventListener('keydown', onKeyDown);
 		return () => window.removeEventListener('keydown', onKeyDown);
-	}, []);
+	}, [commands, config, runKeyMapping, userKeyMappings]);
 
 	const matchingCommands = useMemo(
 		() => searchCommands(commands, query.trim(), cmdUsageFrequency ?? {}),
@@ -172,20 +356,28 @@ const CommandPaletteInternal: React.FC = memo(function CommandPaletteInternal({
 											key={cmd.command.name}
 											onClick={() => dispatchCommand(cmd.command)}
 											active={activeCommandIndex === index}
+											className={`flex items-center justify-between`}
 										>
-											{cmd.command.name
-												.replace(/([^\W]+)(\W)/g, '$1$2\0')
-												.split('\0')
-												.map((word) => {
-													if (
-														cmd.matches.some((m) =>
-															word.toLowerCase().startsWith(m),
-														)
-													) {
-														return <b>{word}</b>;
-													}
-													return word;
-												})}
+											<span>
+												{cmd.command.name
+													.replace(/([^\W]+)(\W)/g, '$1$2\0')
+													.split('\0')
+													.map((word) => {
+														if (
+															cmd.matches.some((m) =>
+																word.toLowerCase().startsWith(m),
+															)
+														) {
+															return <b>{word}</b>;
+														}
+														return word;
+													})}
+											</span>
+											{cmd.command.hotKey && config?.enableKeyMappings && (
+												<span className={`flex items-center`}>
+													{hotKeyString(cmd.command.hotKey)}
+												</span>
+											)}
 										</DropdownButton>
 									))}
 									{matchingCommands.length > 5 && (

@@ -13,6 +13,8 @@ const ConfigTypes = z.object({
 	showReactQueryDebugger: z.boolean(),
 	minifyExtensionClients: z.boolean(),
 	releaseChannel: z.enum(['stable', 'beta', 'nightly']),
+	keyMappings: z.record(z.string(), z.string()).optional(),
+	enableKeyMappings: z.boolean(),
 });
 type ConfigTypes = z.TypeOf<typeof ConfigTypes>;
 
@@ -42,7 +44,12 @@ const validateConfig = (config: any) =>
 					local: {},
 					production: {},
 				},
+				keyMappings: {
+					'Command + ,': `commandPalette.runByName('Goto Settings')`,
+					'Command + P': 'commandPalette.open()',
+				},
 				extensions: {},
+				enableKeyMappings: true,
 				showReactQueryDebugger: false,
 				minifyExtensionClients: true,
 				releaseChannel: 'stable',

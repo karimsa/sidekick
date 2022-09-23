@@ -1,4 +1,5 @@
 import { Logger } from '../services/logger';
+import getNextConfig from 'next/config';
 
 const logger = new Logger('tasks');
 
@@ -7,7 +8,7 @@ export async function startTask(
 	task: (defer: (fn: () => Promise<void>) => void) => Promise<void>,
 ) {
 	// Skip running tasks during SSR
-	if (global.window) {
+	if (getNextConfig()?.__NEXT_SSR_ENV__) {
 		return;
 	}
 

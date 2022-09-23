@@ -71,6 +71,7 @@ export class ProcessManager {
 				devServerScript: cmd,
 				workdir: appDir,
 				environment: env as any,
+				startedAt: new Date().toISOString(),
 			});
 		} catch (err: any) {
 			console.error(err.stack);

@@ -11,5 +11,6 @@ export class RunningProcessModel extends Model(
 		devServerScript: z.string(),
 		workdir: z.string(),
 		environment: z.record(z.string(), z.string()),
+		startedAt: z.string().optional(),
 	}),
 ) {}

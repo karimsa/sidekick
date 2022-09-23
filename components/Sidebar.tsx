@@ -16,7 +16,6 @@ import { useRpcQuery } from '../hooks/useQuery';
 import { getExtensions } from '../server/controllers/extensions';
 import { toast } from 'react-hot-toast';
 import { getExtensionIcon } from '../hooks/useExtensions';
-import { useCommandPalette } from './CommandPalette';
 
 export const Sidebar: React.FC<{
 	isOpen: boolean;
@@ -64,40 +63,6 @@ export const Sidebar: React.FC<{
 			},
 		],
 		[extensions, isOpen, setOpen],
-	);
-
-	const { registerCommands } = useCommandPalette();
-	React.useEffect(
-		() =>
-			registerCommands([
-				...links.flatMap((link, idx) =>
-					link.href
-						? [
-								{
-									name: `Goto ${link.label}`,
-									hotKey:
-										link.label === 'Settings'
-											? {
-													metaKey: true,
-													key: ',',
-											  }
-											: {
-													ctrlKey: true,
-													key: String(idx + 1),
-											  },
-									action: () => {
-										router.push(link.href);
-									},
-								},
-						  ]
-						: [],
-				),
-				{
-					name: `${isOpen ? 'Close' : 'Open'} sidebar`,
-					action: () => setOpen(!isOpen),
-				},
-			]),
-		[isOpen, links, registerCommands, router, setOpen],
 	);
 
 	useEffect(() => {

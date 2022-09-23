@@ -43,6 +43,7 @@ import {
 } from './controllers/servers';
 import { getHeartbeat } from './controllers/heartbeat';
 import { z } from 'zod';
+import { startCpuUsageWatcher } from './utils/cpu-usage';
 
 const app = express();
 
@@ -178,6 +179,9 @@ io.on('connection', (socket) => {
 	});
 });
 
+startCpuUsageWatcher(isDevelopment ? 5 : 25);
 server.listen(process.env.SIDEKICK_PORT || 9010, () => {
-	console.log(fmt`Sidekick server listening on :${server.address()}`);
+	console.log(
+		fmt`Sidekick server listening on ${server.address()} (pid ${process.pid})`,
+	);
 });

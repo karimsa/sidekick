@@ -4,7 +4,7 @@
 ## Installation
 
 ```shell
-yarn add -D @karimsa/sidekick@next
+yarn add -D --exact @karimsa/sidekick@latest
 ```
 
 ## Usage
@@ -27,3 +27,4 @@ Open the url it prints out in your browser, and you'll be able to manage your de
 Licensed under MIT license.
 
 Copyright (C) 2022-present Karim Alibhai.
+

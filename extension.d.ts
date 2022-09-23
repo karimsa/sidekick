@@ -9,6 +9,12 @@ import { toast } from 'react-hot-toast';
 import { z } from 'zod';
 
 declare module '@karimsa/sidekick/extension' {
+	interface AsyncResult<T> {
+		data: T | null;
+		isLoading: boolean;
+		error: any;
+	}
+
 	export function useQuery<Params, Result>(
 		method: (params: Params) => Promise<Result>,
 		params: Params,
@@ -50,18 +56,11 @@ declare module '@karimsa/sidekick/extension' {
 		): void;
 	};
 
-	export function useConfig<T>(schema: z.Schema<T>): {
-		data?: T;
-		error?: Error;
-		isLoading: boolean;
+	export function useConfig<T>(schema: z.Schema<T>): AsyncResult<T> & {
 		updateConfig(updates: T): void;
 	};
 
-	export function useTargetEnvironments(): {
-		data?: string[];
-		error?: Error;
-		isLoading: boolean;
-	};
+	export function useTargetEnvironments(): AsyncResult<string[]>;
 
 	export function useToaster(): { toast: typeof toast };
 }

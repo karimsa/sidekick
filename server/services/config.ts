@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import merge from 'lodash/merge';
-import { validate } from '../utils/http';
 import * as esbuild from 'esbuild';
 import omit from 'lodash/omit';
 import { z } from 'zod';
@@ -36,8 +35,7 @@ export type SidekickExtensionConfig = Defined<
 >[number];
 
 const validateConfig = (config: any) =>
-	validate(
-		ConfigTypes,
+	ConfigTypes.parse(
 		merge(
 			{
 				environments: {
@@ -192,7 +190,7 @@ export class ConfigManager {
 		}
 
 		const { config } = loadModule(result.outputFiles[0].text);
-		return validate(SidekickConfigOverrides, {
+		return SidekickConfigOverrides.parse({
 			...config,
 			defaultConfig: validateConfig(config.defaultConfig ?? {}),
 		});

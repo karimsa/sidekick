@@ -12,7 +12,7 @@ import { UseMutationOptions, UseQueryOptions } from 'react-query';
 import { z } from 'zod';
 import { getConfig, updateConfig } from '../server/controllers/config';
 import { useRpcMutation } from './useMutation';
-import { RpcInputType, RpcOutputType, validate } from '../server/utils/http';
+import { RpcInputType, RpcOutputType } from '../server/utils/http';
 import * as ReactDOM from 'react-dom';
 import { useRouter } from 'next/router';
 import { loadModule } from '../server/utils/load-module';
@@ -167,7 +167,7 @@ function createExtensionHelpers(extensionId: string) {
 						...config,
 						extensions: {
 							...config.extensions,
-							[extensionId]: validate(schema, updates),
+							[extensionId]: schema.parse(updates),
 						},
 					});
 				},

@@ -1,8 +1,9 @@
 import express from 'express';
 import { z } from 'zod';
 import { Observable, Subscriber } from 'rxjs';
+import { Logger } from '../services/logger';
 
-import { fmt } from './fmt';
+const logger = new Logger('http');
 
 export type ApiRequest<ReqBodyType = never> = express.Request & {
 	body: ReqBodyType;
@@ -35,7 +36,10 @@ export class APIError extends Error {
 
 export function writeError(error: Partial<APIError>, res: express.Response) {
 	const status = error.status || 500;
-	console.error(fmt`Request failed with status code ${error.status}`, error);
+	logger.error(`Request failed`, {
+		status,
+		err: error,
+	});
 
 	res.status(status);
 	res.json({

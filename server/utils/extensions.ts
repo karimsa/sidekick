@@ -206,7 +206,10 @@ export class ExtensionBuilder {
 				code: rawCode,
 			}),
 		);
-		logger.debug(`Rolled up extension`, { filePath, code: rolledUpCode });
+		logger.debug(`Rolled up extension`, {
+			filePath,
+			codeLength: rolledUpCode.length,
+		});
 
 		const fullAst = (await ctx.timePromise(
 			'parse code',
@@ -442,8 +445,13 @@ export class ExtensionBuilder {
 					],
 				}),
 			);
-			console.dir(ctx.toJSON().metrics, { depth: null });
-			return result.outputFiles[0].text;
+
+			const resultCode = result.outputFiles[0].text;
+			logger.info(`Extension client built`, {
+				metrics: ctx.toJSON().metrics,
+				compiledSize: resultCode.length,
+			});
+			return resultCode;
 		} catch (error: any) {
 			console.error(error.stack || error);
 			throw this.createError(

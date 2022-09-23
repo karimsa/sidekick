@@ -6,8 +6,7 @@ import { ConfigManager } from '../services/config';
 import { getCurrentVersion } from './upgrade';
 
 export async function getSidekickVersion() {
-	const config = await ConfigManager.createProvider();
-	const releaseChannel = await config.getValue('releaseChannel');
+	const releaseChannel = await ConfigManager.getActiveChannel();
 
 	return {
 		version:

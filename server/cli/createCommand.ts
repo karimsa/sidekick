@@ -114,15 +114,18 @@ function getProjectDir(currentDir: string, checkedDirs: string[]): string {
 }
 
 setImmediate(async () => {
+	const projectDir = getProjectDir(
+		process.env.PROJECT_PATH || process.cwd(),
+		[],
+	);
+	process.env.PROJECT_PATH = projectDir;
+
 	// Flagging this for now, so we can test it in production release
 	if (process.env.SIDEKICK_RC === 'true') {
 		const config = await ConfigManager.createProvider();
 		const releaseChannel = await config.getValue('releaseChannel');
 
-		if (
-			(await ConfigManager.getActiveChannel()) !== releaseChannel &&
-			!ConfigManager.isDevelopment
-		) {
+		if ((await ConfigManager.getActiveChannel()) !== releaseChannel) {
 			await execa
 				.node(
 					path.resolve(
@@ -132,6 +135,13 @@ setImmediate(async () => {
 					process.argv.slice(2),
 					{
 						stdio: 'inherit',
+						env: {
+							...process.env,
+							PROJECT_PATH: projectDir,
+							NODE_OPTIONS: `${
+								process.env.NODE_OPTIONS ?? ''
+							} --unhandled-rejections=strict`,
+						} as any,
 					},
 				)
 				.catch(() => process.exit(1));
@@ -162,31 +172,12 @@ setImmediate(async () => {
 		const args = parseArgs(process.argv.slice(3), {
 			alias: objectKeys(getShape(command.options)).reduce(
 				(aliases, option) => ({ ...aliases, [option[0]]: option }),
-				{ t: 'targetDirectory' },
+				{},
 			),
 		});
-		const result = z
-			.intersection(
-				command.options,
-				z.object({
-					targetDirectory: z
-						.string({ description: '' })
-						.default(process.env.PROJECT_PATH || './'),
-				}),
-			)
-			.safeParse(args);
+		const result = command.options.safeParse(args);
 		if (result.success) {
-			const { targetDirectory, ...options } = result.data;
-			const normalizedDirectory =
-				targetDirectory?.[0] === '~'
-					? path.join(process.env.HOME!, targetDirectory.substring(1))
-					: targetDirectory;
-			const projectDir = getProjectDir(
-				path.resolve(process.cwd(), normalizedDirectory ?? '.'),
-				[],
-			);
-			process.env.PROJECT_PATH = projectDir;
-
+			const options = result.data;
 			await command.action({ ...options, projectDir, args: args._ });
 		} else {
 			const { fieldErrors, formErrors } = result.error.flatten();

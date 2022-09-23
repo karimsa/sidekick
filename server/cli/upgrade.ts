@@ -6,6 +6,7 @@ import axios from 'axios';
 import execa from 'execa';
 import { ConfigManager } from '../services/config';
 import { fmt } from '../utils/fmt';
+import { setReleaseChannel } from './set-channel';
 
 const RC_BRANCHES = {
 	nightly: 'develop',
@@ -68,9 +69,12 @@ async function upgradeSidekick(channel: 'beta' | 'nightly') {
 	}
 
 	console.log(fmt`Upgrading ${channel} channel ...`);
-	await execa.command(`git pull origin ${RC_BRANCHES[channel]}`, {
-		cwd: channelDir,
-	});
+	await execa.command(
+		`${path.resolve(__dirname, 'perform-upgrade.sh')} ${RC_BRANCHES[channel]}`,
+		{
+			cwd: channelDir,
+		},
+	);
 	await execa.command(`yarn`, {
 		cwd: channelDir,
 	});
@@ -88,6 +92,10 @@ createCommand({
 		channel: z
 			.enum(['beta', 'nightly'])
 			.describe('Release channel to upgrade into'),
+		activate: z
+			.boolean()
+			.default(false)
+			.describe('After upgrading, activate this channel as the new channel'),
 		force: z
 			.boolean()
 			.default(false)
@@ -101,7 +109,7 @@ createCommand({
 				'If true, will check for upgrade without performing an upgrade',
 			),
 	}),
-	async action({ channel: releaseChannel, force, dryRun }) {
+	async action({ channel: releaseChannel, activate, force, dryRun }) {
 		const config = await ConfigManager.createProvider();
 
 		// Store the upgrade channel
@@ -124,6 +132,10 @@ createCommand({
 
 			// Default behaviour is to exit if no updates are needed
 			if (!force) {
+				if (activate) {
+					await setReleaseChannel(releaseChannel);
+				}
+
 				return;
 			}
 		} else {
@@ -151,5 +163,9 @@ createCommand({
 				updatedVersion: await getCurrentVersion(releaseChannel),
 			}}`,
 		);
+
+		if (activate) {
+			await setReleaseChannel(releaseChannel);
+		}
 	},
 });

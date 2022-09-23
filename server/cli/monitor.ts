@@ -196,7 +196,6 @@ createCommand({
 
 		clearScreen();
 
-		// eslint-disable-next-line no-constant-condition
 		while (true) {
 			render({ delay: 1000, apps: services });
 			await new Promise((resolve) => setTimeout(resolve, 1000));

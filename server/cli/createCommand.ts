@@ -6,6 +6,7 @@ import { objectEntries, objectKeys } from '../utils/util-types';
 import { fmt } from '../utils/fmt';
 import { ConfigManager } from '../services/config';
 import execa from 'execa';
+import { fileExists } from '../utils/fileExists';
 
 interface Command<Options> {
 	name: string;
@@ -115,29 +116,21 @@ function getProjectDir(currentDir: string, checkedDirs: string[]): string {
 
 setImmediate(async () => {
 	// Flagging this for now, so we can test it in production release
-	if (process.env.SIDEKICK_RC === 'true') {
-		const config = await ConfigManager.createProvider();
-		const releaseChannel = await config.getValue('releaseChannel');
-
-		if (
-			(await ConfigManager.getActiveChannel()) !== releaseChannel &&
-			!ConfigManager.isDevelopment
-		) {
-			await execa
-				.node(
-					path.resolve(
-						await ConfigManager.getChannelDir(releaseChannel),
-						'cli.dist.js',
-					),
-					process.argv.slice(2),
-					{
-						stdio: 'inherit',
-					},
-				)
-				.catch(() => process.exit(1));
-			process.exit();
-			return;
+	if (await fileExists(ConfigManager.getSidekickBetaCli())) {
+		try {
+			await execa.node(
+				ConfigManager.getSidekickBetaCli(),
+				process.argv.slice(2),
+				{
+					stdio: 'inherit',
+				},
+			);
+		} catch {
+			process.exit(1);
 		}
+
+		process.exit();
+		return;
 	}
 
 	try {

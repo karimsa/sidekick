@@ -3,7 +3,6 @@ import * as bodyParser from 'body-parser';
 import * as http from 'http';
 import cors from 'cors';
 import { Server as SocketServer, Socket } from 'socket.io';
-import morgan from 'morgan';
 import next from 'next';
 
 import { fmt } from './utils/fmt';
@@ -105,7 +104,6 @@ app.post(
 if (!isDevelopment) {
 	process.chdir(__dirname);
 
-	app.use(morgan('dev'));
 	const nextApp = next({});
 	const nextHandler = nextApp.getRequestHandler();
 	app.use((req, res) => {

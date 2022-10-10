@@ -1,15 +1,18 @@
 import { startTask } from './TaskRunner';
 import pidusage from 'pidusage';
 import throttle from 'lodash/throttle';
+import { Logger } from '../services/logger';
+
+const logger = new Logger('cpu');
 
 const avg = (arr: number[]) =>
 	arr.reduce((sum, num) => sum + num, 0) / arr.length;
 const warn = throttle(
 	(usage: number) =>
-		console.warn(
+		logger.warn(
 			`⚠️  Sidekick is using an abnormal amount of CPU (${usage.toFixed(2)}%)`,
 		),
-	5 * 60 * 1e3,
+	1 * 60 * 1e3,
 	{ leading: true, trailing: true },
 );
 

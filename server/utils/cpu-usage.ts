@@ -9,7 +9,8 @@ const warn = throttle(
 		console.warn(
 			`⚠️  Sidekick is using an abnormal amount of CPU (${usage.toFixed(2)}%)`,
 		),
-	1e3,
+	5 * 60 * 1e3,
+	{ leading: true, trailing: true },
 );
 
 export const startCpuUsageWatcher = (maxCpu: number) =>

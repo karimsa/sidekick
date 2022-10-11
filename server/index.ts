@@ -13,7 +13,7 @@ import {
 	StreamingRpcHandler,
 	validate,
 } from './utils/http';
-import { getConfig, updateConfig } from './controllers/config';
+import { getConfig, getVersion, updateConfig } from './controllers/config';
 import {
 	getExtensionClient,
 	getExtensions,
@@ -48,6 +48,7 @@ const app = express();
 
 const methods: Record<string, RpcHandler<any, any>> = {
 	getConfig,
+	getVersion,
 	updateConfig,
 
 	getExtensions,

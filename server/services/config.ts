@@ -244,6 +244,10 @@ export class ConfigManager {
 	}
 
 	static async getActiveChannel() {
+		if (this.isDevelopment) {
+			return 'dev';
+		}
+
 		const processPath = process.argv[1];
 		if (processPath.startsWith(await this.getChannelDir('beta'))) {
 			return 'beta';

@@ -1,9 +1,11 @@
 import { fmt } from '../utils/fmt';
-import { version } from '../../package.json';
+import packageJson from '../../package.json';
 import { createCommand } from './createCommand';
 import { z } from 'zod';
 import { ConfigManager } from '../services/config';
 import { getCurrentVersion } from './upgrade';
+
+const { version } = packageJson;
 
 export async function getSidekickVersion() {
 	const releaseChannel = await ConfigManager.getActiveChannel();
@@ -12,7 +14,11 @@ export async function getSidekickVersion() {
 		version:
 			releaseChannel === 'stable'
 				? version
-				: `${version}-${await getCurrentVersion(releaseChannel)}`,
+				: `${version}-${
+						releaseChannel === 'dev'
+							? 'dev'
+							: await getCurrentVersion(releaseChannel)
+				  }`,
 		mode: process.env.NODE_ENV || 'development',
 		releaseChannel,
 		node: process.version,

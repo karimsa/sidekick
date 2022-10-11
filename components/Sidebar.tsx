@@ -17,6 +17,7 @@ import { getExtensions } from '../server/controllers/extensions';
 import { toast } from 'react-hot-toast';
 import { getExtensionIcon } from '../hooks/useExtensions';
 import { useCommandPalette } from './CommandPalette';
+import { getVersion } from '../server/controllers/config';
 
 export const Sidebar: React.FC<{
 	isOpen: boolean;
@@ -108,45 +109,65 @@ export const Sidebar: React.FC<{
 		}
 	}, [links, router]);
 
+	const { data: versionInfo } = useRpcQuery(getVersion, {});
+
 	return (
-		<div className={'flex-initial bg-slate-900 text-white'}>
-			<ul>
-				{links.map(({ icon, href, onClick, label }) => (
-					<li key={label}>
-						<Tooltip content={label} placement={'right'} disabled={isOpen}>
-							<a
-								href={href || '#'}
-								onClick={(evt) => {
-									evt.preventDefault();
-									if (href) {
-										router.push(href);
-									} else if (onClick) {
-										onClick();
-									} else {
-										throw new Error(`No action assigned to sidebar link`);
-									}
-								}}
-								className={classNames(
-									'flex items-center p-5 hover:bg-slate-700',
-									{
-										'bg-emerald-900': href === router.asPath,
-									},
-								)}
-							>
-								{/* the h-7 makes the icon the same size as the text, so closing/opening the sidebar isn't jarring */}
-								<span
-									className={classNames('flex items-center h-7', {
-										'pr-5': isOpen,
-									})}
+		<div
+			className={
+				'flex-initial flex flex-col justify-between bg-slate-900 text-white'
+			}
+		>
+			<div>
+				<ul>
+					{links.map(({ icon, href, onClick, label }) => (
+						<li key={label}>
+							<Tooltip content={label} placement={'right'} disabled={isOpen}>
+								<a
+									href={href || '#'}
+									onClick={(evt) => {
+										evt.preventDefault();
+										if (href) {
+											router.push(href);
+										} else if (onClick) {
+											onClick();
+										} else {
+											throw new Error(`No action assigned to sidebar link`);
+										}
+									}}
+									className={classNames(
+										'flex items-center p-5 hover:bg-slate-700',
+										{
+											'bg-emerald-900': href === router.asPath,
+										},
+									)}
 								>
-									{icon}
-								</span>
-								{isOpen && <span className={'text-lg'}>{label}</span>}
-							</a>
-						</Tooltip>
-					</li>
-				))}
-			</ul>
+									{/* the h-7 makes the icon the same size as the text, so closing/opening the sidebar isn't jarring */}
+									<span
+										className={classNames('flex items-center h-7', {
+											'pr-5': isOpen,
+										})}
+									>
+										{icon}
+									</span>
+									{isOpen && <span className={'text-lg'}>{label}</span>}
+								</a>
+							</Tooltip>
+						</li>
+					))}
+				</ul>
+			</div>
+
+			{versionInfo && isOpen && (
+				<div className={'p-5'}>
+					<p>
+						Sidekick v{versionInfo.sidekick.version} (
+						{versionInfo.sidekick.releaseChannel})
+					</p>
+					<p>
+						{versionInfo.project.name} @ {versionInfo.project.version}
+					</p>
+				</div>
+			)}
 		</div>
 	);
 };

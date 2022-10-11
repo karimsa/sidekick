@@ -113,90 +113,92 @@ function getProjectDir(currentDir: string, checkedDirs: string[]): string {
 	return getProjectDir(path.dirname(currentDir), [...checkedDirs, currentDir]);
 }
 
-setImmediate(async () => {
-	const projectDir = getProjectDir(
-		process.env.PROJECT_PATH || process.cwd(),
-		[],
-	);
-	process.env.PROJECT_PATH = projectDir;
+export function initCli() {
+	setImmediate(async () => {
+		const projectDir = getProjectDir(
+			process.env.PROJECT_PATH || process.cwd(),
+			[],
+		);
+		process.env.PROJECT_PATH = projectDir;
 
-	// Flagging this for now, so we can test it in production release
-	if (process.env.SIDEKICK_RC === 'true') {
-		const config = await ConfigManager.createProvider();
-		const releaseChannel = await config.getValue('releaseChannel');
+		// Flagging this for now, so we can test it in production release
+		if (process.env.SIDEKICK_RC === 'true') {
+			const config = await ConfigManager.createProvider();
+			const releaseChannel = await config.getValue('releaseChannel');
 
-		if ((await ConfigManager.getActiveChannel()) !== releaseChannel) {
-			await execa
-				.node(
-					path.resolve(
-						await ConfigManager.getChannelDir(releaseChannel),
-						'cli.dist.js',
-					),
-					process.argv.slice(2),
-					{
-						stdio: 'inherit',
-						env: {
-							...process.env,
-							PROJECT_PATH: projectDir,
-							NODE_OPTIONS: `${
-								process.env.NODE_OPTIONS ?? ''
-							} --unhandled-rejections=strict`,
-						} as any,
-					},
-				)
-				.catch(() => process.exit(1));
-			process.exit();
-			return;
-		}
-	}
-
-	try {
-		const commandName = process.argv[2];
-		if (!commandName || commandName[0] === '-') {
-			console.log(`Command missing`);
-			showHelp();
-			return;
-		}
-
-		const command = commands.find((cmd) => cmd.name === commandName);
-		if (!command) {
-			console.error(`Unknown command: ${commandName}`);
-			showHelp();
-			return;
-		}
-		if (process.argv.includes('--help') || process.argv.includes('-h')) {
-			showCommandHelp(command);
-			return;
-		}
-
-		const args = parseArgs(process.argv.slice(3), {
-			alias: objectKeys(getShape(command.options)).reduce(
-				(aliases, option) => ({ ...aliases, [option[0]]: option }),
-				{},
-			),
-		});
-		const result = command.options.safeParse(args);
-		if (result.success) {
-			const options = result.data;
-			await command.action({ ...options, projectDir, args: args._ });
-		} else {
-			const { fieldErrors, formErrors } = result.error.flatten();
-			if (formErrors.length > 0) {
-				console.error(formErrors.join('\n'));
-			} else {
-				console.error(
-					objectEntries(fieldErrors)
-						.map(([key, error]) => `--${key}: ${error}: ${fmt`${args[key]}`}`)
-						.join('\n'),
-				);
+			if ((await ConfigManager.getActiveChannel()) !== releaseChannel) {
+				await execa
+					.node(
+						path.resolve(
+							await ConfigManager.getChannelDir(releaseChannel),
+							'cli.dist.js',
+						),
+						process.argv.slice(2),
+						{
+							stdio: 'inherit',
+							env: {
+								...process.env,
+								PROJECT_PATH: projectDir,
+								NODE_OPTIONS: `${
+									process.env.NODE_OPTIONS ?? ''
+								} --unhandled-rejections=strict`,
+							} as any,
+						},
+					)
+					.catch(() => process.exit(1));
+				process.exit();
+				return;
 			}
-			console.error('');
-			showCommandHelp(command);
 		}
 
-		process.exit();
-	} catch (error: any) {
-		console.error(error.stack || error);
-		process.exit(1);
-	}
-});
+		try {
+			const commandName = process.argv[2];
+			if (!commandName || commandName[0] === '-') {
+				console.log(`Command missing`);
+				showHelp();
+				return;
+			}
+
+			const command = commands.find((cmd) => cmd.name === commandName);
+			if (!command) {
+				console.error(`Unknown command: ${commandName}`);
+				showHelp();
+				return;
+			}
+			if (process.argv.includes('--help') || process.argv.includes('-h')) {
+				showCommandHelp(command);
+				return;
+			}
+
+			const args = parseArgs(process.argv.slice(3), {
+				alias: objectKeys(getShape(command.options)).reduce(
+					(aliases, option) => ({ ...aliases, [option[0]]: option }),
+					{},
+				),
+			});
+			const result = command.options.safeParse(args);
+			if (result.success) {
+				const options = result.data;
+				await command.action({ ...options, projectDir, args: args._ });
+			} else {
+				const { fieldErrors, formErrors } = result.error.flatten();
+				if (formErrors.length > 0) {
+					console.error(formErrors.join('\n'));
+				} else {
+					console.error(
+						objectEntries(fieldErrors)
+							.map(([key, error]) => `--${key}: ${error}: ${fmt`${args[key]}`}`)
+							.join('\n'),
+					);
+				}
+				console.error('');
+				showCommandHelp(command);
+			}
+
+			process.exit();
+		} catch (error: any) {
+			console.error(error.stack || error);
+			process.exit(1);
+		}
+	});
+}

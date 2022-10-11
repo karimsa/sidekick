@@ -63,12 +63,12 @@ createCommand({
 			const observable = await ServiceBuildsService.buildServices(
 				staleServices,
 			);
-			observable.subscribe({
-				next: (data) => process.stdout.write(data),
-				error: (err) => {
-					process.stderr.write(`${err}`);
-					process.exit(1);
-				},
+			await new Promise<void>((resolve, reject) => {
+				observable.subscribe({
+					next: (data) => process.stdout.write(data),
+					error: (err) => reject(err),
+					complete: () => resolve(),
+				});
 			});
 		}
 	},

@@ -30,7 +30,7 @@
     "node": ">= 12"
   },
   "bin": {
-    "sidekick": "./cli.dist.js"
+    "sidekick": "./cli.sh"
   },
   "dependencies": {
     "@babel/core": "7.17.9",

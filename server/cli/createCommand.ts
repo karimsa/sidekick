@@ -121,34 +121,15 @@ export async function runCliWithArgs(argv: string[]): Promise<number> {
 	process.env.PROJECT_PATH = projectDir;
 
 	// Flagging this for now, so we can test it in production release
-	if (
-		process.env.SIDEKICK_RC === 'true' &&
-		process.env.NODE_ENV === 'production'
-	) {
+	if (process.env.NODE_ENV === 'production') {
 		const config = await ConfigManager.createProvider();
 		const releaseChannel = await config.getValue('releaseChannel');
+		const activeChannel = await ConfigManager.getActiveChannel();
 
-		if ((await ConfigManager.getActiveChannel()) !== releaseChannel) {
-			await execa
-				.node(
-					path.resolve(
-						await ConfigManager.getChannelDir(releaseChannel),
-						'cli.dist.js',
-					),
-					argv,
-					{
-						stdio: 'inherit',
-						env: {
-							...process.env,
-							PROJECT_PATH: projectDir,
-							NODE_OPTIONS: `${
-								process.env.NODE_OPTIONS ?? ''
-							} --unhandled-rejections=strict`,
-						} as any,
-					},
-				)
-				.catch(() => process.exit(1));
-			return 0;
+		if (activeChannel !== releaseChannel) {
+			throw new Error(
+				`Sidekick is running as ${activeChannel}, but configured as ${releaseChannel} (upgrade failed)`,
+			);
 		}
 	}
 

@@ -207,12 +207,25 @@ export class ConfigManager {
 		const projectPath = await this.getProjectPath();
 
 		try {
-			const { name, version } = JSON.parse(
-				await fs.promises.readFile(
-					path.resolve(projectPath, 'package.json'),
-					'utf8',
-				),
-			);
+			const { name, version } = z
+				.object({
+					name: z.string({
+						required_error:
+							'You must provide a name for the project in the root package.json file',
+					}),
+					version: z.string({
+						required_error:
+							'There must be a version listed in the root package.json file',
+					}),
+				})
+				.parse(
+					JSON.parse(
+						await fs.promises.readFile(
+							path.resolve(projectPath, 'package.json'),
+							'utf8',
+						),
+					),
+				);
 
 			const configDirectory = path.resolve(
 				this.getSidekickPath(),

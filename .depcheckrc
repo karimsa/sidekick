@@ -1,0 +1,12 @@
+{
+    "ignores": [
+        "@monaco-editor/loader",
+        "depcheck",
+        "kill-port",
+        "autoprefixer",
+        "postcss",
+        "tailwindcss",
+        "lerna",
+        "@jest/globals"
+    ]
+}

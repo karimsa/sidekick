@@ -17,5 +17,6 @@ module.exports = {
 		'no-empty': 'off',
 		'no-constant-condition': 'off',
 		'react-hooks/exhaustive-deps': 'error',
+		'import/no-anonymous-default-export': 'off',
 	},
 };

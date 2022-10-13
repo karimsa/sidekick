@@ -9,6 +9,7 @@ import { CacheService } from './cache';
 import { HealthService } from './health';
 import { HealthStatus } from '../utils/shared-types';
 import { Mutex } from '../utils/mutex';
+import stripAnsi from 'strip-ansi';
 
 export interface ServiceConfig {
 	name: string;
@@ -142,7 +143,7 @@ export class ServiceList {
 			stdin: 'ignore',
 			stderr: 'inherit',
 		});
-		const lines = stdout
+		const lines = stripAnsi(stdout)
 			.split(/\n/g)
 			.filter((line) => !line.startsWith('yarn') && !line.startsWith('Done in'))
 			.join('\n');

@@ -21,9 +21,10 @@
     "lint-eslint": "next lint",
     "lint-tsc": "tsc",
     "lint-prettier": "prettier --check components hooks pages server",
-    "lint-depcheck": "depcheck --ignores 'depcheck,kill-port,autoprefixer,postcss,tailwindcss,@monaco-editor/loader,lerna'",
+    "lint-depcheck": "depcheck",
     "pin": "syncpack fix-mismatches && syncpack set-semver-ranges",
-    "release": "yarn lint && npm version"
+    "release": "yarn lint && npm version",
+    "test": "jest"
   },
   "engines": {
     "node": ">= 12"
@@ -107,9 +108,11 @@
     "acorn": "8.7.0",
     "autoprefixer": "10.4.2",
     "depcheck": "1.4.3",
+    "esbuild-jest": "0.5.0",
     "eslint": "8.12.0",
     "eslint-config-next": "12.0.10",
     "eslint-config-prettier": "8.5.0",
+    "jest": "28",
     "kill-port": "1.6.1",
     "postcss": "8.4.6",
     "prettier": "2.5.1",

@@ -4,8 +4,9 @@ import { io } from 'socket.io-client';
 import { v4 as uuid } from 'uuid';
 import jsonStableStringify from 'json-stable-stringify';
 import isEqual from 'lodash/isEqual';
+import { Config } from './config';
 
-const socket = io(`http://${global.location?.hostname}:9010/`, {
+const socket = io(`http://${global.location?.hostname}:${Config.ServerPort}/`, {
 	autoConnect: !!global.window,
 });
 

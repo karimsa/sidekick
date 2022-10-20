@@ -6,6 +6,7 @@ import {
 
 import axios from 'axios';
 import type { RpcHandler } from '../server/utils/http';
+import { Config } from './config';
 
 function useRpcMutationInternal<InputType, OutputType>(
 	// this is the type of the handler at runtime
@@ -17,7 +18,7 @@ function useRpcMutationInternal<InputType, OutputType>(
 		async mutationFn(inputData: InputType): Promise<OutputType> {
 			try {
 				const { data: resData } = await axios.post(
-					`http://${location.hostname}:9010/api/rpc/${handler.methodName}`,
+					`http://${location.hostname}:${Config.ServerPort}/api/rpc/${handler.methodName}`,
 					inputData,
 				);
 				return resData;

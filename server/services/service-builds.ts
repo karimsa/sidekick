@@ -1,7 +1,7 @@
 import globby from 'globby';
 import maxBy from 'lodash/maxBy';
 import { ServiceBuildHistoryModel } from '../models/ServiceBuildHistory.model';
-import { ServiceConfig, ServiceList } from './service-list';
+import { ServiceConfig } from './service-list';
 import { ExecUtils } from '../utils/exec';
 import { ConfigManager } from './config';
 import { Observable } from 'rxjs';
@@ -89,20 +89,6 @@ export class ServiceBuildsService {
 				},
 			});
 		});
-	}
-
-	static async getStaleServices() {
-		const services = await ServiceList.getServices();
-		return (
-			await Promise.all(
-				services.map(async (service) => {
-					if (await ServiceBuildsService.isServiceStale(service)) {
-						return [service];
-					}
-					return [];
-				}),
-			)
-		).flat();
 	}
 
 	static async buildServices(services: ServiceConfig[]) {

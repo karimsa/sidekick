@@ -364,7 +364,7 @@ export const prepareStaleServices = createStreamingRpcMethod(
 	z.object({}),
 	z.string(),
 	async function (_, subscriber) {
-		const services = await ServiceBuildsService.getStaleServices();
+		const services = await HealthService.getStaleServices();
 		if (services.length === 0) {
 			subscriber.complete();
 			return;

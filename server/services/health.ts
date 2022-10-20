@@ -132,6 +132,23 @@ export class HealthService {
 		}
 	}
 
+	static async getStaleServices() {
+		const services = await ServiceList.getServices();
+		return (
+			await Promise.all(
+				services.map(async (service) => {
+					const serviceHealth = await HealthService.getServiceHealth(
+						service.name,
+					);
+					if (serviceHealth.healthStatus === HealthStatus.stale) {
+						return [service];
+					}
+					return [];
+				}),
+			)
+		).flat();
+	}
+
 	static notifyHealthChange(name: string) {
 		emitter.emit(`update-${name}`);
 	}
@@ -155,23 +172,23 @@ export class HealthService {
 		abortController: AbortController,
 	) {
 		while (!abortController.signal.aborted) {
-			const currentStatus = await this.getServiceHealth(name);
+			const currentStatus = await HealthService.getServiceHealth(name);
 			if (targetStatusList.includes(currentStatus.healthStatus)) {
-				this.notifyHealthChange(name);
+				HealthService.notifyHealthChange(name);
 				return currentStatus;
 			}
 		}
-		this.notifyHealthChange(name);
+		HealthService.notifyHealthChange(name);
 	}
 
 	static async waitForActive(name: string, abortController: AbortController) {
 		while (!abortController.signal.aborted) {
-			const currentStatus = await this.getServiceHealth(name);
+			const currentStatus = await HealthService.getServiceHealth(name);
 			if (isActiveStatus(currentStatus.healthStatus)) {
-				this.notifyHealthChange(name);
+				HealthService.notifyHealthChange(name);
 				return currentStatus;
 			}
 		}
-		this.notifyHealthChange(name);
+		HealthService.notifyHealthChange(name);
 	}
 }

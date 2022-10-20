@@ -29,7 +29,7 @@ async function buildFs(files: Record<string, string | null>) {
 	};
 }
 
-function captureStdout() {
+async function captureStdout(fn: () => Promise<void>) {
 	const write = process.stdout.write;
 	const capturedLogs: string[] = [];
 
@@ -38,12 +38,16 @@ function captureStdout() {
 		return true;
 	};
 
-	return {
-		end() {
-			process.stdout.write = write;
-			return capturedLogs;
-		},
-	};
+	try {
+		await fn();
+	} catch (err) {
+		process.stdout.write = write;
+		console.dir({ output: capturedLogs });
+		throw err;
+	}
+
+	process.stdout.write = write;
+	return capturedLogs;
 }
 
 describe('sidekick prepare', () => {
@@ -56,7 +60,7 @@ describe('sidekick prepare', () => {
 		cleanup.splice(0, cleanup.length);
 	});
 
-	it('should be stuff', async () => {
+	it('should be able to identify stale files and prepare them from the cli', async () => {
 		const targetDir = await buildFs({
 			'./lerna.json': JSON.stringify({
 				version: '0.0.0',
@@ -116,18 +120,18 @@ describe('sidekick prepare', () => {
 
 		// Verify dry run for first run
 		{
-			const capture = captureStdout();
-			expect(await runCliWithArgs(['prepare', '--dryRun'])).toEqual(0);
-			const logs = capture.end();
+			const logs = await captureStdout(async () => {
+				expect(await runCliWithArgs(['prepare', '--dryRun'])).toEqual(0);
+			});
 			expect(logs.join('\n')).toMatch(/foo/);
 			expect(logs.join('\n')).toMatch(/bar/);
 		}
 
 		// Verify real run for first run
 		{
-			const capture = captureStdout();
-			expect(await runCliWithArgs(['prepare'])).toEqual(0);
-			const logs = capture.end();
+			const logs = await captureStdout(async () => {
+				expect(await runCliWithArgs(['prepare'])).toEqual(0);
+			});
 			expect(logs.join('\n')).toMatch(/output from foo/);
 			expect(logs.join('\n')).toMatch(/output from bar/);
 			expect(
@@ -157,18 +161,18 @@ describe('sidekick prepare', () => {
 
 		// Verify dry run for new file
 		{
-			const capture = captureStdout();
-			expect(await runCliWithArgs(['prepare', '--dryRun'])).toEqual(0);
-			const logs = capture.end();
+			const logs = await captureStdout(async () => {
+				expect(await runCliWithArgs(['prepare', '--dryRun'])).toEqual(0);
+			});
 			expect(logs.join('\n')).not.toMatch(/foo/);
 			expect(logs.join('\n')).toMatch(/bar/);
 		}
 
 		// Verify real run for new file
 		{
-			const capture = captureStdout();
-			expect(await runCliWithArgs(['prepare'])).toEqual(0);
-			const logs = capture.end();
+			const logs = await captureStdout(async () => {
+				expect(await runCliWithArgs(['prepare'])).toEqual(0);
+			});
 			expect(logs.join('\n')).not.toMatch(/output from foo/);
 			expect(logs.join('\n')).toMatch(/output from bar/);
 			await expect(
@@ -198,18 +202,18 @@ describe('sidekick prepare', () => {
 
 		// Verify dry run for new file
 		{
-			const capture = captureStdout();
-			expect(await runCliWithArgs(['prepare', '--dryRun'])).toEqual(0);
-			const logs = capture.end();
+			const logs = await captureStdout(async () => {
+				expect(await runCliWithArgs(['prepare', '--dryRun'])).toEqual(0);
+			});
 			expect(logs.join('\n')).toMatch(/foo/);
 			expect(logs.join('\n')).not.toMatch(/bar/);
 		}
 
 		// Verify real run for new file
 		{
-			const capture = captureStdout();
-			expect(await runCliWithArgs(['prepare'])).toEqual(0);
-			const logs = capture.end();
+			const logs = await captureStdout(async () => {
+				expect(await runCliWithArgs(['prepare'])).toEqual(0);
+			});
 			expect(logs.join('\n')).toMatch(/output from foo/);
 			expect(logs.join('\n')).not.toMatch(/output from bar/);
 			expect(

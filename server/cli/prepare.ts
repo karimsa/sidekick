@@ -2,6 +2,8 @@ import { createCommand } from './createCommand';
 import { z } from 'zod';
 import { ServiceList } from '../services/service-list';
 import { ServiceBuildsService } from '../services/service-builds';
+import { HealthService } from '../services/health';
+import { HealthStatus } from '../utils/shared-types';
 import { fmt } from '../utils/fmt';
 
 createCommand({
@@ -21,11 +23,12 @@ createCommand({
 	async action({ name, dryRun, force }) {
 		if (name) {
 			const serviceConfig = await ServiceList.getService(name);
-			if (
-				!force &&
-				!(await ServiceBuildsService.isServiceStale(serviceConfig))
-			) {
-				console.warn(`Service already up-to-date`);
+			const serviceHealth = await HealthService.getServiceHealth(
+				serviceConfig.name,
+			);
+
+			if (!force && serviceHealth.healthStatus === HealthStatus.stale) {
+				console.warn(`Service is not currently stale`);
 				return;
 			}
 			if (dryRun) {
@@ -44,7 +47,7 @@ createCommand({
 		} else {
 			const staleServices = force
 				? await ServiceList.getServices()
-				: await ServiceBuildsService.getStaleServices();
+				: await HealthService.getStaleServices();
 
 			if (staleServices.length === 0) {
 				console.log(`Found zero stale services`);

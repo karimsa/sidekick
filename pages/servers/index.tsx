@@ -183,13 +183,17 @@ const ServiceList: React.FC = memo(function ServiceList() {
 	const selectedServerName = useServerName();
 	const visibleServices = useMemo(
 		() =>
-			services?.flatMap((service) =>
-				(serviceStatuses[service.name] ?? DefaultServiceStatus).tags.includes(
-					visibleTag,
-				) || service.name === selectedServerName
-					? [service]
-					: [],
-			),
+			services
+				?.flatMap((service) =>
+					(serviceStatuses[service.name] ?? DefaultServiceStatus).tags.includes(
+						visibleTag,
+					) ||
+					service.name === selectedServerName ||
+					serviceStatuses[service.name]?.healthStatus === 'stale'
+						? [service]
+						: [],
+				)
+				?.sort(),
 		[selectedServerName, serviceStatuses, services, visibleTag],
 	);
 

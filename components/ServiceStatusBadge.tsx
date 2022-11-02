@@ -41,7 +41,7 @@ export const ServiceStatusBadge: React.FC<{
 					content={'Some parts of this service are functional.'}
 					placement={'right'}
 				>
-					<div className={'w-2 h-2 rounded-full bg-orange-700'} />
+					<div className={'w-2 h-2 rounded-full bg-yellow-500'} />
 				</Tooltip>
 			);
 		case HealthStatus.stale:

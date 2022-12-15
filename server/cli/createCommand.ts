@@ -1,11 +1,10 @@
-import { z } from 'zod';
-import parseArgs from 'minimist';
 import * as fs from 'fs';
+import parseArgs from 'minimist';
 import * as path from 'path';
-import { objectEntries, objectKeys } from '../utils/util-types';
-import { fmt } from '../utils/fmt';
+import { z } from 'zod';
 import { ConfigManager } from '../services/config';
-import execa from 'execa';
+import { fmt } from '../utils/fmt';
+import { objectEntries, objectKeys } from '../utils/util-types';
 
 interface Command<Options> {
 	name: string;
@@ -149,7 +148,7 @@ export async function runCliWithArgs(argv: string[]): Promise<number> {
 			return showCommandHelp(command);
 		}
 
-		const args = parseArgs(argv, {
+		const args = parseArgs(argv.slice(1), {
 			alias: objectKeys(getShape(command.options)).reduce(
 				(aliases, option) => ({ ...aliases, [option[0]]: option }),
 				{},

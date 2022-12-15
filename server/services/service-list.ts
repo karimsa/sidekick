@@ -1,21 +1,22 @@
-import { objectEntries } from '../utils/util-types';
-import { ConfigManager } from './config';
+import * as execa from 'execa';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as execa from 'execa';
-import { parseJson } from '../utils/json';
-import { z } from 'zod';
-import { CacheService } from './cache';
-import { HealthService } from './health';
-import { HealthStatus } from '../utils/shared-types';
-import { Mutex } from '../utils/mutex';
 import stripAnsi from 'strip-ansi';
+import { z } from 'zod';
+import { parseJson } from '../utils/json';
+import { Mutex } from '../utils/mutex';
+import { HealthStatus } from '../utils/shared-types';
+import { objectEntries } from '../utils/util-types';
+import { CacheService } from './cache';
+import { ConfigManager } from './config';
+import { HealthService } from './health';
 
 export interface ServiceConfig {
 	name: string;
 	location: string;
 	version: string;
 	scripts: Record<string, string>;
+	dependencies: string[];
 	disableStaleChecks: boolean;
 	outputFiles: string[];
 	sourceFiles: string[];
@@ -67,6 +68,27 @@ export class ServiceList {
 			throw new Error(`Could not find a service with the name: ${name}`);
 		}
 		return this.loadServiceFromPath(serviceDefn);
+	}
+
+	static getServiceDependencyGraph(services: ServiceConfig[]) {
+		const dependencyGraph = new Map<string, string[]>();
+
+		for (const service of services) {
+			dependencyGraph.set(service.name, service.dependencies.filter(name => services.some(s => s.name === name)));
+		}
+
+		return dependencyGraph;
+	}
+
+	static getServiceDependencies(serviceName: string, services: ServiceConfig[]) {
+		const serviceConfig = services.find((s) => s.name === serviceName);
+		if (!serviceConfig) {
+			throw new Error(`Could not find service with name: ${serviceName}`);
+		}
+		return serviceConfig.dependencies.flatMap(name => {
+			const dependency = services.find(s => s.name === name)
+			return dependency ? [dependency] : [];
+		});
 	}
 
 	static async withServiceStateLock(
@@ -145,6 +167,7 @@ export class ServiceList {
 		});
 		const lines = stripAnsi(stdout)
 			.split(/\n/g)
+			// rome-ignore lint/complexity/useSimplifiedLogicExpression: <explanation>
 			.filter((line) => !line.startsWith('yarn') && !line.startsWith('Done in'))
 			.join('\n');
 
@@ -257,6 +280,7 @@ export class ServiceList {
 			location,
 			version,
 			scripts: servicePackageJson.scripts ?? {},
+			dependencies: [...Object.keys(servicePackageJson.dependencies ?? {}), ...Object.keys(servicePackageJson.devDependencies ?? {})],
 			ports: ports ?? [],
 			actions: actions ?? [],
 			devServers: devServers ?? {

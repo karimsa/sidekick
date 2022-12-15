@@ -74,19 +74,27 @@ export class ServiceList {
 		const dependencyGraph = new Map<string, string[]>();
 
 		for (const service of services) {
-			dependencyGraph.set(service.name, service.dependencies.filter(name => services.some(s => s.name === name)));
+			dependencyGraph.set(
+				service.name,
+				service.dependencies.filter((name) =>
+					services.some((s) => s.name === name),
+				),
+			);
 		}
 
 		return dependencyGraph;
 	}
 
-	static getServiceDependencies(serviceName: string, services: ServiceConfig[]) {
+	static getServiceDependencies(
+		serviceName: string,
+		services: ServiceConfig[],
+	) {
 		const serviceConfig = services.find((s) => s.name === serviceName);
 		if (!serviceConfig) {
 			throw new Error(`Could not find service with name: ${serviceName}`);
 		}
-		return serviceConfig.dependencies.flatMap(name => {
-			const dependency = services.find(s => s.name === name)
+		return serviceConfig.dependencies.flatMap((name) => {
+			const dependency = services.find((s) => s.name === name);
 			return dependency ? [dependency] : [];
 		});
 	}
@@ -280,7 +288,10 @@ export class ServiceList {
 			location,
 			version,
 			scripts: servicePackageJson.scripts ?? {},
-			dependencies: [...Object.keys(servicePackageJson.dependencies ?? {}), ...Object.keys(servicePackageJson.devDependencies ?? {})],
+			dependencies: [
+				...Object.keys(servicePackageJson.dependencies ?? {}),
+				...Object.keys(servicePackageJson.devDependencies ?? {}),
+			],
 			ports: ports ?? [],
 			actions: actions ?? [],
 			devServers: devServers ?? {

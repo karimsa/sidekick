@@ -10,8 +10,14 @@ createCommand({
 	options: z.object({
 		tag: z.string().optional().describe('Filter services by given tag'),
 		name: z.string().optional().describe('Target a specific service by name'),
-		includeDependencies: z.boolean().optional().describe('Include dependencies of the target service(s)'),
-		dryRun: z.boolean().optional().describe('Print the command that would be run'),
+		includeDependencies: z
+			.boolean()
+			.optional()
+			.describe('Include dependencies of the target service(s)'),
+		dryRun: z
+			.boolean()
+			.optional()
+			.describe('Print the command that would be run'),
 	}),
 	async action({ tag, projectDir, args, name, includeDependencies, dryRun }) {
 		const cmd = args[0];
@@ -26,12 +32,17 @@ createCommand({
 		const allServices = await ServiceList.getServices();
 		const initialServices = tag
 			? await ServiceList.getServicesByTag(tag)
-			: name ? [await ServiceList.getService(name)]
+			: name
+			? [await ServiceList.getService(name)]
 			: await ServiceList.getServices();
-		const services = includeDependencies ? [
-			...initialServices,
-			...initialServices.flatMap(service => ServiceList.getServiceDependencies(service.name, allServices))
-		] : initialServices;
+		const services = includeDependencies
+			? [
+					...initialServices,
+					...initialServices.flatMap((service) =>
+						ServiceList.getServiceDependencies(service.name, allServices),
+					),
+			  ]
+			: initialServices;
 
 		const targetCmd = [
 			`${path.resolve(__dirname, 'node_modules/.bin')}/lerna`,
@@ -47,14 +58,11 @@ createCommand({
 			return;
 		}
 
-		const child = execa.command(
-			targetCmd,
-			{
-				buffer: false,
-				stdin: 'pipe',
-				cwd: projectDir,
-			},
-		);
+		const child = execa.command(targetCmd, {
+			buffer: false,
+			stdin: 'pipe',
+			cwd: projectDir,
+		});
 
 		child.stdout!.pipe(process.stdout);
 		child.stderr!.pipe(process.stderr);

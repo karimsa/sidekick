@@ -229,5 +229,5 @@ describe('sidekick prepare', () => {
 				),
 			).rejects.toThrow(/ENOENT/);
 		}
-	});
+	}, 10e3);
 });

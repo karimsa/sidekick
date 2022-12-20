@@ -10,17 +10,16 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
 
       - name: Setup Node.js for use with actions
-        uses: actions/setup-node@v1.1.0
+        uses: actions/setup-node@v3
         with:
-          version: 14
+          node-version: 14
 
-      - uses: pat-s/always-upload-cache@v3.0.1
-        id: yarn-cache
+      - uses: actions/cache/restore@v3.2.0-beta.1
         with:
           path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}
@@ -28,6 +27,11 @@ jobs:
       - name: Install Node.js dependencies
         if: "steps.yarn-cache.outputs.cache-hit != 'true'"
         run: yarn --frozen-lockfile
+        
+      - uses: actions/cache/save@v3.2.0-beta.1
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}
 
       - name: Linting
         run: yarn lint

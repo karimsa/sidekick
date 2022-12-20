@@ -24,7 +24,7 @@
     "lint-depcheck": "depcheck",
     "pin": "syncpack fix-mismatches && syncpack set-semver-ranges",
     "release": "yarn lint && npm version",
-    "test": "jest"
+    "test": "jest --detectOpenHandles --forceExit"
   },
   "engines": {
     "node": ">= 12"

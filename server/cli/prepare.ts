@@ -23,9 +23,7 @@ createCommand({
 	async action({ name, dryRun, force }) {
 		if (name) {
 			const serviceConfig = await ServiceList.getService(name);
-			const serviceHealth = await HealthService.getServiceHealth(
-				serviceConfig.name,
-			);
+			const serviceHealth = await HealthService.getServiceHealth(serviceConfig);
 
 			if (!force && serviceHealth.healthStatus === HealthStatus.stale) {
 				console.warn(`Service is not currently stale`);

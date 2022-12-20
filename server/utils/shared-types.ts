@@ -25,11 +25,13 @@ export enum HealthStatus {
 	none = 'none',
 }
 
-export function isActiveStatus(healthStatus?: HealthStatus) {
-	return (
-		healthStatus === HealthStatus.failing ||
-		healthStatus === HealthStatus.healthy ||
-		healthStatus === HealthStatus.paused ||
-		healthStatus === HealthStatus.partial
-	);
+export const ActiveHealthStatuses = [
+	HealthStatus.failing,
+	HealthStatus.healthy,
+	HealthStatus.paused,
+	HealthStatus.partial,
+];
+
+export function isActiveStatus(healthStatus?: HealthStatus): boolean {
+	return !!healthStatus && ActiveHealthStatuses.includes(healthStatus);
 }

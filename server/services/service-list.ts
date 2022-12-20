@@ -40,7 +40,7 @@ export class ServiceList {
 	static async getServiceTags(name: string) {
 		const serviceConfig = await this.getService(name);
 		const tags = ['all', ...serviceConfig.rawTags];
-		const health = await HealthService.getServiceHealth(serviceConfig.name);
+		const health = await HealthService.getServiceHealth(serviceConfig);
 		if (health.healthStatus !== HealthStatus.none) {
 			tags.push('running');
 		}

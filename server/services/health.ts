@@ -1,17 +1,112 @@
-import { ServiceList } from './service-list';
+import { ServiceConfig, ServiceList } from './service-list';
 import { testHttp, testTcp } from '../utils/healthcheck';
+import isEqual from 'lodash/isEqual';
 import { assertUnreachable, objectKeys } from '../utils/util-types';
 import { ProcessManager } from '../utils/process-manager';
-import { HealthStatus, isActiveStatus } from '../utils/shared-types';
+import { HealthStatus } from '../utils/shared-types';
 import { ServiceBuildsService } from './service-builds';
-import EventEmitter from 'events';
-import { Observable } from 'rxjs';
+import {
+	CHANNEL_DESTROYED,
+	CHANNEL_TIMEOUT,
+	ChannelList,
+} from '../utils/channel';
+import { Logger } from './logger';
+import { startTask } from '../utils/TaskRunner';
 
-const emitter = new EventEmitter();
+const logger = new Logger('health');
+
+// keys are service locations
+const healthsPerService = new Map<string, ServiceHealthEvent>();
+export const HealthUpdates = new ChannelList<ServiceHealthEvent>();
+
+startTask('serviceHealthMonitor', async () => {
+	let serviceConfigs: ServiceConfig[] = [];
+	let lastUpdatedServiceList = -Infinity;
+	const wait = 1000;
+
+	// eslint-disable-next-line no-constant-condition
+	while (true) {
+		await new Promise((resp) => setTimeout(resp, wait));
+
+		if (HealthUpdates.size === 0) {
+			continue;
+		}
+
+		const now = Date.now();
+
+		try {
+			// loading the service configs is not the fastest operation; we don't
+			// expect them to change often so might as well simply not load them often
+			if (lastUpdatedServiceList < now - 5_000) {
+				serviceConfigs = await ServiceList.getServices();
+				lastUpdatedServiceList = now;
+			}
+
+			const outcome = await Promise.allSettled(
+				serviceConfigs.map(async (config) => {
+					const previous = healthsPerService.get(config.location);
+
+					const health = {
+						...(await HealthService.fetchServiceHealth(config)),
+						serviceName: config.name,
+						location: config.location,
+						version: config.version,
+					};
+
+					if (!isEqual(previous, health)) {
+						healthsPerService.set(config.location, health);
+						HealthUpdates.send(health);
+					}
+				}),
+			);
+
+			for (const result of outcome) {
+				if (result.status === 'rejected') {
+					logger.error('Sidekick status check failed:', {
+						err: result.reason,
+					});
+				}
+			}
+		} catch (err) {
+			logger.error('Sidekick health loop failed:', {
+				err,
+			});
+		}
+	}
+});
+
+interface ServiceHealth {
+	healthStatus: HealthStatus;
+	tags: string[];
+}
+
+interface ServiceHealthEvent extends ServiceHealth {
+	serviceName: string;
+	location: string;
+	version: string;
+}
+
+interface ServiceHealth {
+	healthStatus: HealthStatus;
+	tags: string[];
+}
 
 export class HealthService {
-	static async getServiceHealth(name: string) {
-		const serviceConfig = await ServiceList.getService(name);
+	static async getServiceHealth(
+		serviceConfig: ServiceConfig,
+	): Promise<ServiceHealth> {
+		const saved = healthsPerService.get(serviceConfig.location);
+		if (saved) {
+			return saved;
+		}
+
+		return this.fetchServiceHealth(serviceConfig);
+	}
+
+	static async fetchServiceHealth(
+		serviceConfig: ServiceConfig,
+	): Promise<ServiceHealth> {
+		const name = serviceConfig.name;
 
 		const portStatuses = await Promise.all(
 			serviceConfig.ports.map(async ({ type, port }) => {
@@ -71,7 +166,6 @@ export class HealthService {
 			return {
 				healthStatus: HealthStatus.healthy,
 				tags: ['all', 'running', ...serviceConfig.rawTags],
-				version: serviceConfig.version,
 			};
 		}
 
@@ -80,7 +174,6 @@ export class HealthService {
 			return {
 				healthStatus: HealthStatus.paused,
 				tags: ['all', 'running', ...serviceConfig.rawTags],
-				version: serviceConfig.version,
 			};
 		}
 
@@ -90,7 +183,6 @@ export class HealthService {
 			return {
 				healthStatus: HealthStatus.zombie,
 				tags: ['all', 'running', ...serviceConfig.rawTags],
-				version: serviceConfig.version,
 			};
 		}
 
@@ -102,7 +194,6 @@ export class HealthService {
 			return {
 				healthStatus: HealthStatus.failing,
 				tags: ['all', 'running', ...serviceConfig.rawTags],
-				version: serviceConfig.version,
 			};
 		}
 
@@ -115,21 +206,22 @@ export class HealthService {
 			return {
 				healthStatus: HealthStatus.partial,
 				tags: ['all', 'running', ...serviceConfig.rawTags],
-				version: serviceConfig.version,
 			};
 		} else if (await ServiceBuildsService.isServiceStale(serviceConfig)) {
 			return {
 				healthStatus: HealthStatus.stale,
 				tags: ['all', 'running', ...serviceConfig.rawTags],
-				version: serviceConfig.version,
 			};
 		} else {
 			return {
 				healthStatus: HealthStatus.none,
 				tags: ['all', ...serviceConfig.rawTags],
-				version: serviceConfig.version,
 			};
 		}
+	}
+
+	static getSavedHealthStatus() {
+		return [...healthsPerService.values()];
 	}
 
 	static async getStaleServices() {
@@ -137,9 +229,7 @@ export class HealthService {
 		return (
 			await Promise.all(
 				services.map(async (service) => {
-					const serviceHealth = await HealthService.getServiceHealth(
-						service.name,
-					);
+					const serviceHealth = await HealthService.getServiceHealth(service);
 					if (serviceHealth.healthStatus === HealthStatus.stale) {
 						return [service];
 					}
@@ -149,46 +239,35 @@ export class HealthService {
 		).flat();
 	}
 
-	static notifyHealthChange(name: string) {
-		emitter.emit(`update-${name}`);
-	}
-
-	static waitForPossibleHealthChange(name: string) {
-		return new Observable<void>((subscriber) => {
-			const notify = () => {
-				emitter.removeListener(`update-${name}`, notify);
-				clearTimeout(timer);
-				subscriber.next();
-				subscriber.complete();
-			};
-			const timer = setTimeout(() => notify(), 1000);
-			emitter.once(`update-${name}`, notify);
-		});
-	}
-
 	static async waitForHealthStatus(
-		name: string,
+		{ location }: ServiceConfig,
 		targetStatusList: HealthStatus[],
 		abortController: AbortController,
 	) {
-		while (!abortController.signal.aborted) {
-			const currentStatus = await HealthService.getServiceHealth(name);
-			if (targetStatusList.includes(currentStatus.healthStatus)) {
-				HealthService.notifyHealthChange(name);
-				return currentStatus;
-			}
+		const savedStatus = healthsPerService.get(location);
+		if (savedStatus && targetStatusList.includes(savedStatus.healthStatus)) {
+			return savedStatus;
 		}
-		HealthService.notifyHealthChange(name);
-	}
 
-	static async waitForActive(name: string, abortController: AbortController) {
+		const channel = HealthUpdates.watch();
 		while (!abortController.signal.aborted) {
-			const currentStatus = await HealthService.getServiceHealth(name);
-			if (isActiveStatus(currentStatus.healthStatus)) {
-				HealthService.notifyHealthChange(name);
-				return currentStatus;
+			const status = await channel.read(5000);
+			if (status === CHANNEL_DESTROYED) {
+				break;
+			}
+
+			if (status === CHANNEL_TIMEOUT) {
+				continue;
+			}
+
+			if (
+				status.location === location &&
+				targetStatusList.includes(status.healthStatus)
+			) {
+				return status;
 			}
 		}
-		HealthService.notifyHealthChange(name);
+
+		channel.destroy();
 	}
 }

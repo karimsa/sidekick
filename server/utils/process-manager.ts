@@ -9,7 +9,6 @@ import { RunningProcessModel } from '../models/RunningProcess.model';
 import { ConfigManager } from '../services/config';
 import { Logger } from '../services/logger';
 import { ExecUtils } from './exec';
-import { memoize } from './memoize';
 import { startTask } from './TaskRunner';
 
 const logger = new Logger('process');
@@ -19,21 +18,6 @@ fs.promises.mkdir(ProcessLogsDirectory, { recursive: true }).catch((error) => {
 	console.error(error);
 	process.exit(1);
 });
-
-const getLastRebootTime = memoize(async () => {
-	try {
-		// Tue Jan  3 12:17:52 2023
-		const { stdout } = await execa.command('sysctl kern.boottime');
-		const [, secs] = stdout.match(/\{ sec = ([0-9]+)/) ?? [];
-		if (!secs) {
-			return new Date(0);
-		}
-		return new Date(Number(secs) * 1e3);
-	} catch {
-		return new Date(0);
-	}
-});
-getLastRebootTime().catch(() => {});
 
 startTask('Destroy old processes', async () => {
 	const { stdout } = await execa.command('sysctl kern.boottime');

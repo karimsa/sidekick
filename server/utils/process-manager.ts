@@ -1,14 +1,14 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
 import * as childProcess from 'child_process';
-import omitBy from 'lodash/omitBy';
 import execa from 'execa';
+import * as fs from 'fs';
+import omitBy from 'lodash/omitBy';
+import * as os from 'os';
+import * as path from 'path';
 
-import { ConfigManager } from '../services/config';
-import { ExecUtils } from './exec';
 import { RunningProcessModel } from '../models/RunningProcess.model';
+import { ConfigManager } from '../services/config';
 import { Logger } from '../services/logger';
+import { ExecUtils } from './exec';
 import { memoize } from './memoize';
 
 const logger = new Logger('process');
@@ -21,42 +21,13 @@ fs.promises.mkdir(ProcessLogsDirectory, { recursive: true }).catch((error) => {
 
 const getLastRebootTime = memoize(async () => {
 	try {
-		const { stdout } = await execa.command(`last reboot`);
-		const lines = stdout.split(/\r?\n/g);
-		const date = new Date();
-
-		// This will be something like: 'Oct 22 05:13'
-		const [month, dayOfMonth, time] = lines
-			.slice(0, 1)[0]!
-			.trim()
-			.split(/\s+/g)
-			.slice(-3);
-		const [hour, min] = time.split(':');
-		date.setMonth(
-			[
-				'Jan',
-				'Feb',
-				'Mar',
-				'Apr',
-				'May',
-				'Jun',
-				'Jul',
-				'Aug',
-				'Sep',
-				'Oct',
-				'Nov',
-				'Dec',
-			].indexOf(month),
-		);
-		date.setDate(Number(dayOfMonth));
-		date.setHours(Number(hour));
-		date.setMinutes(Number(min));
-
-		if (String(date).includes('Invalid')) {
-			throw new Error(`Failed to parse`);
+		// Tue Jan  3 12:17:52 2023
+		const { stdout } = await execa.command('sysctl kern.boottime');
+		const [, secs] = stdout.match(/\{ sec = ([0-9]+)/) ?? [];
+		if (!secs) {
+			return new Date(0);
 		}
-
-		return date;
+		return new Date(Number(secs) * 1e3);
 	} catch {
 		return new Date(0);
 	}

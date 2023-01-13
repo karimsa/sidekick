@@ -1,15 +1,15 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
 import * as childProcess from 'child_process';
-import omitBy from 'lodash/omitBy';
 import execa from 'execa';
+import * as fs from 'fs';
+import omitBy from 'lodash/omitBy';
+import * as os from 'os';
+import * as path from 'path';
 
-import { ConfigManager } from '../services/config';
-import { ExecUtils } from './exec';
 import { RunningProcessModel } from '../models/RunningProcess.model';
+import { ConfigManager } from '../services/config';
 import { Logger } from '../services/logger';
-import { memoize } from './memoize';
+import { ExecUtils } from './exec';
+import { startTask } from './TaskRunner';
 
 const logger = new Logger('process');
 const ProcessLogsDirectory = path.join(ConfigManager.getSidekickPath(), 'logs');
@@ -19,49 +19,34 @@ fs.promises.mkdir(ProcessLogsDirectory, { recursive: true }).catch((error) => {
 	process.exit(1);
 });
 
-const getLastRebootTime = memoize(async () => {
-	try {
-		const { stdout } = await execa.command(`last reboot`);
-		const lines = stdout.split(/\r?\n/g);
-		const date = new Date();
+startTask('Destroy old processes', async () => {
+	const { stdout } = await execa.command('sysctl kern.boottime');
+	const [, secs] = stdout.match(/\{ sec = ([0-9]+)/) ?? [];
+	const lastReboot = new Date(Number(secs) * 1e3).toISOString();
+	logger.info(`Starting cleaning of old processes`, {
+		lastReboot,
+	});
 
-		// This will be something like: 'Oct 22 05:13'
-		const [month, dayOfMonth, time] = lines
-			.slice(0, 1)[0]!
-			.trim()
-			.split(/\s+/g)
-			.slice(-3);
-		const [hour, min] = time.split(':');
-		date.setMonth(
-			[
-				'Jan',
-				'Feb',
-				'Mar',
-				'Apr',
-				'May',
-				'Jun',
-				'Jul',
-				'Aug',
-				'Sep',
-				'Oct',
-				'Nov',
-				'Dec',
-			].indexOf(month),
-		);
-		date.setDate(Number(dayOfMonth));
-		date.setHours(Number(hour));
-		date.setMinutes(Number(min));
+	const oldEntries = (await RunningProcessModel.repository.find({})).filter(
+		(entry) => {
+			return entry.startedAt && entry.startedAt < lastReboot;
+		},
+	);
+	if (oldEntries.length === 0) {
+		logger.info(`No old processes to destroy`);
+		return;
+	}
 
-		if (String(date).includes('Invalid')) {
-			throw new Error(`Failed to parse`);
-		}
-
-		return date;
-	} catch {
-		return new Date(0);
+	for (const entry of oldEntries) {
+		logger.info(`Destroying old process`, {
+			name: entry._id,
+			pid: entry.pid,
+		});
+		await RunningProcessModel.repository.remove({
+			_id: entry._id,
+		});
 	}
 });
-getLastRebootTime().catch(() => {});
 
 export class ProcessManager {
 	private static getProcessLogFile(name: string) {
@@ -250,17 +235,6 @@ export class ProcessManager {
 		const entry = await RunningProcessModel.repository.findOne({
 			_id: name,
 		});
-		if (!entry || !entry.startedAt) {
-			return !!entry;
-		}
-
-		const lastReboot = (await getLastRebootTime()).toISOString();
-		if (entry.startedAt > lastReboot) {
-			return true;
-		}
-		await RunningProcessModel.repository.remove({
-			_id: name,
-		});
-		return false;
+		return !!entry;
 	}
 }

@@ -3,6 +3,7 @@ import * as path from 'path';
 import merge from 'lodash/merge';
 import * as esbuild from 'esbuild';
 import omit from 'lodash/omit';
+import * as os from 'os';
 import { z } from 'zod';
 import { loadModule } from '../utils/load-module';
 import { Defined } from '../utils/util-types';
@@ -142,12 +143,7 @@ export class ConfigManager {
 	}
 
 	static getSidekickPath() {
-		const home = process.env.HOME;
-		if (!home) {
-			throw new Error(
-				`Whoa - no home directory specified. What sorcery is this.`,
-			);
-		}
+		const home = os.homedir();
 		return path.resolve(home, '.sidekick');
 	}
 

@@ -71,8 +71,7 @@ createCommand({
 			serviceConfigs.flatMap(async (serviceConfig) => {
 				if (
 					!isActiveStatus(
-						(await HealthService.getServiceHealth(serviceConfig.name))
-							.healthStatus,
+						(await HealthService.getServiceHealth(serviceConfig)).healthStatus,
 					)
 				) {
 					return;

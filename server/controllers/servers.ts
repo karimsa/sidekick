@@ -8,13 +8,17 @@ import * as os from 'os';
 import { constants } from 'os';
 import { AbortController } from 'node-abort-controller';
 import { RunningProcessModel } from '../models/RunningProcess.model';
-import { HealthService } from '../services/health';
-import { HealthStatus, isActiveStatus } from '../utils/shared-types';
+import { HealthService, HealthUpdates } from '../services/health';
+import {
+	HealthStatus,
+	isActiveStatus,
+	ActiveHealthStatuses,
+} from '../utils/shared-types';
 import { z } from 'zod';
 import * as path from 'path';
 import { ServiceBuildsService } from '../services/service-builds';
 import { split } from '../utils/split';
-import { merge, Observable, Subscriber } from 'rxjs';
+import { CHANNEL_TIMEOUT } from '../utils/channel';
 import { Logger } from '../services/logger';
 
 const logger = new Logger('servers');
@@ -78,32 +82,6 @@ export const killProcesses = createRpcMethod(
 	},
 );
 
-type ServerHealthUpdate = {
-	healthStatus: HealthStatus;
-	tags: string[];
-	version: string;
-	serviceName: string;
-};
-
-const watchServerHealth = async (
-	name: string,
-	subscriber: Subscriber<ServerHealthUpdate>,
-) => {
-	while (!subscriber.closed) {
-		subscriber.next({
-			...(await HealthService.getServiceHealth(name)),
-			serviceName: name,
-		});
-
-		await new Promise<void>((resolve) => {
-			HealthService.waitForPossibleHealthChange(name).subscribe({
-				complete: () => resolve(),
-				error: () => resolve(),
-			});
-		});
-	}
-};
-
 export const getBulkServerHealth = createStreamingRpcMethod(
 	z.object({}),
 	z.object({
@@ -113,18 +91,17 @@ export const getBulkServerHealth = createStreamingRpcMethod(
 		version: z.string(),
 	}),
 	async (_, subscriber) => {
-		const services = await ServiceList.getServices();
+		HealthService.getSavedHealthStatus().forEach((healthEvent) =>
+			subscriber.next(healthEvent),
+		);
 
-		merge(
-			...services.map(
-				(serviceConfig) =>
-					new Observable<ServerHealthUpdate>((subscriber) => {
-						watchServerHealth(serviceConfig.name, subscriber).catch((error) => {
-							subscriber.error(error);
-						});
-					}),
-			),
-		).subscribe(subscriber);
+		await HealthUpdates.watchAndPipeTo(subscriber, 5000, (healthEvent) => {
+			if (healthEvent === CHANNEL_TIMEOUT) {
+				return;
+			}
+
+			subscriber.next(healthEvent);
+		});
 	},
 );
 
@@ -172,8 +149,7 @@ export const startService = createRpcMethod(
 
 			if (
 				isActiveStatus(
-					(await HealthService.getServiceHealth(serviceConfig.name))
-						.healthStatus,
+					(await HealthService.getServiceHealth(serviceConfig)).healthStatus,
 				)
 			) {
 				throw new Error(`Cannot start ${serviceConfig.name}, already running`);
@@ -211,7 +187,11 @@ export const startService = createRpcMethod(
 				throw new Error(`Failed to start service, unknown error`);
 			}
 
-			await HealthService.waitForActive(name, new AbortController());
+			await HealthService.waitForHealthStatus(
+				serviceConfig,
+				ActiveHealthStatuses,
+				new AbortController(),
+			);
 		});
 
 		return { ok: true };
@@ -238,7 +218,7 @@ export const stopService = createRpcMethod(
 			}
 
 			await HealthService.waitForHealthStatus(
-				name,
+				serviceConfig,
 				[HealthStatus.none],
 				new AbortController(),
 			);
@@ -262,7 +242,7 @@ export const pauseService = createRpcMethod(
 				}),
 			);
 			await HealthService.waitForHealthStatus(
-				name,
+				serviceConfig,
 				[HealthStatus.paused],
 				new AbortController(),
 			);
@@ -288,7 +268,7 @@ export const pauseDevServer = createRpcMethod(
 		await ServiceList.withServiceStateLock(serviceConfig, async () => {
 			await ProcessManager.pause(serviceName, devServer);
 			await HealthService.waitForHealthStatus(
-				serviceName,
+				serviceConfig,
 				[HealthStatus.paused],
 				new AbortController(),
 			);
@@ -314,7 +294,7 @@ export const resumeDevServer = createRpcMethod(
 		await ServiceList.withServiceStateLock(serviceConfig, async () => {
 			await ProcessManager.resume(serviceName, devServer);
 			await HealthService.waitForHealthStatus(
-				serviceName,
+				serviceConfig,
 				[HealthStatus.healthy, HealthStatus.failing, HealthStatus.partial],
 				new AbortController(),
 			);
@@ -338,7 +318,7 @@ export const resumeService = createRpcMethod(
 				}),
 			);
 			await HealthService.waitForHealthStatus(
-				name,
+				serviceConfig,
 				[HealthStatus.healthy, HealthStatus.failing, HealthStatus.partial],
 				new AbortController(),
 			);
@@ -430,7 +410,7 @@ export const bulkServiceAction = createRpcMethod(
 			services.map(async (service) => {
 				servicesUpdated.push(service.name);
 				const isServiceActive = isActiveStatus(
-					(await HealthService.getServiceHealth(service.name)).healthStatus,
+					(await HealthService.getServiceHealth(service)).healthStatus,
 				);
 
 				switch (action) {

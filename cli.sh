@@ -37,6 +37,6 @@ fi
 if test "$channel" != "stable" && ! test -z "$channel"; then
     exec node "$HOME/.sidekick/channels/${channel}/cli.dist.js" $@
 else
-    exec node "$(dirname $0)/cli.dist.js" $@
+    exec node "${dirname}/cli.dist.js" $@
 fi
 

@@ -1,8 +1,7 @@
-import * as fs from 'fs';
 import parseArgs from 'minimist';
-import * as path from 'path';
 import { z } from 'zod';
 import { ConfigManager } from '../services/config';
+import { ensureProjectDir } from '../utils/findProjectDir';
 import { fmt } from '../utils/fmt';
 import { objectEntries, objectKeys } from '../utils/util-types';
 
@@ -98,41 +97,23 @@ function showCommandHelp(command: Command<any>) {
 	return 1;
 }
 
-function getProjectDir(currentDir: string, checkedDirs: string[]): string {
-	if (fs.existsSync(`${currentDir}/sidekick.config.ts`)) {
-		return currentDir;
-	}
-	if (currentDir === '/') {
-		throw new Error(
-			`Could not find sidekick.config.ts file\nChecked:\n${checkedDirs
-				.map((dir) => `\t${dir}`)
-				.join('\n')}`,
-		);
-	}
-	return getProjectDir(path.dirname(currentDir), [...checkedDirs, currentDir]);
-}
-
 export async function runCliWithArgs(argv: string[]): Promise<number> {
-	const projectDir = getProjectDir(
-		process.env.PROJECT_PATH || process.cwd(),
-		[],
-	);
-	process.env.PROJECT_PATH = projectDir;
-
-	// Flagging this for now, so we can test it in production release
-	if (process.env.NODE_ENV === 'production') {
-		const config = await ConfigManager.createProvider();
-		const releaseChannel = await config.getValue('releaseChannel');
-		const activeChannel = await ConfigManager.getActiveChannel();
-
-		if (activeChannel !== releaseChannel) {
-			throw new Error(
-				`Sidekick is running as ${activeChannel}, but configured as ${releaseChannel} (upgrade failed)`,
-			);
-		}
-	}
-
 	try {
+		const projectDir = ensureProjectDir();
+
+		// Flagging this for now, so we can test it in production release
+		if (process.env.NODE_ENV === 'production') {
+			const config = await ConfigManager.createProvider();
+			const releaseChannel = await config.getValue('releaseChannel');
+			const activeChannel = await ConfigManager.getActiveChannel();
+
+			if (activeChannel !== releaseChannel) {
+				console.warn(
+					`WARN: Sidekick is running as ${activeChannel}, but configured as ${releaseChannel} (upgrade failed)`,
+				);
+			}
+		}
+
 		const commandName = argv[0];
 		if (!commandName || commandName[0] === '-') {
 			console.log(`Command missing`);

@@ -1,4 +1,5 @@
 const { build } = require('esbuild');
+const fs = require('fs');
 
 const isWatchMode = process.argv.includes('-w');
 
@@ -15,8 +16,8 @@ const makeAllPackagesExternal = {
 	},
 };
 
-const buildServerFile = (input, output) =>
-	build({
+const buildServerFile = async (input, output) => {
+	await build({
 		entryPoints: [input],
 		outfile: output,
 		bundle: true,
@@ -33,10 +34,16 @@ const buildServerFile = (input, output) =>
 		plugins: [makeAllPackagesExternal],
 		watch: isWatchMode,
 	});
+	fs.chmodSync(output, '0755');
+};
 
 Promise.all([
 	buildServerFile('./server/index.ts', './server.dist.js'),
 	buildServerFile('./server/cli/bin.ts', './cli.dist.js'),
+	buildServerFile(
+		'./server/sidekick-bootstrap.ts',
+		'./sidekick-bootstrap.dist.js',
+	),
 ]).catch((error) => {
 	if (!error.errors) {
 		console.error(error);

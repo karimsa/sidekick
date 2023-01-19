@@ -4,7 +4,7 @@ import net from 'net';
 export async function testHttp(port: number): Promise<boolean> {
 	// tslint:disable-next-line
 	try {
-		await axios.get(`http://localhost:${port}`, {
+		await axios.get(`http://127.0.0.1:${port}`, {
 			timeout: 1000,
 		});
 		return true;
@@ -15,7 +15,7 @@ export async function testHttp(port: number): Promise<boolean> {
 
 export function testTcp(port: number): Promise<boolean> {
 	return new Promise<boolean>((resolve) => {
-		const client = net.connect(port, 'localhost');
+		const client = net.connect(port, '127.0.0.1');
 		client.on('connect', () => {
 			client.end();
 			resolve(true);

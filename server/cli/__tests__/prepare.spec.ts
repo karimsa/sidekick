@@ -1,33 +1,11 @@
 import { afterEach, describe, expect, it } from '@jest/globals';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as tmp from 'tmp-promise';
 import stripAnsi from 'strip-ansi';
 // load cli commands
 import '../';
 import { runCliWithArgs } from '../createCommand';
-
-async function buildFs(files: Record<string, string | null>) {
-	const { path: targetDir } = await tmp.dir();
-
-	for (const [filename, content] of Object.entries(files)) {
-		if (content) {
-			await fs.promises.mkdir(path.resolve(targetDir, path.dirname(filename)), {
-				recursive: true,
-			});
-			await fs.promises.writeFile(path.resolve(targetDir, filename), content);
-		} else {
-			await fs.promises.mkdir(path.resolve(targetDir, filename), {
-				recursive: true,
-			});
-		}
-	}
-
-	return {
-		path: targetDir,
-		cleanup: async () => fs.promises.rmdir(targetDir, { recursive: true }),
-	};
-}
+import { buildFs } from './test-utils';
 
 async function captureStdout(fn: () => Promise<void>) {
 	const write = process.stdout.write;

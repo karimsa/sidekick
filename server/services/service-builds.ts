@@ -1,39 +1,159 @@
 import globby from 'globby';
 import maxBy from 'lodash/maxBy';
+import chokidar, { FSWatcher } from 'chokidar';
+import { Stats } from 'fs';
 import { ServiceBuildHistoryModel } from '../models/ServiceBuildHistory.model';
-import { ServiceConfig } from './service-list';
+import { ServiceConfig, ServiceList } from './service-list';
 import { ExecUtils } from '../utils/exec';
 import { ConfigManager } from './config';
 import { Observable } from 'rxjs';
 import path from 'path';
+import { startTask } from '../utils/TaskRunner';
+import isEqual from 'lodash/isEqual';
+import { memoize } from '../utils/memoize';
 
-export class ServiceBuildsService {
-	static async getServiceSourceLastUpdated(serviceConfig: ServiceConfig) {
-		const sourceEntries = await globby(serviceConfig.sourceFiles, {
-			objectMode: true,
-			cwd: serviceConfig.location,
-			expandDirectories: true,
-			stats: true,
-		});
-		const lastModifiedEntry = maxBy(
-			sourceEntries,
-			(entry) => +entry.stats!.mtime,
-		);
-		return lastModifiedEntry?.stats!.mtime ?? null;
+interface ServiceFilesUpdated {
+	config: ServiceConfig;
+	sourceWatcher?: FSWatcher;
+	outputWatcher?: FSWatcher;
+	outputLastUpdated: Date | null;
+	sourceLastUpdated: Date | null;
+}
+
+const chokidarConfig = {
+	persistent: true,
+	alwaysStat: true,
+	ignoreInitial: true,
+};
+
+class ServiceBuildListenerTask {
+	constructor(private serviceInfo: Map<string, ServiceFilesUpdated>) {}
+
+	private createListener(service: ServiceConfig, kind: 'output' | 'source') {
+		return (path: string, stats?: Stats) => {
+			const previous = this.serviceInfo.get(service.location);
+			if (!previous) {
+				return;
+			}
+
+			const key = `${kind}LastUpdated` as const;
+			const previousDate = previous[key] ?? new Date(0);
+			this.serviceInfo.set(service.location, {
+				...previous,
+				[key]: new Date(Math.max(+previousDate, +stats!.mtime)),
+			});
+		};
 	}
 
-	static async getServiceOutputLastUpdated(serviceConfig: ServiceConfig) {
-		const sourceEntries = await globby(serviceConfig.outputFiles, {
+	async run() {
+		const newServices: ServiceConfig[] = [];
+		const oldServices: ServiceFilesUpdated[] = [];
+
+		const freshServices = await ServiceList.getServices();
+		for (const service of freshServices) {
+			const prev = this.serviceInfo.get(service.location);
+			if (isEqual(prev?.config, service)) {
+				continue;
+			}
+
+			// TODO: this is inefficient in the case that we
+			// 	change the source/output files lists.
+			if (prev) {
+				oldServices.push(prev);
+			}
+
+			newServices.push(service);
+		}
+
+		for (const service of oldServices) {
+			await service.sourceWatcher?.close();
+			await service.outputWatcher?.close();
+		}
+
+		for (const service of newServices) {
+			const { sourceFiles, outputFiles } = service;
+			const sourceWatcher = chokidar.watch(
+				sourceFiles.map((filePath) => path.resolve(service.location, filePath)),
+				chokidarConfig,
+			);
+			sourceWatcher
+				.on('change', this.createListener(service, 'source'))
+				.on('error', (e: any, path: string) =>
+					console.error('error in source watcher: ', e, path),
+				);
+
+			const outputWatcher = chokidar.watch(
+				outputFiles.map((filePath) => path.resolve(service.location, filePath)),
+				chokidarConfig,
+			);
+			outputWatcher
+				.on('change', this.createListener(service, 'output'))
+				.on('error', (e: any, path: string) =>
+					console.error('error in source watcher: ', e, path),
+				);
+
+			const prev = this.serviceInfo.get(service.location);
+			this.serviceInfo.set(service.location, {
+				config: service,
+				sourceWatcher,
+				outputWatcher,
+				sourceLastUpdated: prev?.sourceLastUpdated ?? null,
+				outputLastUpdated: prev?.outputLastUpdated ?? null,
+			});
+		}
+	}
+}
+
+const getServiceInfo = memoize(async () => {
+	const serviceInfo = new Map<string, ServiceFilesUpdated>();
+	const services = await ServiceList.getServices();
+	for (const service of services) {
+		const globbyConfig = {
 			objectMode: true,
-			cwd: serviceConfig.location,
+			cwd: service.location,
 			expandDirectories: true,
 			stats: true,
-		});
-		const lastModifiedEntry = maxBy(
+		} as const;
+
+		const sourceEntries = await globby(service.sourceFiles, globbyConfig);
+		const outputEntries = await globby(service.outputFiles, globbyConfig);
+
+		const lastModifiedSource = maxBy(
 			sourceEntries,
 			(entry) => +entry.stats!.mtime,
 		);
-		return lastModifiedEntry?.stats!.mtime ?? null;
+		const lastModifiedOutput = maxBy(
+			outputEntries,
+			(entry) => +entry.stats!.mtime,
+		);
+
+		serviceInfo.set(service.location, {
+			config: service,
+			sourceLastUpdated: lastModifiedSource?.stats!.mtime ?? null,
+			outputLastUpdated: lastModifiedOutput?.stats!.mtime ?? null,
+		});
+	}
+
+	startTask('watchTask', async () => {
+		const task = new ServiceBuildListenerTask(serviceInfo);
+		while (true) {
+			await task.run();
+			await new Promise((res) => setTimeout(res, 10_000));
+		}
+	});
+
+	return serviceInfo;
+});
+
+export class ServiceBuildsService {
+	static async getServiceSourceLastUpdated(service: ServiceConfig) {
+		const info = await getServiceInfo();
+		return info.get(service.location)?.sourceLastUpdated ?? null;
+	}
+
+	static async getServiceOutputLastUpdated(service: ServiceConfig) {
+		const info = await getServiceInfo();
+		return info.get(service.location)?.outputLastUpdated ?? null;
 	}
 
 	static async getServiceLastBuilt(serviceConfig: ServiceConfig) {
@@ -57,6 +177,7 @@ export class ServiceBuildsService {
 			this.getServiceLastBuilt(serviceConfig),
 			this.getServiceSourceLastUpdated(serviceConfig),
 		]);
+
 		// there's no source files, can't be stale
 		if (!lastUpdatedAt) {
 			return false;

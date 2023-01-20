@@ -11,27 +11,32 @@ env:
 jobs:
   build:
     runs-on: ubuntu-22.04
+
+    strategy:
+      matrix:
+        node: [14, 16, 18]
+
     steps:
       - uses: actions/checkout@v3
 
       - name: Setup Node.js for use with actions
         uses: actions/setup-node@v3
         with:
-          node-version: 14
+          node-version: ${{ matrix.node }}
 
       - uses: actions/cache/restore@v3.2.0-beta.1
         with:
           path: '**/node_modules'
-          key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}-node-v${{ matrix.node }}
 
       - name: Install Node.js dependencies
         if: "steps.yarn-cache.outputs.cache-hit != 'true'"
         run: yarn --frozen-lockfile
-        
+
       - uses: actions/cache/save@v3.2.0-beta.1
         with:
           path: '**/node_modules'
-          key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}-node-v${{ matrix.node }}
 
       - name: Linting
         run: yarn lint
@@ -46,11 +51,11 @@ jobs:
         uses: codecov/codecov-action@v3
 
       - name: Setup for deploy
-        if: "startsWith(github.ref, 'refs/tags/v')"
+        if: "startsWith(github.ref, 'refs/tags/v') && matrix.node == 14"
         run: |
           echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
           npm whoami
 
       - name: Publish to npm
-        if: "startsWith(github.ref, 'refs/tags/v')"
+        if: "startsWith(github.ref, 'refs/tags/v') && matrix.node == 14"
         run: npm publish

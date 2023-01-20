@@ -1,17 +1,17 @@
-import { ServiceConfig, ServiceList } from './service-list';
-import { testHttp, testTcp } from '../utils/healthcheck';
 import isEqual from 'lodash/isEqual';
-import { assertUnreachable, objectKeys } from '../utils/util-types';
-import { ProcessManager } from '../utils/process-manager';
-import { HealthStatus } from '../utils/shared-types';
-import { ServiceBuildsService } from './service-builds';
 import {
+	ChannelList,
 	CHANNEL_DESTROYED,
 	CHANNEL_TIMEOUT,
-	ChannelList,
 } from '../utils/channel';
-import { Logger } from './logger';
+import { testHealthCheck } from '../utils/healthcheck';
+import { ProcessManager } from '../utils/process-manager';
+import { HealthStatus } from '../utils/shared-types';
 import { startTask } from '../utils/TaskRunner';
+import { objectKeys } from '../utils/util-types';
+import { Logger } from './logger';
+import { ServiceBuildsService } from './service-builds';
+import { ServiceConfig, ServiceList } from './service-list';
 
 const logger = new Logger('health');
 
@@ -56,6 +56,11 @@ startTask('serviceHealthMonitor', async () => {
 					if (!isEqual(previous, health)) {
 						healthsPerService.set(config.location, health);
 						HealthUpdates.send(health);
+						logger.info(`Service health changed`, {
+							serviceName: config.name,
+							previousHealth: previous,
+							updatedHealth: health,
+						});
 					}
 				}),
 			);
@@ -109,15 +114,8 @@ export class HealthService {
 		const name = serviceConfig.name;
 
 		const portStatuses = await Promise.all(
-			serviceConfig.ports.map(async ({ type, port }) => {
-				if (type === 'tcp') {
-					return testTcp(port);
-				} else if (type === 'http') {
-					return testHttp(port);
-				} else {
-					assertUnreachable(type);
-					throw new Error(`Unrecognized port type: '${type}'`);
-				}
+			serviceConfig.ports.map(async (testOptions) => {
+				return testHealthCheck(serviceConfig.name, testOptions);
 			}),
 		);
 		const numPortsHealthy = portStatuses.reduce((sum, portHealthy) => {

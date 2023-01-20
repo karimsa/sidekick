@@ -1,24 +1,18 @@
-import express from 'express';
 import * as bodyParser from 'body-parser';
-import * as http from 'http';
 import cors from 'cors';
-import { Server as SocketServer, Socket } from 'socket.io';
+import express from 'express';
+import * as http from 'http';
 import next from 'next';
+import { Server as SocketServer, Socket } from 'socket.io';
 
-import { fmt } from './utils/fmt';
-import {
-	APIError,
-	route,
-	RpcHandler,
-	StreamingRpcHandler,
-	validate,
-} from './utils/http';
+import { z } from 'zod';
 import { getConfig, getVersion, updateConfig } from './controllers/config';
 import {
 	getExtensionClient,
 	getExtensions,
 	runExtensionMethod,
 } from './controllers/extensions';
+import { getHeartbeat } from './controllers/heartbeat';
 import {
 	bulkServiceAction,
 	getBulkServerHealth,
@@ -40,11 +34,22 @@ import {
 	startService,
 	stopService,
 } from './controllers/servers';
-import { getHeartbeat } from './controllers/heartbeat';
-import { z } from 'zod';
 import { startCpuUsageWatcher } from './utils/cpu-usage';
+import { fmt } from './utils/fmt';
+import {
+	APIError,
+	route,
+	RpcHandler,
+	StreamingRpcHandler,
+	validate,
+} from './utils/http';
 
 const app = express();
+
+const serverPort = process.env.SIDEKICK_PORT
+	? Number(process.env.SIDEKICK_PORT)
+	: 9010;
+const bindAddr = process.env.SIDEKICK_BIND_ADDR || '::1';
 
 const methods: Record<string, RpcHandler<any, any>> = {
 	getConfig,
@@ -83,7 +88,16 @@ const streamingMethods: Record<string, StreamingRpcHandler<any, any>> = {
 
 const isDevelopment =
 	!process.env.NODE_ENV || process.env.NODE_ENV === 'development';
-const corsConfig = { origin: isDevelopment ? true : ['http://localhost:9001'] };
+const corsConfig = {
+	origin: isDevelopment
+		? true
+		: [
+				`http://localhost:${serverPort}`,
+				`http://127.0.0.1:${serverPort}`,
+				`http://sidekick.local:${serverPort}`,
+				`http://[::1]:${serverPort}`,
+		  ],
+};
 
 app.use(cors(corsConfig));
 app.options('/api/rpc/:methodName', (req, res) => {
@@ -179,7 +193,8 @@ io.on('connection', (socket) => {
 });
 
 startCpuUsageWatcher(isDevelopment ? 5 : 25);
-server.listen(process.env.SIDEKICK_PORT || 9010, () => {
+
+server.listen(serverPort, bindAddr, () => {
 	console.log(
 		fmt`Sidekick server listening on ${server.address()} (pid ${process.pid})`,
 	);

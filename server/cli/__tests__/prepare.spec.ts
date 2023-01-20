@@ -72,6 +72,7 @@ describe('sidekick prepare', () => {
 			const result = await runCliForTesting('yarn cli prepare --dryRun', env);
 			expect(result.exitCode).toEqual(0);
 
+			expect(result.stdout).toMatch(/Found 2 stale services/);
 			expect(result.stdout).toMatch(/foo/);
 			expect(result.stdout).toMatch(/bar/);
 		}
@@ -81,9 +82,8 @@ describe('sidekick prepare', () => {
 			const result = await runCliForTesting('yarn cli prepare', env);
 			expect(result.exitCode).toEqual(0);
 
-			const logs = result.stdout;
-			expect(logs).toMatch(/output from foo/);
-			expect(logs).toMatch(/output from bar/);
+			expect(result.stdout).toMatch(/output from foo/);
+			expect(result.stdout).toMatch(/output from bar/);
 			expect(
 				await fs.promises.readFile(
 					path.resolve(targetDir.path, './packages/foo/did-prepare'),
@@ -114,6 +114,7 @@ describe('sidekick prepare', () => {
 			const result = await runCliForTesting('yarn cli prepare --dryRun', env);
 			expect(result.exitCode).toEqual(0);
 
+			expect(result.stdout).toMatch(/Found 1 stale services/);
 			expect(result.stdout).not.toMatch(/foo/);
 			expect(result.stdout).toMatch(/bar/);
 		}
@@ -155,6 +156,7 @@ describe('sidekick prepare', () => {
 			const result = await runCliForTesting('yarn cli prepare --dryRun', env);
 			expect(result.exitCode).toEqual(0);
 
+			expect(result.stdout).toMatch(/Found 1 stale services/);
 			expect(result.stdout).toMatch(/foo/);
 			expect(result.stdout).not.toMatch(/bar/);
 		}

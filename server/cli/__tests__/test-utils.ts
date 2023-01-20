@@ -1,6 +1,7 @@
 import * as tmp from 'tmp-promise';
 import fs from 'fs';
 import path from 'path';
+import stripAnsi from 'strip-ansi';
 import { exec } from 'child_process';
 
 type CleanupHook = () => Promise<void> | undefined | void;
@@ -66,7 +67,8 @@ export async function runCliForTesting(
 		// written before resolving the promise
 		proc.on('close', (exitCode) => {
 			res({
-				...out,
+				stdout: stripAnsi(out.stdout),
+				stderr: stripAnsi(out.stderr),
 				exitCode: exitCode ?? 1,
 			});
 		});

@@ -1,17 +1,10 @@
 import { afterEach, describe, expect, it } from '@jest/globals';
-import * as fs from 'fs';
 import * as path from 'path';
-import { buildFs, runCliForTesting } from './test-utils';
+import { buildFs, runCliForTesting, TestCleanup } from './test-utils';
 
 describe('sidekick version', () => {
-	const cleanup: (() => Promise<void>)[] = [];
-
-	afterEach(async () => {
-		for (const fn of cleanup) {
-			await fn();
-		}
-		cleanup.splice(0, cleanup.length);
-	});
+	const cleanup = new TestCleanup();
+	afterEach(cleanup.afterEachHook);
 
 	it('should not crash', async () => {
 		const targetDir = await buildFs({

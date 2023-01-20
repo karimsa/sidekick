@@ -1,17 +1,11 @@
 import { afterEach, describe, expect, it } from '@jest/globals';
 import * as fs from 'fs';
 import * as path from 'path';
-import { buildFs, runCliForTesting } from './test-utils';
+import { buildFs, runCliForTesting, TestCleanup } from './test-utils';
 
 describe('sidekick prepare', () => {
-	const cleanup: (() => Promise<void>)[] = [];
-
-	afterEach(async () => {
-		for (const fn of cleanup) {
-			await fn();
-		}
-		cleanup.splice(0, cleanup.length);
-	});
+	const cleanup = new TestCleanup();
+	afterEach(cleanup.afterEachHook);
 
 	it('should be able to identify stale files and prepare them from the cli', async () => {
 		const targetDir = await buildFs({

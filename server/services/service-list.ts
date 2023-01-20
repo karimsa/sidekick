@@ -10,6 +10,7 @@ import { objectEntries } from '../utils/util-types';
 import { CacheService } from './cache';
 import { ConfigManager } from './config';
 import { HealthService } from './health';
+import { ServiceConfigHealthCheckOptions } from '../utils/healthcheck';
 
 export interface ServiceConfig {
 	name: string;
@@ -20,7 +21,7 @@ export interface ServiceConfig {
 	disableStaleChecks: boolean;
 	outputFiles: string[];
 	sourceFiles: string[];
-	ports: { type: 'http' | 'tcp'; port: number }[];
+	ports: ServiceConfigHealthCheckOptions[];
 	actions: { label: string; command: string }[];
 	devServers: Record<string, string>;
 	rawTags: string[];
@@ -257,13 +258,28 @@ export class ServiceList {
 			z.object({
 				ports: z
 					.array(
-						z.object({
-							type: z.union([z.literal('http'), z.literal('tcp')]),
-							port: z
-								.number()
-								.int('Port numbers must be valid integers')
-								.min(1),
-						}),
+						z.union([
+							z.object({
+								type: z.literal('tcp'),
+								port: z
+									.number()
+									.int('Port numbers must be valid integers')
+									.min(1),
+								ipv4: z.boolean().optional(),
+							}),
+							z.object({
+								type: z.literal('http'),
+								port: z
+									.number()
+									.int('Port numbers must be valid integers')
+									.min(1),
+							}),
+							z.object({
+								type: z.literal('http'),
+								method: z.enum(['GET', 'HEAD', 'OPTIONS']),
+								url: z.string(),
+							}),
+						]),
 					)
 					.optional(),
 				actions: z

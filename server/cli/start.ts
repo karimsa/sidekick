@@ -1,9 +1,9 @@
-import * as path from 'path';
-import * as fs from 'fs';
 import execa from 'execa';
+import * as fs from 'fs';
+import * as path from 'path';
+import { z } from 'zod';
 import { testHttp } from '../utils/healthcheck';
 import { createCommand } from './createCommand';
-import { z } from 'zod';
 
 createCommand({
 	name: 'start',
@@ -41,7 +41,9 @@ createCommand({
 
 		process.stdout.write(`Waiting for sidekick to start ...\r`);
 		// eslint-disable-next-line no-empty
-		while (!(await testHttp(port))) {}
+		while (
+			!(await testHttp({ method: 'GET', url: `http://localhost:${port}` }))
+		) {}
 		console.log(`Sidekick started on http://localhost:${port}`);
 
 		await child;

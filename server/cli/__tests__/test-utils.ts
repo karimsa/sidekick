@@ -1,7 +1,19 @@
 import * as tmp from 'tmp-promise';
 import fs from 'fs';
 import path from 'path';
-import { exec, ExecException } from 'child_process';
+import { exec } from 'child_process';
+
+type CleanupHook = () => Promise<void> | undefined | void;
+export class TestCleanup {
+	cleanup: CleanupHook[] = [];
+	readonly push = (hook: CleanupHook) => this.cleanup.push(hook);
+	readonly afterEachHook = async () => {
+		for (const fn of this.cleanup) {
+			await fn();
+		}
+		this.cleanup.splice(0, this.cleanup.length);
+	};
+}
 
 export async function buildFs(files: Record<string, string | null>) {
 	const { path: targetDir } = await tmp.dir();

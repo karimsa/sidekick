@@ -997,9 +997,11 @@ const ServiceControlPanel = () => {
 						{serviceConfig &&
 							serviceConfig.ports.flatMap((port) =>
 								port.type === 'http' ? (
-									<div key={port.port} className={'mb-5'}>
+									<div key={port.port ?? port.url} className={'mb-5'}>
 										<a
-											href={`http://localhost:${port.port}/`}
+											href={
+												port.url ? port.url : `http://localhost:${port.port}/`
+											}
 											target={'_blank'}
 											className={
 												'text-blue-500 hover:text-blue-700 hover:border-b border-blue-700 pb-1'
@@ -1008,7 +1010,8 @@ const ServiceControlPanel = () => {
 										>
 											<LinkExternalIcon />
 											<span className={'ml-2'}>
-												Open http://localhost:{port.port}/
+												Open{' '}
+												{port.url ? port.url : `http://localhost:${port.port}/`}
 											</span>
 										</a>
 									</div>

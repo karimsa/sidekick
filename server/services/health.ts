@@ -46,8 +46,10 @@ startTask('serviceHealthMonitor', async () => {
 				serviceConfigs.map(async (config) => {
 					const previous = healthsPerService.get(config.location);
 
-					const health = {
-						...(await HealthService.fetchServiceHealth(config)),
+					const health: ServiceHealthEvent = {
+						previousHealthInfo: healthsPerService.get(config.location)
+							?.healthInfo,
+						healthInfo: await HealthService.fetchServiceHealth(config),
 						serviceName: config.name,
 						location: config.location,
 						version: config.version,
@@ -85,7 +87,10 @@ interface ServiceHealth {
 	tags: string[];
 }
 
-interface ServiceHealthEvent extends ServiceHealth {
+interface ServiceHealthEvent {
+	previousHealthInfo?: ServiceHealth;
+	healthInfo: ServiceHealth;
+
 	serviceName: string;
 	location: string;
 	version: string;
@@ -102,7 +107,7 @@ export class HealthService {
 	): Promise<ServiceHealth> {
 		const saved = healthsPerService.get(serviceConfig.location);
 		if (saved) {
-			return saved;
+			return saved.healthInfo;
 		}
 
 		return this.fetchServiceHealth(serviceConfig);
@@ -243,7 +248,10 @@ export class HealthService {
 		abortController: AbortController,
 	) {
 		const savedStatus = healthsPerService.get(location);
-		if (savedStatus && targetStatusList.includes(savedStatus.healthStatus)) {
+		if (
+			savedStatus &&
+			targetStatusList.includes(savedStatus.healthInfo.healthStatus)
+		) {
 			return savedStatus;
 		}
 
@@ -260,7 +268,7 @@ export class HealthService {
 
 			if (
 				status.location === location &&
-				targetStatusList.includes(status.healthStatus)
+				targetStatusList.includes(status.healthInfo.healthStatus)
 			) {
 				return status;
 			}

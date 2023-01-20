@@ -89,9 +89,9 @@ function startStdinBuffer() {
 
 function startAllHealthUpdaters() {
 	getBulkServerHealth({}).subscribe({
-		next: ({ serviceName, healthStatus }) => {
+		next: ({ serviceName, healthInfo }) => {
 			state.services[serviceName] = {
-				status: healthStatus,
+				status: healthInfo.healthStatus,
 				lastChangedAt: new Date(),
 			};
 			state.lastUpdatedAt = new Date();

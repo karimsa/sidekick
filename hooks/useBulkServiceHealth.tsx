@@ -39,7 +39,10 @@ export const [BulkServiceHealthProvider, useBulkServiceHealth] = constate(
 						return {
 							serviceStatuses: {
 								...state.serviceStatuses,
-								[action.data.serviceName]: action.data,
+								[action.data.serviceName]: {
+									...action.data,
+									...action.data.healthInfo,
+								},
 							},
 							error: null,
 						};

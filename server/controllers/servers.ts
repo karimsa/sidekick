@@ -85,9 +85,11 @@ export const killProcesses = createRpcMethod(
 export const getBulkServerHealth = createStreamingRpcMethod(
 	z.object({}),
 	z.object({
+		healthInfo: z.object({
+			healthStatus: z.nativeEnum(HealthStatus),
+			tags: z.array(z.string()),
+		}),
 		serviceName: z.string(),
-		healthStatus: z.nativeEnum(HealthStatus),
-		tags: z.array(z.string()),
 		version: z.string(),
 	}),
 	async (_, subscriber) => {

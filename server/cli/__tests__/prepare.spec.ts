@@ -1,32 +1,7 @@
 import { afterEach, describe, expect, it } from '@jest/globals';
 import * as fs from 'fs';
 import * as path from 'path';
-import stripAnsi from 'strip-ansi';
-// load cli commands
-import '../';
-import { runCliWithArgs } from '../createCommand';
-import { buildFs } from './test-utils';
-
-async function captureStdout(fn: () => Promise<void>) {
-	const write = process.stdout.write;
-	const capturedLogs: string[] = [];
-
-	process.stdout.write = (chunk: Buffer | string) => {
-		capturedLogs.push(stripAnsi(chunk.toString('utf8')));
-		return true;
-	};
-
-	try {
-		await fn();
-	} catch (err) {
-		process.stdout.write = write;
-		console.dir({ output: capturedLogs });
-		throw err;
-	}
-
-	process.stdout.write = write;
-	return capturedLogs;
-}
+import { buildFs, runCliForTesting } from './test-utils';
 
 describe('sidekick prepare', () => {
 	const cleanup: (() => Promise<void>)[] = [];
@@ -89,29 +64,32 @@ describe('sidekick prepare', () => {
 			}
 		};
 
-		process.env.PROJECT_PATH = targetDir.path;
-		process.env.PATH = `${process.env.PATH}:${path.resolve(
-			process.cwd(),
-			'node_modules',
-			'.bin',
-		)}`;
+		const env = {
+			PROJECT_PATH: targetDir.path,
+			PATH: `${process.env.PATH}:${path.resolve(
+				process.cwd(),
+				'node_modules',
+				'.bin',
+			)}`,
+		};
 
 		// Verify dry run for first run
 		{
-			const logs = await captureStdout(async () => {
-				expect(await runCliWithArgs(['prepare', '--dryRun'])).toEqual(0);
-			});
-			expect(logs.join('\n')).toMatch(/foo/);
-			expect(logs.join('\n')).toMatch(/bar/);
+			const result = await runCliForTesting('yarn cli prepare --dryRun', env);
+			expect(result.exitCode).toEqual(0);
+
+			expect(result.stdout).toMatch(/foo/);
+			expect(result.stdout).toMatch(/bar/);
 		}
 
 		// Verify real run for first run
 		{
-			const logs = await captureStdout(async () => {
-				expect(await runCliWithArgs(['prepare'])).toEqual(0);
-			});
-			expect(logs.join('\n')).toMatch(/output from foo/);
-			expect(logs.join('\n')).toMatch(/output from bar/);
+			const result = await runCliForTesting('yarn cli prepare', env);
+			expect(result.exitCode).toEqual(0);
+
+			const logs = result.stdout;
+			expect(logs).toMatch(/output from foo/);
+			expect(logs).toMatch(/output from bar/);
 			expect(
 				await fs.promises.readFile(
 					path.resolve(targetDir.path, './packages/foo/did-prepare'),
@@ -139,20 +117,20 @@ describe('sidekick prepare', () => {
 
 		// Verify dry run for new file
 		{
-			const logs = await captureStdout(async () => {
-				expect(await runCliWithArgs(['prepare', '--dryRun'])).toEqual(0);
-			});
-			expect(logs.join('\n')).not.toMatch(/foo/);
-			expect(logs.join('\n')).toMatch(/bar/);
+			const result = await runCliForTesting('yarn cli prepare --dryRun', env);
+			expect(result.exitCode).toEqual(0);
+
+			expect(result.stdout).not.toMatch(/foo/);
+			expect(result.stdout).toMatch(/bar/);
 		}
 
 		// Verify real run for new file
 		{
-			const logs = await captureStdout(async () => {
-				expect(await runCliWithArgs(['prepare'])).toEqual(0);
-			});
-			expect(logs.join('\n')).not.toMatch(/output from foo/);
-			expect(logs.join('\n')).toMatch(/output from bar/);
+			const result = await runCliForTesting('yarn cli prepare', env);
+			expect(result.exitCode).toEqual(0);
+
+			expect(result.stdout).not.toMatch(/output from foo/);
+			expect(result.stdout).toMatch(/output from bar/);
 			await expect(
 				fs.promises.readFile(
 					path.resolve(targetDir.path, './packages/foo/did-prepare'),
@@ -180,20 +158,20 @@ describe('sidekick prepare', () => {
 
 		// Verify dry run for new file
 		{
-			const logs = await captureStdout(async () => {
-				expect(await runCliWithArgs(['prepare', '--dryRun'])).toEqual(0);
-			});
-			expect(logs.join('\n')).toMatch(/foo/);
-			expect(logs.join('\n')).not.toMatch(/bar/);
+			const result = await runCliForTesting('yarn cli prepare --dryRun', env);
+			expect(result.exitCode).toEqual(0);
+
+			expect(result.stdout).toMatch(/foo/);
+			expect(result.stdout).not.toMatch(/bar/);
 		}
 
 		// Verify real run for new file
 		{
-			const logs = await captureStdout(async () => {
-				expect(await runCliWithArgs(['prepare'])).toEqual(0);
-			});
-			expect(logs.join('\n')).toMatch(/output from foo/);
-			expect(logs.join('\n')).not.toMatch(/output from bar/);
+			const result = await runCliForTesting('yarn cli prepare', env);
+			expect(result.exitCode).toEqual(0);
+
+			expect(result.stdout).toMatch(/output from foo/);
+			expect(result.stdout).not.toMatch(/output from bar/);
 			expect(
 				await fs.promises.readFile(
 					path.resolve(targetDir.path, './packages/foo/did-prepare'),

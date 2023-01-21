@@ -1,12 +1,19 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import merge from 'lodash/merge';
 import * as esbuild from 'esbuild';
+import * as fs from 'fs';
+import merge from 'lodash/merge';
 import omit from 'lodash/omit';
 import * as os from 'os';
+import * as path from 'path';
 import { z } from 'zod';
+
 import { loadModule } from '../utils/load-module';
 import { Defined } from '../utils/util-types';
+
+export type ReleaseChannel = 'dev' | 'stable' | 'beta' | 'nightly';
+
+export function isReleaseChannel(channel: unknown): channel is ReleaseChannel {
+	return ['dev', 'stable', 'beta', 'nightly'].includes(String(channel));
+}
 
 const ConfigTypes = z.object({
 	environments: z.record(z.string(), z.record(z.string(), z.string())),
@@ -65,9 +72,9 @@ export class ConfigManager {
 	private configData: z.TypeOf<typeof ConfigTypes> | null = null;
 
 	constructor(
-		private readonly projectName: string,
-		private readonly projectVersion: string,
-		private readonly configFilePath: string,
+		readonly projectName: string,
+		readonly projectVersion: string,
+		readonly configFilePath: string,
 	) {
 		this.readyPromise = this.loadConfig();
 	}
@@ -156,6 +163,24 @@ export class ConfigManager {
 		}
 	}
 
+	static async getConfiguredReleaseChannel(): Promise<ReleaseChannel> {
+		const { configFilePath } = await ConfigManager.getProjectConfigPath();
+
+		try {
+			const config = z
+				.object({
+					releaseChannel: z.enum(['stable', 'beta', 'nightly']).optional(),
+				})
+				.parse(JSON.parse(await fs.promises.readFile(configFilePath, 'utf8')));
+			return config.releaseChannel ?? 'stable';
+		} catch (error: any) {
+			if (error?.code !== 'ENOENT') {
+				throw error;
+			}
+			return 'stable';
+		}
+	}
+
 	static async getProjectPath() {
 		const projectPath = process.env.PROJECT_PATH;
 		if (!projectPath) {
@@ -199,7 +224,7 @@ export class ConfigManager {
 		});
 	}
 
-	static async createProvider() {
+	private static async getProjectConfigPath() {
 		const projectPath = await this.getProjectPath();
 
 		try {
@@ -231,17 +256,25 @@ export class ConfigManager {
 				recursive: true,
 			});
 
-			return new ConfigManager(
+			return {
+				configFilePath: path.resolve(configDirectory, 'config.json'),
 				name,
 				version,
-				path.resolve(configDirectory, 'config.json'),
-			);
+			};
 		} catch (error: any) {
 			throw new Error(`Failed to load package.json: ${error.message || error}`);
 		}
 	}
 
-	static async getChannelDir(channel: 'beta' | 'nightly' | 'stable') {
+	static async createProvider() {
+		const { configFilePath, name, version } = await this.getProjectConfigPath();
+		return new ConfigManager(name, version, configFilePath);
+	}
+
+	static async getChannelDir(channel: ReleaseChannel) {
+		if (channel === 'dev') {
+			throw new Error(`Cannot find dev channel directory`);
+		}
 		if (channel === 'stable') {
 			return path.resolve(
 				await ConfigManager.getProjectPath(),

@@ -1,7 +1,6 @@
 import parseArgs from 'minimist';
 import { z } from 'zod';
 import { ConfigManager } from '../services/config';
-import { ensureProjectDir } from '../utils/findProjectDir';
 import { fmt } from '../utils/fmt';
 import { objectEntries, objectKeys } from '../utils/util-types';
 
@@ -99,21 +98,6 @@ function showCommandHelp(command: Command<any>) {
 
 export async function runCliWithArgs(argv: string[]): Promise<number> {
 	try {
-		const projectDir = ensureProjectDir();
-
-		// Flagging this for now, so we can test it in production release
-		if (process.env.NODE_ENV === 'production') {
-			const config = await ConfigManager.createProvider();
-			const releaseChannel = await config.getValue('releaseChannel');
-			const activeChannel = await ConfigManager.getActiveChannel();
-
-			if (activeChannel !== releaseChannel) {
-				console.warn(
-					`WARN: Sidekick is running as ${activeChannel}, but configured as ${releaseChannel} (upgrade failed)`,
-				);
-			}
-		}
-
 		const commandName = argv[0];
 		if (!commandName || commandName[0] === '-') {
 			console.log(`Command missing`);
@@ -138,7 +122,11 @@ export async function runCliWithArgs(argv: string[]): Promise<number> {
 		const result = command.options.safeParse(args);
 		if (result.success) {
 			const options = result.data;
-			await command.action({ ...options, projectDir, args: args._ });
+			await command.action({
+				projectDir: ConfigManager.getProjectPath(),
+				...options,
+				args: args._,
+			});
 		} else {
 			const { fieldErrors, formErrors } = result.error.flatten();
 			if (formErrors.length > 0) {
@@ -159,11 +147,4 @@ export async function runCliWithArgs(argv: string[]): Promise<number> {
 		console.error(error.stack || error);
 		return 1;
 	}
-}
-
-export function initCli() {
-	setImmediate(async () => {
-		const code = await runCliWithArgs(process.argv.slice(2));
-		process.exit(code);
-	});
 }

@@ -1,9 +1,8 @@
-import './start';
-import './monitor';
-import './version';
 import './list';
-import './prepare';
 import './logs';
+import './monitor';
+import './prepare';
 import './run';
+import './start';
 import './upgrade';
-import './set-channel';
+import './version';

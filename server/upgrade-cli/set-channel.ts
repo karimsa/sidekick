@@ -1,10 +1,11 @@
-import { createCommand } from './createCommand';
-import { z } from 'zod';
-import { ConfigManager } from '../services/config';
-import { fmt } from '../utils/fmt';
+import * as childProcess from 'child_process';
 import * as fs from 'fs';
 import path from 'path';
-import { getSidekickVersion } from './version';
+import { z } from 'zod';
+
+import { createCommand } from '../cli/createCommand';
+import { ConfigManager } from '../services/config';
+import { fmt } from '../utils/fmt';
 
 export async function setReleaseChannel(
 	releaseChannel: 'beta' | 'nightly' | 'stable',
@@ -42,7 +43,12 @@ export async function setReleaseChannel(
 		console.log(fmt`Release channel is already ${releaseChannel}`);
 	}
 
-	console.log(fmt`${await getSidekickVersion()}`);
+	childProcess.execSync(
+		`${process.argv[0]} ${path.resolve(__dirname, 'cli.dist.js')} version`,
+		{
+			stdio: 'inherit',
+		},
+	);
 }
 
 createCommand({

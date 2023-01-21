@@ -1,20 +1,50 @@
 import * as childProcess from 'child_process';
+import * as fs from 'fs';
 
 import { ConfigManager } from './services/config';
 import { ensureProjectDir } from './utils/findProjectDir';
+import { UpgradeUtils } from './utils/update-utils';
 
 async function main() {
 	ensureProjectDir();
 
-	const config = await ConfigManager.createProvider();
-	const targetReleaseChannel = await config.getValue('releaseChannel');
-	const targetDir = await ConfigManager.getChannelDir(targetReleaseChannel);
+	let targetReleaseChannel = await ConfigManager.getConfiguredReleaseChannel();
+	let targetDir = await ConfigManager.getChannelDir(targetReleaseChannel);
+
+	if (!fs.existsSync(targetDir)) {
+		console.warn(
+			`WARN: Sidekick is configured to run as ${targetReleaseChannel}, but it is not installed.`,
+		);
+		console.warn(`Automatically switching to stable channel\n`);
+
+		const config = await ConfigManager.createProvider();
+		await config.setValue('releaseChannel', 'stable');
+
+		targetReleaseChannel = 'stable';
+		targetDir = await ConfigManager.getChannelDir(targetReleaseChannel);
+	}
 
 	if (process.env.DEBUG?.includes('sidekick')) {
 		console.log(`Starting sidekick: %O`, {
 			releaseChannel: targetReleaseChannel,
 			location: targetDir,
 		});
+	}
+
+	if (targetReleaseChannel !== 'stable') {
+		const buildInfo = await UpgradeUtils.getBuildInfo(targetReleaseChannel);
+		if (
+			buildInfo.nodeMajorVersion !== Number(process.version.split(/[v.]/)[1])
+		) {
+			throw new Error(
+				`Sidekick ${targetReleaseChannel} was installed with Node.js ${buildInfo.nodeVersion}. It cannot be run with Node.js ${process.version}.`,
+			);
+		}
+		if (buildInfo.arch !== process.arch) {
+			throw new Error(
+				`Sidekick ${targetReleaseChannel} was installed for ${buildInfo.arch}. It cannot be run on ${process.arch}.`,
+			);
+		}
 	}
 
 	try {

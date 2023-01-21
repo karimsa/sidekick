@@ -44,6 +44,10 @@ Promise.all([
 		'./server/sidekick-bootstrap.ts',
 		'./sidekick-bootstrap.dist.js',
 	),
+	buildServerFile(
+		'./server/upgrade-cli/index.ts',
+		'./sidekick-upgrade.dist.js',
+	),
 ]).catch((error) => {
 	if (!error.errors) {
 		console.error(error);

@@ -9,11 +9,12 @@ export function findProjectDir(
 		return currentDir;
 	}
 	if (currentDir === '/') {
-		throw new Error(
+		console.error(
 			`Could not find sidekick.config.ts file\nChecked:\n${checkedDirs
 				.map((dir) => `\t${dir}`)
 				.join('\n')}`,
 		);
+		process.exit(1);
 	}
 	return findProjectDir(path.dirname(currentDir), [...checkedDirs, currentDir]);
 }

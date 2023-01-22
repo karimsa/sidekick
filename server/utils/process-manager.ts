@@ -196,23 +196,6 @@ export class ProcessManager {
 		return processInfo.pid;
 	}
 
-	static async isPidRunning(pid: number): Promise<boolean> {
-		try {
-			process.kill(pid, 0);
-			return true;
-		} catch (error: any) {
-			// ESRCH means the signal failed to send
-			if (
-				error.code === 'ESRCH' ||
-				error.code === 'PROCESS_NOT_RUNNING' ||
-				String(error).match(/Corrupted pid file/)
-			) {
-				return false;
-			}
-			throw error;
-		}
-	}
-
 	static async isProcessRunning(name: string): Promise<boolean> {
 		try {
 			const pid = await this.getPID(name);

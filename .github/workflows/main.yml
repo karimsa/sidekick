@@ -39,7 +39,12 @@ jobs:
           key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}-node-v${{ matrix.node }}
 
       - name: Linting
-        run: yarn lint
+        run: |
+          yarn lint
+
+      - name: Check for circular imports
+        run: |
+          yarn madge --circular --extensions 'ts,tsx,js,jsx' {server,hooks,pages,components}
 
       - name: Build
         run: yarn build

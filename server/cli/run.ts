@@ -3,6 +3,7 @@ import * as path from 'path';
 import { z } from 'zod';
 import { ServiceList } from '../services/service-list';
 import { createCommand } from './createCommand';
+import { ServiceTags } from '../services/service-tags';
 
 createCommand({
 	name: 'run',
@@ -31,7 +32,7 @@ createCommand({
 
 		const allServices = await ServiceList.getServices();
 		const initialServices = tag
-			? await ServiceList.getServicesByTag(tag)
+			? await ServiceTags.getServicesByTag(tag)
 			: name
 			? [await ServiceList.getService(name)]
 			: await ServiceList.getServices();

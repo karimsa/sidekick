@@ -5,11 +5,9 @@ import stripAnsi from 'strip-ansi';
 import { z } from 'zod';
 import { parseJson } from '../utils/json';
 import { Mutex } from '../utils/mutex';
-import { HealthStatus } from '../utils/shared-types';
 import { objectEntries } from '../utils/util-types';
 import { CacheService } from './cache';
 import { ConfigManager } from './config';
-import { HealthService } from './health';
 import { ServiceConfigHealthCheckOptions } from '../utils/healthcheck';
 
 export interface ServiceConfig {
@@ -36,26 +34,6 @@ interface PartialServiceEntry {
 export class ServiceList {
 	static async getServices() {
 		return this.loadServicesFromPaths(await this.getServiceDefinitions());
-	}
-
-	static async getServiceTags(name: string) {
-		const serviceConfig = await this.getService(name);
-		const tags = ['all', ...serviceConfig.rawTags];
-		const health = await HealthService.getServiceHealth(serviceConfig);
-		if (health.healthStatus !== HealthStatus.none) {
-			tags.push('running');
-		}
-		return tags;
-	}
-
-	static async getServicesByTag(serviceTag: string) {
-		const services: ServiceConfig[] = [];
-		for (const service of await this.getServices()) {
-			if ((await this.getServiceTags(service.name)).includes(serviceTag)) {
-				services.push(service);
-			}
-		}
-		return services;
 	}
 
 	static async getService(name: string) {

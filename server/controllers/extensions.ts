@@ -11,33 +11,6 @@ export const getExtensions = createRpcMethod(z.object({}), async function () {
 	return config.extensions;
 });
 
-export const getExtensionClient = createRpcMethod(
-	z.object({ id: z.string() }),
-	async function ({ id }) {
-		const config = await ConfigManager.loadProjectOverrides();
-		const extension = config.extensions?.find((ext) => ext.id === id);
-		if (!extension) {
-			throw new Error(`Extension with id '${id}' not found`);
-		}
-
-		try {
-			const { clientCode, warnings } =
-				await ExtensionBuilder.getExtensionClient(extension);
-			return { id, config: extension, warnings, code: clientCode };
-		} catch (error: any) {
-			console.error(error);
-			return {
-				id,
-				config: null,
-				warnings: [],
-				code: `throw new Error(${JSON.stringify(
-					`${String(error)} (failed to build)`,
-				)})`,
-			};
-		}
-	},
-);
-
 export const runExtensionMethod = createRpcMethod(
 	z.intersection(
 		z.object({

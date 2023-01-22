@@ -8,6 +8,8 @@
         "tailwindcss",
         "lerna",
         "madge",
+        "sidekick-extension-config",
+        "sidekick-extension-code",
         "@jest/globals"
     ]
 }

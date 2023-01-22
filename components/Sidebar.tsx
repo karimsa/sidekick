@@ -9,15 +9,25 @@ import {
 import { useRouter } from 'next/router';
 import classNames from 'classnames';
 import Tooltip from '@tippyjs/react';
+// @ts-ignore
+import octicons from '@primer/octicons';
 
 // import { InboxItems } from './InboxItems';
 import { useLocalState } from '../hooks/useLocalState';
 import { useRpcQuery } from '../hooks/useQuery';
 import { getExtensions } from '../server/controllers/extensions';
 import { toast } from 'react-hot-toast';
-import { getExtensionIcon } from '../hooks/useExtensions';
 import { useCommandPalette } from './CommandPalette';
 import { getVersion } from '../server/controllers/config';
+
+function getExtensionIcon(name: string) {
+	const icon = octicons[name];
+	if (!icon) {
+		console.error(`Unrecognized icon: ${name}`);
+		return '';
+	}
+	return icon.toSVG();
+}
 
 export const Sidebar: React.FC<{
 	isOpen: boolean;
@@ -172,7 +182,10 @@ export const Sidebar: React.FC<{
 	);
 };
 
-export function withSidebar<T>(Main: React.FC<T>): React.FC<T> {
+export function withSidebar<T extends { children?: React.ReactNode }>(
+	Main: React.FC<T>,
+	{ noPadding }: { noPadding?: boolean } = {},
+): React.FC<T> {
 	return function SidebarWrappedComponent(props: T) {
 		const [isOpen, setOpen] = useLocalState('sidebarOpen', Boolean);
 
@@ -180,7 +193,11 @@ export function withSidebar<T>(Main: React.FC<T>): React.FC<T> {
 			<>
 				{/* Avoid rendering sidebar on the server, because we need localStorage to correctly render */}
 				{global.window && <Sidebar isOpen={!!isOpen} setOpen={setOpen} />}
-				<main className={'flex flex-col flex-auto p-5 bg-slate-700'}>
+				<main
+					className={classNames('flex flex-col flex-auto bg-slate-700', {
+						'p-5': !noPadding,
+					})}
+				>
 					<div className={'w-full d-flex flex-initial'}>
 						{/*    <InboxItems />*/}
 					</div>

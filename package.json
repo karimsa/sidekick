@@ -22,6 +22,7 @@
     "lint-tsc": "tsc",
     "lint-prettier": "prettier --check components hooks pages server",
     "lint-depcheck": "depcheck",
+    "check-circular": "madge --circular --json --extensions 'ts,tsx,js,jsx' {server,hooks,pages,components}",
     "pin": "syncpack fix-mismatches && syncpack set-semver-ranges",
     "release": "yarn lint && npm version",
     "test": "yarn build-server && jest --detectOpenHandles --forceExit"
@@ -54,9 +55,10 @@
     "classnames": "2.3.1",
     "constate": "3.3.2",
     "cors": "2.8.5",
-    "esbuild": "0.14.18",
+    "esbuild": "0.17.3",
     "execa": "5.1.1",
     "express": "4.17.2",
+    "express-http-proxy": "1.6.3",
     "globby": "11.1.0",
     "json-stable-stringify": "1.0.1",
     "lerna": "4.0.0",
@@ -86,7 +88,6 @@
     "tippy.js": "6.3.7",
     "tmp-promise": "3.0.3",
     "tree-kill": "1.2.2",
-    "tslib": "2.3.1",
     "uuid": "8.3.2"
   },
   "devDependencies": {
@@ -94,6 +95,7 @@
     "@types/body-parser": "1.19.2",
     "@types/cors": "2.8.5",
     "@types/express": "4.17.13",
+    "@types/express-http-proxy": "1.6.3",
     "@types/json-stable-stringify": "1.0.34",
     "@types/lodash": "4.14.178",
     "@types/minimist": "1.2.2",

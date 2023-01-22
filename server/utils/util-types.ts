@@ -1,7 +1,7 @@
 /**
  * Type-safe version of `Object.keys()`
  */
-export function objectKeys<T>(object: T): (keyof T)[] {
+export function objectKeys<T extends object>(object: T): (keyof T)[] {
 	return Object.keys(object) as any[];
 }
 
@@ -16,7 +16,7 @@ type Entries<T> = Defined<
 /**
  * Type-safe version of `Object.entries()`
  */
-export function objectEntries<T>(object: T): Entries<T> {
+export function objectEntries<T extends object>(object: T): Entries<T> {
 	return Object.entries(object) as any[];
 }
 

@@ -1,9 +1,10 @@
-import type { StreamingRpcHandler } from '../server/utils/http';
 import { Dispatch, useCallback, useEffect, useReducer, useState } from 'react';
 import { io } from 'socket.io-client';
 import { v4 as uuid } from 'uuid';
 import jsonStableStringify from 'json-stable-stringify';
 import isEqual from 'lodash/isEqual';
+
+import type { StreamingRpcHandler } from '../server/utils/http';
 import { Config } from './config';
 
 const socket = io(`http://${global.location?.hostname}:${Config.ServerPort}/`, {

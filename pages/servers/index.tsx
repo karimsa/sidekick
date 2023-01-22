@@ -1,6 +1,25 @@
 import * as React from 'react';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import Head from 'next/head';
+import { toast } from 'react-hot-toast';
+import classNames from 'classnames';
+import { useRouter } from 'next/router';
+import {
+	LinkExternalIcon,
+	NoEntryFillIcon,
+	NoEntryIcon,
+	PlayIcon,
+	StopIcon,
+	TerminalIcon,
+	ToolsIcon,
+	TrashIcon,
+	XCircleFillIcon,
+} from '@primer/octicons-react';
+import Tooltip from '@tippyjs/react';
+import startCase from 'lodash/startCase';
+import { v4 as uuid } from 'uuid';
+
 import { withSidebar } from '../../components/Sidebar';
 import {
 	bulkServiceAction,
@@ -20,11 +39,7 @@ import {
 	startService,
 	stopService,
 } from '../../server/controllers/servers';
-import Head from 'next/head';
 import { useRpcQuery } from '../../hooks/useQuery';
-import { toast } from 'react-hot-toast';
-import classNames from 'classnames';
-import { useRouter } from 'next/router';
 import {
 	StreamingRpcAction,
 	useStreamingRpcQuery,
@@ -34,24 +49,12 @@ import { ServiceStatusBadge } from '../../components/ServiceStatusBadge';
 import { ZombieServiceControls } from '../../components/ZombieServiceControls';
 import { Button } from '../../components/Button';
 import {
-	LinkExternalIcon,
-	NoEntryFillIcon,
-	NoEntryIcon,
-	PlayIcon,
-	StopIcon,
-	TerminalIcon,
-	ToolsIcon,
-	TrashIcon,
-	XCircleFillIcon,
-} from '@primer/octicons-react';
-import {
 	Dropdown,
 	DropdownButton,
 	DropdownContainer,
 } from '../../components/Dropdown';
 import { getConfig } from '../../server/controllers/config';
 import { useRpcMutation } from '../../hooks/useMutation';
-import Tooltip from '@tippyjs/react';
 import { Modal, ModalBody, ModalTitle } from '../../components/Modal';
 import { Select } from '../../components/Select';
 import { Monaco } from '../../components/Monaco';
@@ -59,11 +62,8 @@ import { Tab, Tabs, TabView } from '../../components/Tabs';
 import { AlertCard } from '../../components/AlertCard';
 import { Code } from '../../components/Code';
 import { debugHooksChanged } from '../../hooks/debug-hooks';
-import startCase from 'lodash/startCase';
-import type { ServiceConfig } from '../../server/services/service-list';
 import { Spinner } from '../../components/Spinner';
 import { useLogWindow } from '../../hooks/useLogWindow';
-import { v4 as uuid } from 'uuid';
 import { Toggle } from '../../components/Toggle';
 import { JsonLogViewer } from '../../components/JsonLogViewer';
 import {
@@ -72,11 +72,13 @@ import {
 	withBulkServiceHealthProvider,
 } from '../../hooks/useBulkServiceHealth';
 import { useLocalState } from '../../hooks/useLocalState';
-import { RpcOutputType } from '../../server/utils/http';
 import {
 	CommandPaletteCommand,
 	useCommandPalette,
 } from '../../components/CommandPalette';
+
+import type { ServiceConfig } from '../../server/services/service-list';
+import type { RpcOutputType } from '../../server/utils/http';
 
 function useServerName() {
 	const router = useRouter();

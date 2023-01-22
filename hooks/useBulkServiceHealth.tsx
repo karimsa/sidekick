@@ -3,7 +3,7 @@ import { useStreamingRpcQuery } from './useStreamingQuery';
 import { getBulkServerHealth } from '../server/controllers/servers';
 import { useCallback, useEffect, useMemo } from 'react';
 import { HealthStatus } from '../server/utils/shared-types';
-import { RpcOutputType } from '../server/utils/http';
+import type { RpcOutputType } from '../server/utils/http';
 import { toast } from 'react-hot-toast';
 
 export type BulkServiceStatus = Record<

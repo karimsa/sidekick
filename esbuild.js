@@ -1,4 +1,4 @@
-const { build } = require('esbuild');
+const esbuild = require('esbuild');
 const fs = require('fs');
 
 const isWatchMode = process.argv.includes('-w');
@@ -17,7 +17,7 @@ const makeAllPackagesExternal = {
 };
 
 const buildServerFile = async (input, output) => {
-	await build({
+	const ctx = await esbuild.context({
 		entryPoints: [input],
 		outfile: output,
 		bundle: true,
@@ -32,8 +32,14 @@ const buildServerFile = async (input, output) => {
 			),
 		},
 		plugins: [makeAllPackagesExternal],
-		watch: isWatchMode,
+		// watch: isWatchMode,
 	});
+	if (isWatchMode) {
+		await ctx.watch();
+	} else {
+		await ctx.rebuild();
+		await ctx.dispose();
+	}
 	fs.chmodSync(output, '0755');
 };
 

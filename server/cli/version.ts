@@ -3,7 +3,7 @@ import { z } from 'zod';
 import packageJson from '../../package.json';
 import { ConfigManager } from '../services/config';
 import { fmt } from '../utils/fmt';
-import { UpgradeUtils } from '../utils/update-utils';
+import { UpgradeUtils } from '../utils/UpgradeUtils';
 import { createCommand } from './createCommand';
 
 const { version } = packageJson;

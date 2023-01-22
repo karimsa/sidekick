@@ -3,7 +3,7 @@ import * as fs from 'fs';
 
 import { ConfigManager } from './services/config';
 import { ensureProjectDir } from './utils/findProjectDir';
-import { UpgradeUtils } from './utils/update-utils';
+import { UpgradeUtils } from './utils/UpgradeUtils';
 
 async function main() {
 	ensureProjectDir();

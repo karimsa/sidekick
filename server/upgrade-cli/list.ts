@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 import { createCommand } from '../cli/createCommand';
 import { ConfigManager, isReleaseChannel } from '../services/config';
-import { UpgradeUtils } from '../utils/update-utils';
+import { UpgradeUtils } from '../utils/UpgradeUtils';
 
 createCommand({
 	name: 'list',

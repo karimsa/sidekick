@@ -123,7 +123,7 @@ export async function runCliWithArgs(argv: string[]): Promise<number> {
 		if (result.success) {
 			const options = result.data;
 			await command.action({
-				projectDir: ConfigManager.getProjectPath(),
+				projectDir: await ConfigManager.getProjectPath(),
 				...options,
 				args: args._,
 			});

@@ -20,6 +20,7 @@ import { ServiceBuildsService } from '../services/service-builds';
 import { split } from '../utils/split';
 import { CHANNEL_TIMEOUT } from '../utils/channel';
 import { Logger } from '../services/logger';
+import { ServiceTags } from '../services/service-tags';
 
 const logger = new Logger('servers');
 
@@ -406,7 +407,7 @@ export const bulkServiceAction = createRpcMethod(
 		}),
 	]),
 	async ({ serviceTag, action, targetEnvironment, environment }) => {
-		const services = await ServiceList.getServicesByTag(serviceTag);
+		const services = await ServiceTags.getServicesByTag(serviceTag);
 		const servicesUpdated: string[] = [];
 		await Promise.all(
 			services.map(async (service) => {

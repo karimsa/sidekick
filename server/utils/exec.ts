@@ -8,7 +8,6 @@ import * as execa from 'execa';
 import * as fs from 'fs';
 import { fmt } from './fmt';
 import { ConfigManager } from '../services/config';
-import { ProcessManager } from './process-manager';
 import { AbortController } from 'node-abort-controller';
 import { Observable } from 'rxjs';
 import { Logger } from '../services/logger';
@@ -221,6 +220,23 @@ export class ExecUtils {
 		do {
 			await this.treeKill(pid, signal);
 			await new Promise((resolve) => setTimeout(resolve, 100));
-		} while (await ProcessManager.isPidRunning(pid));
+		} while (await this.isPidRunning(pid));
+	}
+
+	static async isPidRunning(pid: number): Promise<boolean> {
+		try {
+			process.kill(pid, 0);
+			return true;
+		} catch (error: any) {
+			// ESRCH means the signal failed to send
+			if (
+				error.code === 'ESRCH' ||
+				error.code === 'PROCESS_NOT_RUNNING' ||
+				String(error).match(/Corrupted pid file/)
+			) {
+				return false;
+			}
+			throw error;
+		}
 	}
 }

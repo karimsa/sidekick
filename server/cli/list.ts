@@ -3,6 +3,7 @@ import { createCommand } from './createCommand';
 import { z } from 'zod';
 import { printTable } from '../utils/printTable';
 import { ServiceBuildsService } from '../services/service-builds';
+import { ServiceTags } from '../services/service-tags';
 
 createCommand({
 	name: 'list',
@@ -13,7 +14,7 @@ createCommand({
 	}),
 	async action({ json, tag }) {
 		const services = tag
-			? await ServiceList.getServicesByTag(tag)
+			? await ServiceTags.getServicesByTag(tag)
 			: await ServiceList.getServices();
 		if (json) {
 			console.log(JSON.stringify(services, null, '\t'));

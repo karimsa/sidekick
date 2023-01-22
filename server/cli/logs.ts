@@ -6,6 +6,7 @@ import { split } from '../utils/split';
 import chalk from 'chalk';
 import { isActiveStatus } from '../utils/shared-types';
 import { HealthService } from '../services/health';
+import { ServiceTags } from '../services/service-tags';
 
 const colors = [chalk.yellow, chalk.cyan, chalk.magenta, chalk.red];
 
@@ -61,7 +62,7 @@ createCommand({
 		const serviceConfigs = serviceName
 			? [await ServiceList.getService(serviceName)]
 			: tag
-			? await ServiceList.getServicesByTag(tag)
+			? await ServiceTags.getServicesByTag(tag)
 			: [];
 		if (serviceConfigs.length === 0) {
 			throw new Error(`Specify either --service or --tag`);

@@ -8,7 +8,7 @@ import { version as sidekickVersion } from '../../package.json';
 import { createCommand } from '../cli/createCommand';
 import { ConfigManager } from '../services/config';
 import { fmt } from '../utils/fmt';
-import { UpgradeUtils } from '../utils/update-utils';
+import { UpgradeUtils } from '../utils/UpgradeUtils';
 import { setReleaseChannel } from './set-channel';
 
 const RC_BRANCHES = {
@@ -116,7 +116,10 @@ createCommand({
 			UpgradeUtils.getChannelVersion(releaseChannel),
 			getLatestVersion(releaseChannel),
 		]);
-		if (currentVersion === latestVersion) {
+		if (
+			currentVersion === latestVersion &&
+			!(await UpgradeUtils.isMissingBuildInfo(releaseChannel))
+		) {
 			console.log(
 				fmt`Sidekick is up-to-date: ${{
 					channel: releaseChannel,

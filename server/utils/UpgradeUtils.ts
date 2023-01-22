@@ -38,6 +38,15 @@ export class UpgradeUtils {
 		}
 	}
 
+	static async isMissingBuildInfo(releaseChannel: ReleaseChannel) {
+		try {
+			await this.getBuildInfo(releaseChannel);
+			return false;
+		} catch {
+			return true;
+		}
+	}
+
 	/**
 	 * Gets the version string of an installed channel.
 	 */

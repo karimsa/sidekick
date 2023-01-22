@@ -1,6 +1,6 @@
 import express from 'express';
-import { z } from 'zod';
 import { Observable, Subscriber } from 'rxjs';
+import { z } from 'zod';
 import { Logger } from '../services/logger';
 
 const logger = new Logger('http');
@@ -41,6 +41,9 @@ export function writeError(error: Partial<APIError>, res: express.Response) {
 		err: error,
 	});
 
+	if (res.headersSent) {
+		return;
+	}
 	res.status(status);
 	res.json({
 		...(error.meta || {}),
@@ -73,7 +76,14 @@ export function route<ReqBodyType, ResBodyType>(
 					}
 					res.end(body);
 				} else {
-					throw new Error(`Route did not return a valid body`);
+					throw Object.assign(
+						new Error(`Route ${req.url} did not return a valid body`),
+						{
+							method: req.method,
+							url: req.url,
+							body: req.body,
+						},
+					);
 				}
 			}
 		} catch (error: any) {

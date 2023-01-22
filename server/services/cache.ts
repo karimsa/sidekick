@@ -11,6 +11,10 @@ export class CacheService {
 	private static readonly store: Map<string, { hash: string; value: unknown }> =
 		new Map();
 
+	static isEnabled() {
+		return isCacheEnabled;
+	}
+
 	static hashObject(object: any) {
 		return crypto
 			.createHash('md5')

@@ -1,14 +1,15 @@
-import { StreamingRpcAction, useStreamingRpcQuery } from './useStreamingQuery';
 import * as React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-hot-toast';
+import constate from 'constate';
+import { AlertFillIcon, CheckCircleFillIcon } from '@primer/octicons-react';
+
 import { Button } from '../components/Button';
+import { StreamingRpcAction, useStreamingRpcQuery } from './useStreamingQuery';
 import { Modal, ModalBody, ModalTitle } from '../components/Modal';
 import { Monaco } from '../components/Monaco';
 import { Spinner } from '../components/Spinner';
-import { AlertFillIcon, CheckCircleFillIcon } from '@primer/octicons-react';
-import constate from 'constate';
-import { StreamingRpcHandler } from '../server/utils/http';
+import type { StreamingRpcHandler } from '../server/utils/http';
 
 type LogState = { isComplete: boolean; isFailed: boolean; output: string };
 type LogAction = StreamingRpcAction<string, never>;

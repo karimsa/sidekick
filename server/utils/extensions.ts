@@ -1,11 +1,11 @@
 import * as babel from '@babel/core';
+import type { ParserOptions } from '@babel/parser';
 import * as esbuild from 'esbuild';
 import { BuildOptions } from 'esbuild';
-import { ConfigManager, SidekickExtensionConfig } from '../services/config';
 // @ts-ignore
 import resolveModulePath from 'resolve/async';
-import * as util from 'util';
 import { minify } from 'terser';
+import * as util from 'util';
 // @ts-ignore
 import babelPresetTypescript from '@babel/preset-typescript';
 // @ts-ignore
@@ -13,13 +13,17 @@ import babelPresetReact from '@babel/preset-react';
 // @ts-ignore
 import babelPluginTransformModules from '@babel/plugin-transform-modules-commonjs';
 import EsbuildNodeModulesPolyfill from '@esbuild-plugins/node-modules-polyfill';
-import { ParserOptions } from '@babel/parser';
 import { OperationContext } from '@orthly/context';
+import Express from 'express';
 import * as fs from 'fs';
-import * as path from 'path';
 import ms from 'ms';
+import * as path from 'path';
+
+import { rpcMethods } from '../index';
 import { CacheService } from '../services/cache';
+import { ConfigManager, SidekickExtensionConfig } from '../services/config';
 import { Logger } from '../services/logger';
+import { NO_RESPONSE, route } from './http';
 
 const logger = new Logger('extensions');
 const resolveAsync = util.promisify(resolveModulePath);
@@ -34,7 +38,114 @@ interface ClientResult {
 	clientCode: string;
 }
 
+export function setupExtensionEndpoints(app: Express.Router) {
+	app.use(
+		'/extension/:extensionId/renderer',
+		route(async (req, res) => {
+			const { extensionId } = req.params;
+			const config = await ConfigManager.loadProjectOverrides();
+			const extension = config.extensions?.find(
+				(ext) => ext.id === extensionId,
+			);
+			if (!extension) {
+				throw new Error(`Extension with id '${extensionId}' not found`);
+			}
+
+			res.end(
+				[
+					`<!doctype html>`,
+					`<html>`,
+					`<head>`,
+					`<title>${extension.name}</title>`,
+					`</head>`,
+					`<body>`,
+					`<div id="app"></div>`,
+					`<script src="/extension/${extensionId}/bootstrap.js"></script>`,
+					`</body>`,
+					`</html>`,
+				].join(''),
+			);
+			return NO_RESPONSE;
+		}),
+	);
+	app.head('/extension/:extensionId/bootstrap.js', async (req, res) => {
+		try {
+			const { extensionId } = req.params;
+			const config = await ConfigManager.loadProjectOverrides();
+			const extension = config.extensions?.find(
+				(ext) => ext.id === extensionId,
+			);
+			if (!extension) {
+				throw new Error(`Extension with id '${extensionId}' not found`);
+			}
+
+			res.setHeader(
+				'ETag',
+				await ExtensionBuilder.getExtensionClientHash(extension),
+			);
+		} catch (err) {
+			res.status(500);
+			res.end(String(err));
+		}
+	});
+	app.get('/extension/:extensionId/bootstrap.js', async (req, res) => {
+		const logger = new Logger('extensions');
+
+		try {
+			const { extensionId } = req.params;
+			const config = await ConfigManager.loadProjectOverrides();
+			const extension = config.extensions?.find(
+				(ext) => ext.id === extensionId,
+			);
+			if (!extension) {
+				throw new Error(`Extension with id '${extensionId}' not found`);
+			}
+
+			const etag = await ExtensionBuilder.getExtensionClientHash(extension);
+			res.setHeader('ETag', etag);
+
+			if (CacheService.isEnabled() && req.headers['if-none-match'] === etag) {
+				res.status(304);
+				res.end();
+				return;
+			}
+
+			const { clientCode } = await ExtensionBuilder.getExtensionClient(
+				extension,
+			);
+			res.contentType('application/javascript');
+			res.end(clientCode);
+		} catch (err) {
+			logger.error(`Failed to build extension bootstrap`, {
+				err,
+			});
+
+			res.end(
+				`window.parent.postMessage(${JSON.stringify({
+					type: 'buildFailed',
+					message: String((err as Error).message ?? err).split('\n')[0],
+					stack: String((err as Error).stack ?? err),
+					cause: (err as Error).cause ? String((err as Error).cause) : null,
+				})}, '*')`,
+			);
+		}
+	});
+}
+
 export class ExtensionBuilder {
+	static async getExtensionClientHash({
+		entryPoint: extensionPath,
+	}: SidekickExtensionConfig) {
+		const ctx = new OperationContext();
+		const { code } = await ctx.timePromise(
+			'extension rollup',
+			this.getRawExtension(ctx, extensionPath),
+		);
+		return CacheService.hashObject({
+			code,
+		});
+	}
+
 	static async getExtensionClient({
 		id: extensionId,
 		entryPoint: extensionPath,
@@ -61,7 +172,7 @@ export class ExtensionBuilder {
 
 		const clientCode = await ctx.timePromise(
 			'bundle client',
-			this.buildClientBundle(ctx, { filePath, fullAst, code }),
+			this.buildClientBundle(ctx, { extensionId, filePath, fullAst, code }),
 		);
 		timer.end();
 
@@ -184,17 +295,16 @@ export class ExtensionBuilder {
 			});
 		} catch (error: any) {
 			if (error.errors) {
-				console.warn(`Build failed with ${error.errors.length} errors`);
+				logger.error(`Build failed`, {
+					errors: error.errors,
+				});
 				throw error.errors[0].detail || new Error(error.errors[0].text);
 			}
 			throw error;
 		}
 	}
 
-	private static async getRawExtension(
-		ctx: OperationContext,
-		extensionPath: string,
-	) {
+	static async getRawExtension(ctx: OperationContext, extensionPath: string) {
 		const projectPath = await ConfigManager.getProjectPath();
 		const filePath = path.resolve(projectPath, extensionPath);
 		const rawCode = await fs.promises.readFile(filePath, 'utf8');
@@ -288,13 +398,27 @@ export class ExtensionBuilder {
 					name: 'resolve-internal',
 					setup: (build) => {
 						build.onResolve({ filter: /^[./]/ }, async (args) => {
-							return {
-								path: await resolveAsync(args.path, {
-									basedir: args.resolveDir || path.dirname(filePath),
-									extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
-								}),
-								external: false,
-							};
+							const basedir = args.resolveDir || path.dirname(filePath);
+
+							try {
+								return {
+									path: await resolveAsync(args.path, {
+										basedir,
+										extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
+									}),
+									external: false,
+								};
+							} catch (err) {
+								throw Object.assign(
+									new Error(
+										`Failed to resolve '${args.path}' from '${basedir}' (requested by '${args.importer}')`,
+									),
+									{
+										args,
+										plugin: 'resolve-internal',
+									},
+								);
+							}
 						});
 					},
 				},
@@ -377,88 +501,297 @@ export class ExtensionBuilder {
 	private static async buildClientBundle(
 		ctx: OperationContext,
 		{
+			extensionId,
 			fullAst,
 			filePath,
 			code,
 		}: {
+			extensionId: string;
 			fullAst: babel.Node;
 			filePath: string;
 			code: string;
 		},
 	): Promise<string> {
-		try {
-			const clientCode = await ctx.timePromise(
-				'cleanup exports',
-				this.cleanupExportsFromAst(ctx, {
-					ast: fullAst,
-					filename: path.basename(filePath),
-					code,
-					allowedExports: ['Page'],
-				}),
-			);
-			ctx.setValues({ clientCode });
-
-			const minifyExtensionClients = await this.isMinificationEnabled();
-			ctx.setValues({ minifyExtensionClients });
-
-			const result = await ctx.timePromise(
-				'esbuild',
-				this.esbuild(ctx, {
-					write: false,
-					stdin: {
-						contents: clientCode,
-						sourcefile: path.basename(filePath),
-						loader: 'tsx',
-						resolveDir: path.dirname(filePath),
-					},
-					platform: 'browser',
-					target: ['firefox94', 'chrome95'],
-					format: 'cjs',
-					minify: minifyExtensionClients,
-					bundle: true,
-					absWorkingDir: path.dirname(filePath),
-					loader: {
-						'.png': 'base64',
-						'.jpg': 'base64',
-						'.jpeg': 'base64',
-					},
-					define: {
-						'process.env': JSON.stringify(process.env),
-					},
-					plugins: [
-						EsbuildNodeModulesPolyfill(),
-						{
-							name: 'resolve-sidekick-packages',
-							setup: (build) => {
-								build.onResolve(
-									{
-										filter:
-											/^(react|react-dom|next\/router|@karimsa\/sidekick\/extension|tslib)$/,
-									},
-									(args) => ({
-										path: args.path,
-										external: true,
-									}),
-								);
-							},
-						},
-					],
-				}),
-			);
-
-			const resultCode = result.outputFiles[0].text;
-			logger.info(`Extension client built`, {
-				metrics: ctx.toJSON().metrics,
-				compiledSize: resultCode.length,
-			});
-			return resultCode;
-		} catch (error: any) {
-			console.error(error.stack || error);
-			throw this.createError(
-				ctx,
-				`Failed to build client bundle: ${error.message || error}`,
-			);
+		const { extensions } = await ConfigManager.loadProjectOverrides();
+		const extensionConfig = extensions?.find((e) => e.id === extensionId);
+		if (!extensionConfig) {
+			throw new Error(`Extension not found: ${extensionId}`);
 		}
+
+		const clientCode = await ctx.timePromise(
+			'cleanup exports',
+			this.cleanupExportsFromAst(ctx, {
+				ast: fullAst,
+				filename: path.basename(filePath),
+				code,
+				allowedExports: ['Page'],
+			}),
+		);
+		ctx.setValues({ clientCode });
+
+		const minifyExtensionClients = await this.isMinificationEnabled();
+		ctx.setValues({ minifyExtensionClients });
+
+		const result = await ctx.timePromise(
+			'esbuild',
+			this.esbuild(ctx, {
+				write: false,
+				stdin: {
+					contents: await fs.promises.readFile(
+						path.resolve(__dirname, './extension/bootstrap.tsx'),
+						'utf8',
+					),
+					loader: 'tsx',
+					sourcefile: `_sidekick.bootstrap.ts`,
+					resolveDir: path.dirname(filePath),
+				},
+				platform: 'browser',
+				target: ['firefox94', 'chrome95'],
+				format: 'cjs',
+				minify: minifyExtensionClients,
+				bundle: true,
+				absWorkingDir: path.dirname(filePath),
+				loader: {
+					'.png': 'base64',
+					'.jpg': 'base64',
+					'.jpeg': 'base64',
+				},
+				define: {
+					'process.env': JSON.stringify(process.env),
+					process: 'undefined',
+				},
+				plugins: [
+					EsbuildNodeModulesPolyfill(),
+
+					{
+						name: 'resolve-missing-polyfills',
+						setup(build) {
+							build.onResolve({ filter: /^worker_threads$/ }, (args) => ({
+								path: args.path,
+								external: true,
+								pluginData: {
+									...args,
+									resolvedByPlugin: 'resolve-missing-polyfills',
+								},
+							}));
+						},
+					},
+
+					{
+						name: 'generate-extension-config',
+						setup: (build) => {
+							build.onResolve(
+								{
+									filter: /^sidekick-extension-config$/,
+								},
+								(args) => ({
+									path: args.path,
+									namespace: 'sidekick-extension-config',
+									pluginData: {
+										...args,
+										resolvedByPlugin: 'generate-extension-config',
+									},
+								}),
+							);
+							build.onLoad(
+								{ filter: /./, namespace: 'sidekick-extension-config' },
+								async () => ({
+									contents: `export const config = ${JSON.stringify(
+										extensionConfig,
+									)}`,
+								}),
+							);
+						},
+					},
+
+					{
+						name: 'import-sidekick-extension-code',
+						setup: (build) => {
+							build.onResolve({ filter: /^sidekick-extension-code$/ }, () => ({
+								path: filePath,
+								namespace: 'sidekick-extension-code',
+							}));
+							build.onLoad(
+								{ filter: /./, namespace: 'sidekick-extension-code' },
+								(args) => {
+									if (args.path !== filePath) {
+										return {};
+									}
+
+									return {
+										contents: clientCode,
+										resolveDir: path.dirname(filePath),
+									};
+								},
+							);
+						},
+					},
+
+					// Resolve/polyfill the controller imports
+					{
+						name: 'resolve-sidekick-controllers',
+						setup: (build) => {
+							build.onResolve({ filter: /\/server\/controllers\// }, (args) => {
+								if (
+									!args.importer.startsWith(__dirname) ||
+									args.importer.includes('/node_modules/')
+								) {
+									return {};
+								}
+								return {
+									path: path.resolve(
+										__dirname,
+										'./hooks/rpc-method-polyfill.js',
+									),
+									namespace: 'sidekick-controller',
+								};
+							});
+							build.onLoad(
+								{ filter: /./, namespace: 'sidekick-controller' },
+								async () => ({
+									contents: [
+										`module.exports = {`,
+										...Object.keys(rpcMethods).map(
+											(key) => `\t${key}: { methodName: "${key}" },`,
+										),
+										`}`,
+									].join('\n'),
+								}),
+							);
+						},
+					},
+
+					// Resolve extension helpers
+					{
+						name: 'resolve-sidekick-extension-helpers',
+						setup: (build) => {
+							build.onResolve(
+								{
+									filter: /^@karimsa\/sidekick\/extension$/,
+								},
+								() => ({
+									path: path.resolve(__dirname, './extension/index.ts'),
+									namespace: 'sidekick-extension-helpers',
+								}),
+							);
+							build.onLoad(
+								{ filter: /./, namespace: 'sidekick-extension-helpers' },
+								async (args) => ({
+									loader: 'tsx',
+									contents: await fs.promises.readFile(args.path, 'utf8'),
+
+									// We cannot set the 'resolveDir', because this is a virtual file
+									// so we need to manually resolve the imports in later plugins
+								}),
+							);
+						},
+					},
+
+					// Resolve package imports relative to the extension
+					{
+						name: 'resolve-extension-imported-packages',
+						setup(build) {
+							build.onResolve({ filter: /^[^.]/ }, async (args) => {
+								const isImportFromSidekick =
+									args.importer.startsWith(__dirname);
+								const isPeerDependency = [
+									'react',
+									'react-dom',
+									'react-query',
+								].includes(args.path);
+
+								// If the import is coming from sidekick, there's some modules that we
+								// want to allow resolving relative to the extension, but the rest we
+								// want to keep resolving relative to sidekick
+								const basedir =
+									!isImportFromSidekick || isPeerDependency
+										? path.dirname(filePath)
+										: args.resolveDir || __dirname;
+
+								try {
+									return {
+										path: await resolveAsync(args.path, {
+											basedir,
+											extensions: ['.js', '.json'],
+										}),
+										pluginData: {
+											...args,
+											resolvedByPlugin: 'resolve-extension-imported-packages',
+										},
+									};
+								} catch (err) {
+									throw Object.assign(
+										new Error(
+											`Failed to resolve '${args.path}' from '${basedir}' (requested by '${args.importer}')`,
+										),
+										{
+											args,
+											plugin: 'resolve-extension-imported-packages',
+										},
+									);
+								}
+							});
+						},
+					},
+
+					// Resolve internal imports relative to sidekick
+					{
+						name: 'resolve-sidekick-internal-imports',
+						setup(build) {
+							build.onResolve(
+								{
+									filter: /^\./,
+								},
+								async (args) => {
+									if (
+										args.importer.startsWith(__dirname) &&
+										!args.importer.includes('/node_modules/')
+									) {
+										try {
+											return {
+												path: await resolveAsync(args.path, {
+													basedir:
+														args.namespace === 'sidekick-extension-helpers'
+															? path.dirname(args.importer)
+															: args.resolveDir || path.dirname(args.importer),
+													extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
+												}),
+												pluginData: {
+													...args,
+													resolvedByPlugin: 'resolve-sidekick-internal-imports',
+												},
+											};
+										} catch (err) {
+											throw Object.assign(
+												new Error(
+													`Failed to resolve '${
+														args.path
+													}' from '${path.dirname(
+														args.importer,
+													)}' (requested by '${args.importer}')`,
+												),
+												{
+													args,
+													plugin: 'resolve-sidekick-internal-imports',
+												},
+											);
+										}
+									}
+								},
+							);
+						},
+					},
+				],
+				metafile: true,
+			}),
+		);
+
+		const resultCode = result.outputFiles[0].text;
+		logger.info(`Extension client built`, {
+			metrics: ctx.toJSON().metrics,
+			compiledSize: resultCode.length,
+		});
+		return resultCode;
 	}
 
 	private static async cleanupExportsFromAst(

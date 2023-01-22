@@ -4,14 +4,11 @@ import express from 'express';
 import * as http from 'http';
 import next from 'next';
 import { Server as SocketServer, Socket } from 'socket.io';
+import proxy from 'express-http-proxy';
 
 import { z } from 'zod';
 import { getConfig, getVersion, updateConfig } from './controllers/config';
-import {
-	getExtensionClient,
-	getExtensions,
-	runExtensionMethod,
-} from './controllers/extensions';
+import { getExtensions, runExtensionMethod } from './controllers/extensions';
 import { getHeartbeat } from './controllers/heartbeat';
 import {
 	bulkServiceAction,
@@ -35,6 +32,7 @@ import {
 	stopService,
 } from './controllers/servers';
 import { startCpuUsageWatcher } from './utils/cpu-usage';
+import { setupExtensionEndpoints } from './utils/extensions';
 import { fmt } from './utils/fmt';
 import {
 	APIError,
@@ -51,13 +49,12 @@ const serverPort = process.env.SIDEKICK_PORT
 	: 9010;
 const bindAddr = process.env.SIDEKICK_BIND_ADDR || '::1';
 
-const methods: Record<string, RpcHandler<any, any>> = {
+export const rpcMethods: Record<string, RpcHandler<any, any>> = {
 	getConfig,
 	getVersion,
 	updateConfig,
 
 	getExtensions,
-	getExtensionClient,
 	runExtensionMethod,
 
 	getZombieProcessInfo,
@@ -108,15 +105,18 @@ app.post(
 	bodyParser.json({ limit: 1024 * 1024 }),
 	route(async (req, res) => {
 		const { methodName } = req.params;
-		const method = methods[String(methodName)];
+		const method = rpcMethods[String(methodName)];
 		if (!method) {
 			throw new APIError(`Unrecognized method name: ${methodName}`);
 		}
 		return method(req, res);
 	}),
 );
+setupExtensionEndpoints(app);
 
-if (!isDevelopment) {
+if (isDevelopment) {
+	app.use(proxy('http://localhost:9001', {}));
+} else {
 	process.chdir(__dirname);
 
 	const nextApp = next({});

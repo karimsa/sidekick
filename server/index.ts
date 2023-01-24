@@ -31,7 +31,7 @@ import {
 	startService,
 	stopService,
 } from './controllers/servers';
-import { startCpuUsageWatcher } from './utils/cpu-usage';
+import { setCpuUsageAlertLevel } from './utils/cpu-usage';
 import { setupExtensionEndpoints } from './utils/extensions';
 import { fmt } from './utils/fmt';
 import {
@@ -41,6 +41,7 @@ import {
 	StreamingRpcHandler,
 	validate,
 } from './utils/http';
+import { dispatchTasks } from './utils/TaskRunner';
 
 const app = express();
 
@@ -192,7 +193,8 @@ io.on('connection', (socket) => {
 	});
 });
 
-startCpuUsageWatcher(isDevelopment ? 5 : 25);
+dispatchTasks();
+setCpuUsageAlertLevel(isDevelopment ? 5 : 25);
 
 server.listen(serverPort, bindAddr, () => {
 	console.log(

@@ -5,6 +5,11 @@ import { Logger } from '../services/logger';
 
 const logger = new Logger('cpu');
 
+let MaxCpuLevel = 25;
+export function setCpuUsageAlertLevel(level: number) {
+	MaxCpuLevel = level;
+}
+
 const avg = (arr: number[]) =>
 	arr.reduce((sum, num) => sum + num, 0) / arr.length;
 const warn = throttle(
@@ -16,21 +21,20 @@ const warn = throttle(
 	{ leading: true, trailing: true },
 );
 
-export const startCpuUsageWatcher = (maxCpu: number) =>
-	startTask('cpuUsageWatch', async () => {
-		const usageOverTime: number[] = [];
+startTask('cpuUsageWatch', async () => {
+	const usageOverTime: number[] = [];
 
-		while (true) {
-			usageOverTime.push((await pidusage(process.pid)).cpu);
-			if (usageOverTime.length > 30) {
-				usageOverTime.shift();
+	while (true) {
+		usageOverTime.push((await pidusage(process.pid)).cpu);
+		if (usageOverTime.length > 30) {
+			usageOverTime.shift();
 
-				const usage = avg(usageOverTime);
-				if (usage > maxCpu) {
-					warn(usage);
-				}
+			const usage = avg(usageOverTime);
+			if (usage > MaxCpuLevel) {
+				warn(usage);
 			}
-
-			await new Promise((resolve) => setTimeout(resolve, 1e3));
 		}
-	});
+
+		await new Promise((resolve) => setTimeout(resolve, 1e3));
+	}
+});

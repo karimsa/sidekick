@@ -11,6 +11,7 @@ import path from 'path';
 import { startTask } from '../utils/TaskRunner';
 import isEqual from 'lodash/isEqual';
 import { memoize } from '../utils/memoize';
+import { getService } from '../controllers/servers';
 
 interface ServiceFilesUpdated {
 	config: ServiceConfig;
@@ -132,15 +133,16 @@ const getServiceInfo = memoize(async () => {
 		});
 	}
 
-	startTask('watchTask', async () => {
-		const task = new ServiceBuildListenerTask(serviceInfo);
-		while (true) {
-			await task.run();
-			await new Promise((res) => setTimeout(res, 10_000));
-		}
-	});
-
 	return serviceInfo;
+});
+
+startTask('watchTask', async () => {
+	const serviceInfo = await getServiceInfo();
+	const task = new ServiceBuildListenerTask(serviceInfo);
+	while (true) {
+		await task.run();
+		await new Promise((res) => setTimeout(res, 10_000));
+	}
 });
 
 export class ServiceBuildsService {

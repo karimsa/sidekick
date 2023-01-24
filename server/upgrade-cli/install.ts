@@ -54,12 +54,24 @@ async function upgradeSidekick(channel: 'beta' | 'nightly') {
 	}
 
 	console.log(fmt`Upgrading ${channel} channel ...`);
-	await execa.command(
-		`${path.resolve(__dirname, 'perform-upgrade.sh')} ${RC_BRANCHES[channel]}`,
-		{
-			cwd: channelDir,
-		},
-	);
+	{
+		const cwd = channelDir;
+
+		// get rid of local branch, in case of rebases
+		await execa.command(`git reset --hard HEAD`, { cwd });
+		await execa.command(`git checkout -b tmp`, { cwd }).catch(() => {});
+		await execa
+			.command(`git branch -D ${RC_BRANCHES[channel]}`, { cwd })
+			.catch(() => {});
+
+		// fetch updated refs
+		await execa.command(`git fetch --all --prune`, { cwd });
+
+		// create new local branch from remote
+		await execa.command(`git checkout ${RC_BRANCHES[channel]}`, { cwd });
+		await execa.command(`git branch -D tmp`, { cwd }).catch(() => {});
+	}
+
 	await execa.command(`yarn`, {
 		cwd: channelDir,
 	});

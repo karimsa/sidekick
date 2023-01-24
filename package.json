@@ -28,7 +28,7 @@
     "test": "yarn build-server && jest --detectOpenHandles --forceExit"
   },
   "engines": {
-    "node": ">= 12"
+    "node": ">= 14"
   },
   "bin": {
     "sidekick": "./sidekick-bootstrap.dist.js",

@@ -19,7 +19,7 @@ const logger = new Logger('health');
 const healthsPerService = new Map<string, ServiceHealthEvent>();
 export const HealthUpdates = new ChannelList<ServiceHealthEvent>();
 
-startTask('serviceHealthMonitor', async () => {
+const serviceTask = startTask('serviceHealthMonitor', async () => {
 	let serviceConfigs: ServiceConfig[] = [];
 	let lastUpdatedServiceList = -Infinity;
 	const wait = 1000;
@@ -102,6 +102,8 @@ interface ServiceHealth {
 }
 
 export class HealthService {
+	static readonly startMonitor = serviceTask;
+
 	static async getServiceHealth(
 		serviceConfig: ServiceConfig,
 	): Promise<ServiceHealth> {

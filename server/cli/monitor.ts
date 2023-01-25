@@ -8,6 +8,7 @@ import ms from 'ms';
 import { objectEntries } from '../utils/util-types';
 import { createCommand } from './createCommand';
 import { z } from 'zod';
+import { HealthService } from '../services/health';
 
 const clearScreen = () => process.stdout.write(ansi.clearTerminal);
 const hideCursor = () => process.stdout.write(ansi.cursorHide);
@@ -88,6 +89,8 @@ function startStdinBuffer() {
 }
 
 function startAllHealthUpdaters() {
+	HealthService.startMonitor();
+
 	getBulkServerHealth({}).subscribe({
 		next: ({ serviceName, healthInfo }) => {
 			state.services[serviceName] = {

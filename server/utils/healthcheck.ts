@@ -60,13 +60,6 @@ export function testHealthCheck(
 		return testTcp(options);
 	}
 	if (options.port !== undefined) {
-		logger.warn(
-			`Service ${serviceName} is configured to use legacy option of port number`,
-			{
-				serviceName,
-				options: options,
-			},
-		);
 		return testHttp({
 			method: 'GET',
 			url: `http://127.0.0.1:${options.port}`,

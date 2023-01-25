@@ -1,12 +1,13 @@
 import { Logger } from '../services/logger';
 import getNextConfig from 'next/config';
+import { memoize } from './memoize';
 
 const logger = new Logger('tasks');
 
 type Task = (defer: (fn: () => Promise<void>) => void) => Promise<void>;
 type TaskData = {
 	name: string;
-	task: Task;
+	task: () => void;
 };
 
 const TasksQueue: TaskData[] = [];
@@ -21,7 +22,7 @@ export function dispatchTasks() {
 		// This allows for circular imports to finish resolving before the task starts
 		// to execute
 		for (const task of TasksQueue.splice(0, TasksQueue.length)) {
-			runTask(task.name, task.task);
+			task.task();
 		}
 	}, 0);
 }
@@ -30,13 +31,16 @@ export function dispatchTasks() {
  * Start a long-running task.
  * NOTE: This function must be called at top level.
  */
-export function startTask(name: string, task: Task) {
+export function startTask(name: string, task: Task): () => void {
 	// Skip running tasks during SSR
 	if (getNextConfig()?.__NEXT_SSR_ENV__) {
-		return;
+		return async () => {};
 	}
 
-	TasksQueue.push({ name, task });
+	const taskFn = memoize(() => runTask(name, task));
+	TasksQueue.push({ name, task: taskFn });
+
+	return taskFn;
 }
 
 async function runTask(name: string, task: Task) {

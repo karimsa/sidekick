@@ -4,7 +4,6 @@ import { memoize } from './memoize';
 
 const logger = new Logger('tasks');
 
-type Task = (defer: (fn: () => Promise<void>) => void) => Promise<void>;
 type TaskData = {
 	name: string;
 	task: () => void;
@@ -31,7 +30,7 @@ export function dispatchTasks() {
  * Start a long-running task.
  * NOTE: This function must be called at top level.
  */
-export function startTask(name: string, task: Task): () => void {
+export function startTask(name: string, task: () => Promise<void>): () => void {
 	// Skip running tasks during SSR
 	if (getNextConfig()?.__NEXT_SSR_ENV__) {
 		return async () => {};
@@ -43,24 +42,17 @@ export function startTask(name: string, task: Task): () => void {
 	return taskFn;
 }
 
-async function runTask(name: string, task: Task) {
-	const deferredFuncs: (() => Promise<void>)[] = [];
-
+async function runTask(name: string, task: () => Promise<void>) {
 	logger.debug(`Starting task`, { task: name });
 
 	try {
-		await task((fn) => {
-			deferredFuncs.unshift(fn);
-		});
+		await task();
 	} catch (err) {
-		logger.error(`Task failed, cleaning up`, {
+		logger.error(`Task failed`, {
 			err,
 			task: name,
-			numCleanupFuns: deferredFuncs.length,
 		});
 
-		for (const fn of deferredFuncs) {
-			await fn();
-		}
+		process.exit(1);
 	}
 }

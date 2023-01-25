@@ -62,6 +62,9 @@ createCommand({
 		) {}
 		console.log(`Sidekick started on http://${sidekickHost}:${port}`);
 
-		await child;
+		await child.catch((err) => {
+			err.message = err.shortMessage || err.message;
+			throw err;
+		});
 	},
 });

@@ -46,9 +46,11 @@ export class Logger {
 	}
 	warn(message: string, data: Record<string, unknown> = {}) {
 		pino.warn({ ...data, namespace: this.namespace }, message);
+		console.warn(`⚠️  ${message}`, data);
 	}
 	error(message: string, data: Record<string, unknown> = {}) {
 		pino.error({ ...data, namespace: this.namespace }, message);
+		console.error(`🚨 ${message}`, data);
 	}
 
 	private static async rotateLogs() {

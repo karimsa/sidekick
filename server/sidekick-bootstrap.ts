@@ -1,5 +1,6 @@
-import * as childProcess from 'child_process';
+import execa from 'execa';
 import * as fs from 'fs';
+import { once } from 'events';
 
 import { ConfigManager } from './services/config';
 import { ensureProjectDir } from './utils/findProjectDir';
@@ -26,6 +27,7 @@ async function main() {
 
 	if (process.env.DEBUG?.includes('sidekick')) {
 		console.log(`Starting sidekick: %O`, {
+			bootstrapPid: process.pid,
 			releaseChannel: targetReleaseChannel,
 			location: targetDir,
 		});
@@ -47,21 +49,52 @@ async function main() {
 		}
 	}
 
-	try {
-		childProcess.execFileSync(
-			process.argv[0],
-			[`${targetDir}/cli.dist.js`, ...process.argv.slice(2)],
-			{
-				stdio: 'inherit',
-			},
-		);
-	} catch (err: unknown) {
-		const status = (err as { status?: number }).status;
-		if (typeof status === 'number') {
-			console.log(`Exited with status ${status}`);
-			process.exit(status);
+	const runUpgradedProcess = async () => {
+		try {
+			const child = execa.node(
+				`${targetDir}/cli.dist.js`,
+				process.argv.slice(2),
+				{
+					stdio: 'inherit',
+					env: {
+						SIDEKICK_DID_BOOTSTRAP: 'true',
+					} as any,
+				},
+			);
+			if (process.env.DEBUG?.includes('sidekick')) {
+				console.log(`Sidekick CLI started as pid ${child.pid}`);
+			}
+
+			const exitType = await Promise.race([
+				child.then(() => 'EXIT' as const),
+				once(process, 'SIGHUP').then(() => 'SIGHUP' as const),
+				once(process, 'SIGTERM').then(() => 'SIGTERM' as const),
+			]);
+			if (exitType === 'SIGHUP') {
+				console.log(`Received SIGHUP, attempting to restart Sidekick`);
+			} else {
+				console.log(`Received SIGTERM, exiting Sidekick`);
+			}
+			if (exitType !== 'EXIT') {
+				await child.kill('SIGTERM');
+			}
+			return exitType;
+		} catch (err: unknown) {
+			const status = (err as { status?: number }).status;
+			if (typeof status === 'number') {
+				console.log(`Exited with status ${status}`);
+				process.exit(status);
+			}
+			throw err;
 		}
-		throw err;
+	};
+
+	while (true) {
+		const exitType = await runUpgradedProcess();
+		if (exitType !== 'SIGHUP') {
+			break;
+		}
+		console.log('-'.repeat(15));
 	}
 }
 

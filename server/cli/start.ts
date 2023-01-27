@@ -62,7 +62,16 @@ createCommand({
 		) {}
 		console.log(`Sidekick started on http://${sidekickHost}:${port}`);
 
+		process.on('SIGTERM', () => {
+			child.kill('SIGKILL');
+		});
 		await child.catch((err) => {
+			// If the user/sidekick asked the process to exit, we don't want
+			// to escalate the error to the user
+			if (err.signal === 'SIGTERM' || err.signal === 'SIGKILL') {
+				return;
+			}
+
 			err.message = err.shortMessage || err.message;
 			throw err;
 		});

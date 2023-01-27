@@ -8,6 +8,7 @@ import { z } from 'zod';
 
 import { loadModule } from '../utils/load-module';
 import { Defined } from '../utils/util-types';
+import { IS_DEVELOPMENT } from '../utils/is-development';
 
 export type ReleaseChannel = 'dev' | 'stable' | 'beta' | 'nightly';
 
@@ -286,7 +287,7 @@ export class ConfigManager {
 	}
 
 	static async getActiveChannel() {
-		if (this.isDevelopment) {
+		if (IS_DEVELOPMENT) {
 			return 'dev';
 		}
 
@@ -299,6 +300,4 @@ export class ConfigManager {
 		}
 		return 'stable';
 	}
-
-	static isDevelopment = process.env.NODE_ENV === 'development';
 }

@@ -11,7 +11,6 @@ import path from 'path';
 import { startTask } from '../utils/TaskRunner';
 import isEqual from 'lodash/isEqual';
 import { memoize } from '../utils/memoize';
-import { getService } from '../controllers/servers';
 
 interface ServiceFilesUpdated {
 	config: ServiceConfig;
@@ -30,20 +29,29 @@ const chokidarConfig = {
 class ServiceBuildListenerTask {
 	constructor(private serviceInfo: Map<string, ServiceFilesUpdated>) {}
 
-	private createListener(service: ServiceConfig, kind: 'output' | 'source') {
-		return (path: string, stats?: Stats) => {
-			const previous = this.serviceInfo.get(service.location);
-			if (!previous) {
-				return;
-			}
+	private createWatcher(service: ServiceConfig, kind: 'output' | 'source') {
+		const fileList = service[`${kind}Files`].map((filePath) =>
+			path.resolve(service.location, filePath),
+		);
 
-			const key = `${kind}LastUpdated` as const;
-			const previousDate = previous[key] ?? new Date(0);
-			this.serviceInfo.set(service.location, {
-				...previous,
-				[key]: new Date(Math.max(+previousDate, +stats!.mtime)),
+		return chokidar
+			.watch(fileList, chokidarConfig)
+			.on('error', (e: any, path: string) =>
+				console.error('error in source watcher: ', e, path),
+			)
+			.on('change', (path: string, stats?: Stats) => {
+				const previous = this.serviceInfo.get(service.location);
+				if (!previous) {
+					return;
+				}
+
+				const key = `${kind}LastUpdated` as const;
+				const previousDate = previous[key] ?? new Date(0);
+				this.serviceInfo.set(service.location, {
+					...previous,
+					[key]: new Date(Math.max(+previousDate, +stats!.mtime)),
+				});
 			});
-		};
 	}
 
 	async run() {
@@ -53,12 +61,16 @@ class ServiceBuildListenerTask {
 		const freshServices = await ServiceList.getServices();
 		for (const service of freshServices) {
 			const prev = this.serviceInfo.get(service.location);
-			if (isEqual(prev?.config, service)) {
+			const hasWatcher = !!prev?.sourceWatcher && !!prev.outputWatcher;
+			if (hasWatcher && isEqual(prev?.config, service)) {
 				continue;
 			}
 
-			// TODO: this is inefficient in the case that we
-			// 	change the source/output files lists.
+			/*TODO: this is inefficient in the case that we change the
+			 * source/output files lists, because this code just throws away
+			 * the entire previous watcher. However, that's not such a common
+			 * thing to do that it'd be that big of a deal (I hope) - A1Liu
+			 */
 			if (prev) {
 				oldServices.push(prev);
 			}
@@ -72,26 +84,8 @@ class ServiceBuildListenerTask {
 		}
 
 		for (const service of newServices) {
-			const { sourceFiles, outputFiles } = service;
-			const sourceWatcher = chokidar.watch(
-				sourceFiles.map((filePath) => path.resolve(service.location, filePath)),
-				chokidarConfig,
-			);
-			sourceWatcher
-				.on('change', this.createListener(service, 'source'))
-				.on('error', (e: any, path: string) =>
-					console.error('error in source watcher: ', e, path),
-				);
-
-			const outputWatcher = chokidar.watch(
-				outputFiles.map((filePath) => path.resolve(service.location, filePath)),
-				chokidarConfig,
-			);
-			outputWatcher
-				.on('change', this.createListener(service, 'output'))
-				.on('error', (e: any, path: string) =>
-					console.error('error in source watcher: ', e, path),
-				);
+			const sourceWatcher = this.createWatcher(service, 'source');
+			const outputWatcher = this.createWatcher(service, 'output');
 
 			const prev = this.serviceInfo.get(service.location);
 			this.serviceInfo.set(service.location, {
@@ -128,8 +122,11 @@ const getServiceInfo = memoize(async () => {
 			(entry) => +entry.stats!.mtime,
 		);
 
+		const prev = serviceInfo.get(service.location);
 		serviceInfo.set(service.location, {
 			config: service,
+			sourceWatcher: prev?.sourceWatcher,
+			outputWatcher: prev?.outputWatcher,
 			sourceLastUpdated: lastModifiedSource?.stats!.mtime ?? null,
 			outputLastUpdated: lastModifiedOutput?.stats!.mtime ?? null,
 		});

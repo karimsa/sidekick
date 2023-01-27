@@ -13,8 +13,6 @@ import { Observable } from 'rxjs';
 import { Logger } from '../services/logger';
 
 const logger = new Logger('exec');
-const isDevelopment =
-	!process.env.NODE_ENV || process.env.NODE_ENV === 'development';
 
 type RunOptions = Omit<childProcess.ExecOptions, 'env'> & {
 	stdin?: string;

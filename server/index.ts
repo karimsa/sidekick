@@ -31,7 +31,6 @@ import {
 	startService,
 	stopService,
 } from './controllers/servers';
-import { setCpuUsageAlertLevel } from './utils/cpu-usage';
 import { setupExtensionEndpoints } from './utils/extensions';
 import { fmt } from './utils/fmt';
 import {
@@ -42,6 +41,7 @@ import {
 	validate,
 } from './utils/http';
 import { dispatchTasks } from './utils/TaskRunner';
+import { IS_DEVELOPMENT } from './utils/is-development';
 
 const app = express();
 
@@ -84,10 +84,8 @@ const streamingMethods: Record<string, StreamingRpcHandler<any, any>> = {
 	prepareStaleServices,
 };
 
-const isDevelopment =
-	!process.env.NODE_ENV || process.env.NODE_ENV === 'development';
 const corsConfig = {
-	origin: isDevelopment
+	origin: IS_DEVELOPMENT
 		? true
 		: [
 				`http://localhost:${serverPort}`,
@@ -115,7 +113,7 @@ app.post(
 );
 setupExtensionEndpoints(app);
 
-if (isDevelopment) {
+if (IS_DEVELOPMENT) {
 	app.use(proxy('http://localhost:9001', {}));
 } else {
 	process.chdir(__dirname);
@@ -194,7 +192,6 @@ io.on('connection', (socket) => {
 });
 
 dispatchTasks();
-setCpuUsageAlertLevel(isDevelopment ? 5 : 25);
 
 server.listen(serverPort, bindAddr, () => {
 	console.log(

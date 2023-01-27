@@ -2,13 +2,11 @@ import { startTask } from './TaskRunner';
 import pidusage from 'pidusage';
 import throttle from 'lodash/throttle';
 import { Logger } from '../services/logger';
+import { IS_DEVELOPMENT } from './is-development';
 
 const logger = new Logger('cpu');
 
-let MaxCpuLevel = 25;
-export function setCpuUsageAlertLevel(level: number) {
-	MaxCpuLevel = level;
-}
+const MaxCpuLevel = IS_DEVELOPMENT ? 5 : 25;
 
 const avg = (arr: number[]) =>
 	arr.reduce((sum, num) => sum + num, 0) / arr.length;
@@ -30,6 +28,7 @@ startTask('cpuUsageWatch', async () => {
 			usageOverTime.shift();
 
 			const usage = avg(usageOverTime);
+
 			if (usage > MaxCpuLevel) {
 				warn(usage);
 			}

@@ -58,7 +58,9 @@ export function setupExtensionEndpoints(app: Express.Router) {
 					`<head>`,
 					`<title>${extension.name}</title>`,
 					`</head>`,
+
 					`<body>`,
+
 					`<div id="app"></div>`,
 					`<script src="/extension/${extensionId}/bootstrap.js"></script>`,
 					`</body>`,

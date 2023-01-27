@@ -10,6 +10,10 @@ import { Page } from 'sidekick-extension-code';
 // @ts-ignore
 import { config } from 'sidekick-extension-config';
 
+
+/* Without setting margin=0 here, the iframe takes up more space than
+ * it should and produces a horizontal scroll.
+ */
 const style = document.createElement('style');
 style.innerText = `
 	html, body {
@@ -18,6 +22,7 @@ style.innerText = `
 
 	body {
 		padding: 20px;
+		margin: 0px;
 	}
 `;
 document.head.appendChild(style);

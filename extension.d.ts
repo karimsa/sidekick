@@ -5,7 +5,6 @@ import {
 	UseQueryResult,
 } from 'react-query';
 import { AxiosError } from 'axios';
-import { toast } from 'react-hot-toast';
 import { z } from 'zod';
 
 declare module '@karimsa/sidekick/extension' {
@@ -61,6 +60,4 @@ declare module '@karimsa/sidekick/extension' {
 	};
 
 	export function useTargetEnvironments(): AsyncResult<string[]>;
-
-	export function useToaster(): { toast: typeof toast };
 }

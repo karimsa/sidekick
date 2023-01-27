@@ -11,7 +11,6 @@ import path from 'path';
 import { startTask } from '../utils/TaskRunner';
 import isEqual from 'lodash/isEqual';
 import { memoize } from '../utils/memoize';
-import { getService } from '../controllers/servers';
 
 interface ServiceFilesUpdated {
 	config: ServiceConfig;

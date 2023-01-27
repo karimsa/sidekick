@@ -19,6 +19,14 @@ setImmediate(async () => {
 		}
 	}
 
+	// CLI cannot handle restarting itself, but if it is running via bootstrap
+	// (which it always should be), it can request that bootstrap handle the restart
+	if (process.env.SIDEKICK_DID_BOOTSTRAP === 'true') {
+		process.on('SIGHUP', () => {
+			process.kill(process.ppid, 'SIGHUP');
+		});
+	}
+
 	const code = await runCliWithArgs(process.argv.slice(2));
 	process.exit(code);
 });

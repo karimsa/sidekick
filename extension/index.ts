@@ -1,7 +1,6 @@
 import { type AxiosError } from 'axios';
 import omit from 'lodash/omit';
 import { useCallback, useMemo } from 'react';
-import toast from 'react-hot-toast';
 import {
 	UseMutationOptions,
 	UseQueryOptions,
@@ -72,10 +71,6 @@ export function useTargetEnvironments(): {
 		return config ? Object.keys(config.environments) : undefined;
 	}, [config]);
 	return { data: targetEnvs, error: error ?? undefined, isLoading };
-}
-
-export function useToaster() {
-	return { toast };
 }
 
 export function useQuery<Params, Result>(

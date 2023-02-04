@@ -20,30 +20,36 @@ fs.promises.mkdir(ProcessLogsDirectory, { recursive: true }).catch((error) => {
 });
 
 startTask('Destroy old processes', async () => {
-	const { stdout } = await execa.command('sysctl kern.boottime');
-	const [, secs] = stdout.match(/\{ sec = ([0-9]+)/) ?? [];
-	const lastReboot = new Date(Number(secs) * 1e3).toISOString();
-	logger.info(`Starting cleaning of old processes`, {
-		lastReboot,
-	});
-
-	const oldEntries = (await RunningProcessModel.repository.find({})).filter(
-		(entry) => {
-			return entry.startedAt && entry.startedAt < lastReboot;
-		},
-	);
-	if (oldEntries.length === 0) {
-		logger.info(`No old processes to destroy`);
-		return;
-	}
-
-	for (const entry of oldEntries) {
-		logger.info(`Destroying old process`, {
-			name: entry._id,
-			pid: entry.pid,
+	try {
+		const { stdout } = await execa.command('sysctl kern.boottime');
+		const [, secs] = stdout.match(/\{ sec = ([0-9]+)/) ?? [];
+		const lastReboot = new Date(Number(secs) * 1e3).toISOString();
+		logger.info(`Starting cleaning of old processes`, {
+			lastReboot,
 		});
-		await RunningProcessModel.repository.remove({
-			_id: entry._id,
+
+		const oldEntries = (await RunningProcessModel.repository.find({})).filter(
+			(entry) => {
+				return entry.startedAt && entry.startedAt < lastReboot;
+			},
+		);
+		if (oldEntries.length === 0) {
+			logger.info(`No old processes to destroy`);
+			return;
+		}
+
+		for (const entry of oldEntries) {
+			logger.info(`Destroying old process`, {
+				name: entry._id,
+				pid: entry.pid,
+			});
+			await RunningProcessModel.repository.remove({
+				_id: entry._id,
+			});
+		}
+	} catch (err: any) {
+		logger.info(`Failed to clean old processes`, {
+			err: err.shortMessage || err.message,
 		});
 	}
 });

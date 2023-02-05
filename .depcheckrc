@@ -10,6 +10,7 @@
         "madge",
         "sidekick-extension-config",
         "sidekick-extension-code",
-        "@jest/globals"
+        "@jest/globals",
+        "inquirer"
     ]
 }

@@ -1,10 +1,12 @@
 import * as React from 'react';
 import { useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import {
 	ArrowLeftIcon,
 	ArrowRightIcon,
 	PackageIcon,
 	ToolsIcon,
+	HomeIcon,
 } from '@primer/octicons-react';
 import { useRouter } from 'next/router';
 import classNames from 'classnames';
@@ -29,6 +31,61 @@ function getExtensionIcon(name: string) {
 	return icon.toSVG();
 }
 
+interface SidebarLinkProps {
+	icon: React.ReactNode;
+	label?: string;
+	showLabel: boolean;
+	className?: string;
+	href?: string;
+	onClick?: () => void;
+}
+
+function SidebarLink({
+	className,
+	label,
+	showLabel,
+	href,
+	icon,
+	onClick,
+}: SidebarLinkProps) {
+	const router = useRouter();
+
+	return (
+		<Tooltip content={label} placement={'right'} disabled={showLabel}>
+			<a
+				href={href || '#'}
+				onClick={(evt) => {
+					evt.preventDefault();
+					if (href) {
+						router.push(href);
+					} else if (onClick) {
+						onClick();
+					} else {
+						throw new Error(`No action assigned to sidebar link`);
+					}
+				}}
+				className={classNames(
+					className,
+					'flex items-center p-5 hover:bg-slate-700',
+					{
+						'bg-emerald-900': href === router.asPath,
+					},
+				)}
+			>
+				{/* the h-7 makes the icon the same size as the text, so closing/opening the sidebar isn't jarring */}
+				<span
+					className={classNames('flex items-center h-7', {
+						'pr-5': showLabel,
+					})}
+				>
+					{icon}
+				</span>
+				{showLabel && <span className={'text-lg'}>{label}</span>}
+			</a>
+		</Tooltip>
+	);
+}
+
 export const Sidebar: React.FC<{
 	isOpen: boolean;
 	setOpen(open: boolean): void;
@@ -44,7 +101,7 @@ export const Sidebar: React.FC<{
 		},
 	);
 
-	const links = useMemo(
+	const links: Omit<SidebarLinkProps, 'showLabel'>[] = useMemo(
 		() => [
 			{
 				icon: <PackageIcon />,
@@ -81,13 +138,13 @@ export const Sidebar: React.FC<{
 	React.useEffect(
 		() =>
 			registerCommands([
-				...links.flatMap((link, idx) =>
-					link.href
+				...links.flatMap(({ label, href }, idx) =>
+					href
 						? [
 								{
-									name: `Goto ${link.label}`,
+									name: `Goto ${label}`,
 									hotKey:
-										link.label === 'Settings'
+										label === 'Settings'
 											? {
 													metaKey: true,
 													key: ',',
@@ -97,7 +154,7 @@ export const Sidebar: React.FC<{
 													key: String(idx + 1),
 											  },
 									action: () => {
-										router.push(link.href);
+										router.push(href);
 									},
 								},
 						  ]
@@ -129,55 +186,52 @@ export const Sidebar: React.FC<{
 		>
 			<div>
 				<ul>
-					{links.map(({ icon, href, onClick, label }) => (
-						<li key={label}>
-							<Tooltip content={label} placement={'right'} disabled={isOpen}>
-								<a
-									href={href || '#'}
-									onClick={(evt) => {
-										evt.preventDefault();
-										if (href) {
-											router.push(href);
-										} else if (onClick) {
-											onClick();
-										} else {
-											throw new Error(`No action assigned to sidebar link`);
-										}
-									}}
-									className={classNames(
-										'flex items-center p-5 hover:bg-slate-700',
-										{
-											'bg-emerald-900': href === router.asPath,
-										},
-									)}
-								>
-									{/* the h-7 makes the icon the same size as the text, so closing/opening the sidebar isn't jarring */}
-									<span
-										className={classNames('flex items-center h-7', {
-											'pr-5': isOpen,
-										})}
-									>
-										{icon}
-									</span>
-									{isOpen && <span className={'text-lg'}>{label}</span>}
-								</a>
-							</Tooltip>
+					{links.map((link) => (
+						<li key={link.label}>
+							<SidebarLink {...link} showLabel={isOpen} />
 						</li>
 					))}
 				</ul>
 			</div>
 
-			{versionInfo && isOpen && (
-				<div className={'p-5'}>
-					<p>
-						Sidekick v{versionInfo.sidekick.version} (
-						{versionInfo.sidekick.releaseChannel})
-					</p>
-					<p>
-						{versionInfo.project.name} @ {versionInfo.project.version}
-					</p>
-				</div>
-			)}
+			<div
+				className={classNames('flex flex-row', {
+					'justify-center': !isOpen,
+				})}
+			>
+				<Tooltip content={'Home'} placement={'top'}>
+					<Link href="/" passHref>
+						<a
+							className={
+								'rounded m-2 p-2 pt-1 bg-slate-600 hover:bg-slate-700 cursor-pointer'
+							}
+						>
+							<HomeIcon />
+						</a>
+					</Link>
+				</Tooltip>
+
+				{versionInfo && isOpen && (
+					<div className={'px-5 flex flex-col justify-center'}>
+						<p>
+							<span>v{versionInfo.sidekick.version}</span>
+							{versionInfo.sidekick.releaseChannel !== 'stable' && (
+								<span
+									className={classNames('rounded p-1 text-xs ml-2', {
+										'bg-yellow-600':
+											versionInfo.sidekick.releaseChannel === 'beta',
+										'bg-red-600':
+											versionInfo.sidekick.releaseChannel === 'nightly' ||
+											versionInfo.sidekick.releaseChannel === 'dev',
+									})}
+								>
+									{versionInfo.sidekick.releaseChannel}
+								</span>
+							)}
+						</p>
+					</div>
+				)}
+			</div>
 		</div>
 	);
 };

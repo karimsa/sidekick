@@ -6,29 +6,16 @@ import { z } from 'zod';
 import { createCommand } from '../cli/createCommand';
 import { ConfigManager } from '../services/config';
 import { fmt } from '../utils/fmt';
+import { UpgradeUtils } from '../utils/UpgradeUtils';
 
 export async function setReleaseChannel(
 	releaseChannel: 'beta' | 'nightly' | 'stable',
 ) {
 	const config = await ConfigManager.createProvider();
 
-	const isChannelInstalled =
-		releaseChannel === 'stable'
-			? true
-			: await fs.promises
-					.stat(
-						path.resolve(
-							await ConfigManager.getChannelDir(releaseChannel),
-							'package.json',
-						),
-					)
-					.then(() => true)
-					.catch((err) => {
-						if (err.code === 'ENOENT') {
-							return false;
-						}
-						throw err;
-					});
+	const isChannelInstalled = await UpgradeUtils.isChannelInstalled(
+		releaseChannel,
+	);
 	if (!isChannelInstalled) {
 		throw new Error(
 			`Channel ${releaseChannel} is not installed (use \`yarn sidekick upgrade --channel=${releaseChannel}\` to install it`,

@@ -3,7 +3,9 @@ import * as fs from 'fs';
 import * as net from 'net';
 import * as path from 'path';
 import { z } from 'zod';
+import { ConfigManager } from '../services/config';
 import { testHttp } from '../utils/healthcheck';
+import { UpgradeUtils } from '../utils/UpgradeUtils';
 import { createCommand } from './createCommand';
 
 createCommand({
@@ -53,6 +55,9 @@ createCommand({
 		process.stdout.write(`Waiting for sidekick to start ...\r`);
 		const sidekickHost = net.isIPv6(bindAddr) ? `[::1]` : '127.0.0.1';
 
+		const channel = await ConfigManager.getActiveChannel();
+		const version = await UpgradeUtils.getChannelVersion(channel);
+
 		// eslint-disable-next-line no-empty
 		while (
 			!(await testHttp({
@@ -61,6 +66,7 @@ createCommand({
 			}))
 		) {}
 		console.log(`Sidekick started on http://${sidekickHost}:${port}`);
+		console.log(`Version: ${version} (${channel})`);
 
 		process.on('SIGTERM', () => {
 			child.kill('SIGKILL');

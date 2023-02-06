@@ -4,6 +4,7 @@ import { isElmWithinTarget } from '../server/utils/isElmWithTarget';
 import { XIcon } from '@primer/octicons-react';
 
 interface ModalProps {
+	size?: 'sm' | 'lg';
 	show: boolean;
 	fullHeight?: boolean;
 	onClose(): void;
@@ -13,6 +14,7 @@ const ModalContext = createContext({ onClose() {} });
 
 export const Modal: React.FC<ModalProps> = ({
 	show,
+	size,
 	fullHeight,
 	onClose,
 	children,
@@ -36,8 +38,11 @@ export const Modal: React.FC<ModalProps> = ({
 			>
 				<div
 					ref={modalRef}
-					className={classNames('rounded bg-slate-100 w-2/3 flex flex-col', {
+					className={classNames('rounded bg-slate-100 flex flex-col', {
 						'h-5/6': fullHeight,
+
+						'w-2/3': size === 'lg',
+						'w-1/3': size === 'sm',
 					})}
 				>
 					{children}

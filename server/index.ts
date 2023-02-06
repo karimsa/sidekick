@@ -40,8 +40,14 @@ import {
 	StreamingRpcHandler,
 	validate,
 } from './utils/http';
-import { dispatchTasks } from './utils/TaskRunner';
+import { dispatchTasks, startTask } from './utils/TaskRunner';
 import { IS_DEVELOPMENT } from './utils/is-development';
+import {
+	checkForSidekickUpdates,
+	setSidekickChannel,
+	upgradeSidekick,
+} from './controllers/upgrade';
+import { ConfigManager } from './services/config';
 
 const app = express();
 
@@ -73,6 +79,10 @@ export const rpcMethods: Record<string, RpcHandler<any, any>> = {
 	restartDevServer,
 	bulkServiceAction,
 	getServiceScripts,
+
+	checkForSidekickUpdates,
+	upgradeSidekick,
+	setSidekickChannel,
 };
 
 const streamingMethods: Record<string, StreamingRpcHandler<any, any>> = {
@@ -191,10 +201,9 @@ io.on('connection', (socket) => {
 	});
 });
 
-dispatchTasks();
-
 server.listen(serverPort, bindAddr, () => {
 	console.log(
 		fmt`Sidekick server listening on ${server.address()} (pid ${process.pid})`,
 	);
+	dispatchTasks();
 });

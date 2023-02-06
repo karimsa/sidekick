@@ -1,95 +1,10 @@
-import axios from 'axios';
-import execa from 'execa';
-import * as fs from 'fs';
-import * as path from 'path';
 import { z } from 'zod';
 
-import { version as sidekickVersion } from '../../package.json';
 import { createCommand } from '../cli/createCommand';
 import { ConfigManager } from '../services/config';
 import { fmt } from '../utils/fmt';
 import { UpgradeUtils } from '../utils/UpgradeUtils';
 import { setReleaseChannel } from './set-channel';
-
-const RC_BRANCHES = {
-	nightly: 'develop',
-	beta: 'main',
-} as const;
-
-async function getLatestVersion(channel: 'beta' | 'nightly') {
-	const { data } = await axios.get(
-		`https://api.github.com/repos/karimsa/sidekick/git/ref/heads/${RC_BRANCHES[channel]}`,
-	);
-	const result = z
-		.object({ object: z.object({ sha: z.string() }) })
-		.safeParse(data);
-	if (!result.success) {
-		throw new Error(`Failed to get latest commit from github`);
-	}
-	return result.data.object.sha;
-}
-
-async function upgradeSidekick(channel: 'beta' | 'nightly') {
-	const channelDir = await ConfigManager.getChannelDir(channel);
-	const isInstalled = await fs.promises
-		.stat(path.resolve(channelDir, 'package.json'))
-		.then(() => true)
-		.catch((err) => {
-			if (err.code === 'ENOENT') {
-				return false;
-			}
-			throw err;
-		});
-	if (!isInstalled) {
-		console.log(fmt`Installing ${channel} channel ...`);
-		await fs.promises.mkdir(channelDir, {
-			recursive: true,
-		});
-		await execa.command(
-			`git clone -b ${RC_BRANCHES[channel]} https://github.com/karimsa/sidekick.git .`,
-			{
-				cwd: channelDir,
-			},
-		);
-	}
-
-	console.log(fmt`Upgrading ${channel} channel ...`);
-	{
-		const cwd = channelDir;
-
-		// get rid of local branch, in case of rebases
-		await execa.command(`git reset --hard HEAD`, { cwd });
-		await execa.command(`git checkout -b tmp`, { cwd }).catch(() => {});
-		await execa
-			.command(`git branch -D ${RC_BRANCHES[channel]}`, { cwd })
-			.catch(() => {});
-
-		// fetch updated refs
-		await execa.command(`git fetch --all --prune`, { cwd });
-
-		// create new local branch from remote
-		await execa.command(`git checkout ${RC_BRANCHES[channel]}`, { cwd });
-		await execa.command(`git branch -D tmp`, { cwd }).catch(() => {});
-	}
-
-	await execa.command(`yarn`, {
-		cwd: channelDir,
-	});
-
-	console.log(`Building ${channel} release ...`);
-	await execa.command(`yarn build`, {
-		cwd: channelDir,
-	});
-
-	await fs.promises.writeFile(
-		path.resolve(channelDir, 'sidekick.build.json'),
-		JSON.stringify({
-			sidekickVersion,
-			nodeVersion: process.version,
-			arch: process.arch,
-		}),
-	);
-}
 
 createCommand({
 	name: 'install',
@@ -124,14 +39,9 @@ createCommand({
 			await config.setValue('releaseChannel', releaseChannel);
 		}
 
-		const [currentVersion, latestVersion] = await Promise.all([
-			UpgradeUtils.getChannelVersion(releaseChannel),
-			getLatestVersion(releaseChannel),
-		]);
-		if (
-			currentVersion === latestVersion &&
-			!(await UpgradeUtils.isMissingBuildInfo(releaseChannel))
-		) {
+		const { needsUpgrade, currentVersion, latestVersion } =
+			await UpgradeUtils.checkForUpdates(releaseChannel);
+		if (!needsUpgrade) {
 			console.log(
 				fmt`Sidekick is up-to-date: ${{
 					channel: releaseChannel,
@@ -163,7 +73,7 @@ createCommand({
 		}
 
 		// Perform the upgrade
-		await upgradeSidekick(releaseChannel);
+		await UpgradeUtils.upgradeChannel(releaseChannel);
 
 		console.log(
 			fmt`Sidekick upgraded: ${{

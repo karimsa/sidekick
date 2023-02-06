@@ -15,6 +15,10 @@ describe('sidekick version', () => {
 				version: '1.0.0',
 				workspaces: ['./packages/*'],
 			}),
+			'./node_modules/@karimsa/sidekick/package.json': JSON.stringify({
+				name: '@karimsa/sidekick',
+				version: '0.0.0',
+			}),
 		});
 		cleanup.push(targetDir.cleanup);
 

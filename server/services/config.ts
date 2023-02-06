@@ -10,10 +10,11 @@ import { loadModule } from '../utils/load-module';
 import { Defined } from '../utils/util-types';
 import { IS_DEVELOPMENT } from '../utils/is-development';
 
-export type ReleaseChannel = 'dev' | 'stable' | 'beta' | 'nightly';
+export const ReleaseChannels = ['dev', 'stable', 'beta', 'nightly'] as const;
+export type ReleaseChannel = typeof ReleaseChannels[number];
 
 export function isReleaseChannel(channel: unknown): channel is ReleaseChannel {
-	return ['dev', 'stable', 'beta', 'nightly'].includes(String(channel));
+	return ReleaseChannels.includes(String(channel) as ReleaseChannel);
 }
 
 const ConfigTypes = z.object({
@@ -22,6 +23,7 @@ const ConfigTypes = z.object({
 	showReactQueryDebugger: z.boolean(),
 	minifyExtensionClients: z.boolean(),
 	releaseChannel: z.enum(['stable', 'beta', 'nightly']),
+	enableAutoUpgrades: z.boolean(),
 	keyMappings: z.record(z.string(), z.string()).optional(),
 	enableKeyMappings: z.boolean(),
 });
@@ -62,6 +64,7 @@ const validateConfig = (config: any) =>
 				showReactQueryDebugger: false,
 				minifyExtensionClients: true,
 				releaseChannel: 'stable',
+				enableAutoUpgrades: false,
 			},
 			config,
 		),

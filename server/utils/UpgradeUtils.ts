@@ -154,7 +154,10 @@ export class UpgradeUtils {
 						.catch(() => {});
 
 					// fetch updated refs
-					await execa.command(`git fetch --all --prune`, { cwd });
+					await execa.command(
+						`git fetch --prune origin ${RC_BRANCHES[channel]}`,
+						{ cwd },
+					);
 
 					// create new local branch from remote
 					await execa.command(`git checkout ${RC_BRANCHES[channel]}`, { cwd });

@@ -19,7 +19,6 @@ import * as fs from 'fs';
 import ms from 'ms';
 import * as path from 'path';
 
-import { rpcMethods } from '../index';
 import { CacheService } from '../services/cache';
 import { ConfigManager, SidekickExtensionConfig } from '../services/config';
 import { Logger } from '../services/logger';
@@ -580,33 +579,6 @@ export class ExtensionBuilder {
 					},
 
 					{
-						name: 'generate-extension-config',
-						setup: (build) => {
-							build.onResolve(
-								{
-									filter: /^sidekick-extension-config$/,
-								},
-								(args) => ({
-									path: args.path,
-									namespace: 'sidekick-extension-config',
-									pluginData: {
-										...args,
-										resolvedByPlugin: 'generate-extension-config',
-									},
-								}),
-							);
-							build.onLoad(
-								{ filter: /./, namespace: 'sidekick-extension-config' },
-								async () => ({
-									contents: `export const config = ${JSON.stringify(
-										extensionConfig,
-									)}`,
-								}),
-							);
-						},
-					},
-
-					{
 						name: 'import-sidekick-extension-code',
 						setup: (build) => {
 							build.onResolve({ filter: /^sidekick-extension-code$/ }, () => ({
@@ -629,41 +601,10 @@ export class ExtensionBuilder {
 						},
 					},
 
-					// Resolve/polyfill the controller imports
-					{
-						name: 'resolve-sidekick-controllers',
-						setup: (build) => {
-							build.onResolve({ filter: /\/server\/controllers\// }, (args) => {
-								if (
-									!args.importer.startsWith(__dirname) ||
-									args.importer.includes('/node_modules/')
-								) {
-									return {};
-								}
-								return {
-									path: path.resolve(
-										__dirname,
-										'./hooks/rpc-method-polyfill.js',
-									),
-									namespace: 'sidekick-controller',
-								};
-							});
-							build.onLoad(
-								{ filter: /./, namespace: 'sidekick-controller' },
-								async () => ({
-									contents: [
-										`module.exports = {`,
-										...Object.keys(rpcMethods).map(
-											(key) => `\t${key}: { methodName: "${key}" },`,
-										),
-										`}`,
-									].join('\n'),
-								}),
-							);
-						},
-					},
-
 					// Resolve extension helpers
+					// For now, we will resolve these from sidekick itself. In the future,
+					// we should ideally publish to npm and then let resolution take the usual route,
+					// except for beta/nightly which will continue to use this.
 					{
 						name: 'resolve-sidekick-extension-helpers',
 						setup: (build) => {
@@ -672,114 +613,22 @@ export class ExtensionBuilder {
 									filter: /^@karimsa\/sidekick\/extension$/,
 								},
 								() => ({
-									path: path.resolve(__dirname, './extension/index.ts'),
+									path: path.resolve(
+										__dirname,
+										'./extension/extension-helpers.dist.js',
+									),
 									namespace: 'sidekick-extension-helpers',
 								}),
 							);
 							build.onLoad(
-								{ filter: /./, namespace: 'sidekick-extension-helpers' },
-								async (args) => ({
-									loader: 'tsx',
-									contents: await fs.promises.readFile(args.path, 'utf8'),
-
-									// We cannot set the 'resolveDir', because this is a virtual file
-									// so we need to manually resolve the imports in later plugins
-								}),
-							);
-						},
-					},
-
-					// Resolve package imports relative to the extension
-					{
-						name: 'resolve-extension-imported-packages',
-						setup(build) {
-							build.onResolve({ filter: /^[^.]/ }, async (args) => {
-								const isImportFromSidekick =
-									args.importer.startsWith(__dirname);
-								const isPeerDependency = [
-									'react',
-									'react-dom',
-									'react-query',
-								].includes(args.path);
-
-								// If the import is coming from sidekick, there's some modules that we
-								// want to allow resolving relative to the extension, but the rest we
-								// want to keep resolving relative to sidekick
-								const basedir =
-									!isImportFromSidekick || isPeerDependency
-										? path.dirname(filePath)
-										: args.resolveDir || __dirname;
-
-								try {
-									return {
-										path: await resolveAsync(args.path, {
-											basedir,
-											extensions: ['.js', '.json'],
-										}),
-										pluginData: {
-											...args,
-											resolvedByPlugin: 'resolve-extension-imported-packages',
-										},
-									};
-								} catch (err) {
-									throw Object.assign(
-										new Error(
-											`Failed to resolve '${args.path}' from '${basedir}' (requested by '${args.importer}')`,
-										),
-										{
-											args,
-											plugin: 'resolve-extension-imported-packages',
-										},
-									);
-								}
-							});
-						},
-					},
-
-					// Resolve internal imports relative to sidekick
-					{
-						name: 'resolve-sidekick-internal-imports',
-						setup(build) {
-							build.onResolve(
 								{
-									filter: /^\./,
+									namespace: 'sidekick-extension-helpers',
+									filter: /./,
 								},
-								async (args) => {
-									if (
-										args.importer.startsWith(__dirname) &&
-										!args.importer.includes('/node_modules/')
-									) {
-										try {
-											return {
-												path: await resolveAsync(args.path, {
-													basedir:
-														args.namespace === 'sidekick-extension-helpers'
-															? path.dirname(args.importer)
-															: args.resolveDir || path.dirname(args.importer),
-													extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
-												}),
-												pluginData: {
-													...args,
-													resolvedByPlugin: 'resolve-sidekick-internal-imports',
-												},
-											};
-										} catch (err) {
-											throw Object.assign(
-												new Error(
-													`Failed to resolve '${
-														args.path
-													}' from '${path.dirname(
-														args.importer,
-													)}' (requested by '${args.importer}')`,
-												),
-												{
-													args,
-													plugin: 'resolve-sidekick-internal-imports',
-												},
-											);
-										}
-									}
-								},
+								async (args) => ({
+									resolveDir: path.dirname(filePath),
+									contents: await fs.promises.readFile(args.path, 'utf8'),
+								}),
 							);
 						},
 					},
@@ -793,7 +642,11 @@ export class ExtensionBuilder {
 			metrics: ctx.toJSON().metrics,
 			compiledSize: resultCode.length,
 		});
-		return resultCode;
+		return `window.SidekickExtensionConfig = ${JSON.stringify(
+			extensionConfig,
+			null,
+			'\t',
+		)};\n${resultCode}`;
 	}
 
 	private static async cleanupExportsFromAst(

@@ -1,10 +1,11 @@
 import * as bodyParser from 'body-parser';
 import cors from 'cors';
 import express from 'express';
-import * as http from 'http';
-import next from 'next';
-import { Server as SocketServer, Socket } from 'socket.io';
 import proxy from 'express-http-proxy';
+import * as http from 'http';
+import * as path from 'path';
+import * as fs from 'fs';
+import { Server as SocketServer, Socket } from 'socket.io';
 
 import { z } from 'zod';
 import { getConfig, getVersion, updateConfig } from './controllers/config';
@@ -31,6 +32,11 @@ import {
 	startService,
 	stopService,
 } from './controllers/servers';
+import {
+	checkForSidekickUpdates,
+	setSidekickChannel,
+	upgradeSidekick,
+} from './controllers/upgrade';
 import { setupExtensionEndpoints } from './utils/extensions';
 import { fmt } from './utils/fmt';
 import {
@@ -40,14 +46,8 @@ import {
 	StreamingRpcHandler,
 	validate,
 } from './utils/http';
-import { dispatchTasks, startTask } from './utils/TaskRunner';
 import { IS_DEVELOPMENT } from './utils/is-development';
-import {
-	checkForSidekickUpdates,
-	setSidekickChannel,
-	upgradeSidekick,
-} from './controllers/upgrade';
-import { ConfigManager } from './services/config';
+import { dispatchTasks } from './utils/TaskRunner';
 
 const app = express();
 
@@ -126,15 +126,34 @@ setupExtensionEndpoints(app);
 if (IS_DEVELOPMENT) {
 	app.use(proxy('http://localhost:9001', {}));
 } else {
-	process.chdir(__dirname);
+	const setupRoutes = (cwd: string, rootDir: string) => {
+		for (const filename of fs.readdirSync(path.join(rootDir, cwd))) {
+			if (fs.statSync(path.join(rootDir, cwd, filename)).isDirectory()) {
+				setupRoutes(path.join(cwd, filename), rootDir);
+			} else if (filename.endsWith('.html')) {
+				const route =
+					'/' +
+					path
+						.join(cwd, filename)
+						.replace(/\[(\w+)\]/g, ':$1')
+						.replace(/\.html$/, '');
+				const content = fs.readFileSync(
+					path.join(rootDir, cwd, filename),
+					'utf8',
+				);
 
-	const nextApp = next({});
-	const nextHandler = nextApp.getRequestHandler();
+				app.get(route, (_, res) => {
+					res.contentType('html');
+					res.send(content);
+				});
+			}
+		}
+	};
+	setupRoutes('./', path.resolve(__dirname, 'out'));
+
+	app.use(express.static(path.resolve(__dirname, 'out')));
 	app.use((req, res) => {
-		nextHandler(req, res).catch((error) => {
-			res.status(500);
-			res.json({ error: String(error) });
-		});
+		res.sendFile(path.resolve(__dirname, 'out/404.html'));
 	});
 }
 

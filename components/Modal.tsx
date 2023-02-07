@@ -14,7 +14,7 @@ const ModalContext = createContext({ onClose() {} });
 
 export const Modal: React.FC<ModalProps> = ({
 	show,
-	size,
+	size = 'lg',
 	fullHeight,
 	onClose,
 	children,

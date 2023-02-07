@@ -117,7 +117,9 @@ function SidebarLink({
 	);
 }
 
-const ChangeSidekickChannelForm: React.FC = () => {
+const ChangeSidekickChannelForm: React.FC<{
+	onUpdateChannel(channel: ReleaseChannel): void;
+}> = ({ onUpdateChannel }) => {
 	const {
 		data: updateInfo,
 		isLoading,
@@ -131,15 +133,6 @@ const ChangeSidekickChannelForm: React.FC = () => {
 			setSelectedChannel(updateInfo.channel);
 		}
 	}, [updateInfo]);
-
-	const { mutate: performSetSidekickChannel } = useRpcMutation(
-		setSidekickChannel,
-		{
-			onSuccess: () => {
-				window.location.reload();
-			},
-		},
-	);
 
 	return (
 		<form>
@@ -190,11 +183,7 @@ const ChangeSidekickChannelForm: React.FC = () => {
 					<div className="mt-5 flex justify-center">
 						<Button
 							variant="primary"
-							onClick={() =>
-								performSetSidekickChannel({
-									channel: selectedChannel,
-								})
-							}
+							onClick={() => onUpdateChannel(selectedChannel)}
 						>
 							Switch to {selectedChannel}
 						</Button>
@@ -221,9 +210,8 @@ const CheckForUpdatesButton: React.FC = () => {
 		refetch,
 	} = useRpcQuery(checkForSidekickUpdates, {});
 
-	const { mutate: performUpgrade, isLoading: isUpgrading } = useRpcMutation(
-		upgradeSidekick,
-		{
+	const { mutate: performUpgrade, isLoading: isUpgradingCurrentChannel } =
+		useRpcMutation(upgradeSidekick, {
 			onSuccess: () => {
 				window.location.reload();
 			},
@@ -231,8 +219,19 @@ const CheckForUpdatesButton: React.FC = () => {
 				toast.error(`Failed to upgrade sidekick: ${(error as Error).message}`);
 				console.error(error);
 			},
-		},
-	);
+		});
+	const { mutate: performSetSidekickChannel, isLoading: isSwitchingChannel } =
+		useRpcMutation(setSidekickChannel, {
+			onSuccess: () => {
+				window.location.reload();
+			},
+			onError: (error) => {
+				toast.error(`Failed to upgrade sidekick: ${(error as Error).message}`);
+				console.error(error);
+			},
+		});
+
+	const isUpgrading = isUpgradingCurrentChannel || isSwitchingChannel;
 
 	return (
 		<>
@@ -385,7 +384,11 @@ const CheckForUpdatesButton: React.FC = () => {
 
 							<hr className="w-1/2 h-1 mx-auto my-5 bg-gray-300 border-0 rounded" />
 
-							<ChangeSidekickChannelForm />
+							<ChangeSidekickChannelForm
+								onUpdateChannel={(channel) =>
+									performSetSidekickChannel({ channel })
+								}
+							/>
 						</>
 					)}
 				</ModalBody>

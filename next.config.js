@@ -14,7 +14,6 @@ module.exports = {
 	typescript: {
 		ignoreBuildErrors: true,
 	},
-	serverless: false,
 	serverRuntimeConfig: {
 		__NEXT_SSR_ENV__: 'true',
 	},

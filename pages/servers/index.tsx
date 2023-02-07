@@ -1,5 +1,12 @@
 import * as React from 'react';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+	memo,
+	useCallback,
+	useEffect,
+	useMemo,
+	useState,
+	forwardRef,
+} from 'react';
 import Link from 'next/link';
 import Head from 'next/head';
 import { toast } from 'react-hot-toast';
@@ -122,14 +129,18 @@ const ServiceListEntry: React.FC<{
 	);
 };
 
+// This is a bug in the version of eslint-plugin-react that is used by
+// eslint-config-next@12 - we can remove this disable when we upgrade to Next 13.
+// eslint-disable-next-line react/display-name
 const PrepareAllButton: React.FC<{ loading: boolean }> = memo(
-	function PrepareAllButton({ loading }) {
+	forwardRef(function PrepareAllButton({ loading }, ref) {
 		const { mutate: runPrepare, isRunning } = useLogWindow(
 			'prepare-all',
 			prepareStaleServices,
 		);
 		return (
 			<Button
+				ref={ref}
 				variant={'info'}
 				className={'w-full'}
 				size={'sm'}
@@ -148,7 +159,7 @@ const PrepareAllButton: React.FC<{ loading: boolean }> = memo(
 				Prepare
 			</Button>
 		);
-	},
+	}),
 );
 
 function useServiceTags(services?: ServiceConfig[]) {

@@ -15,7 +15,6 @@ import Tooltip from '@tippyjs/react';
 // @ts-ignore
 import octicons from '@primer/octicons';
 
-// import { InboxItems } from './InboxItems';
 import { useLocalState } from '../hooks/useLocalState';
 import { useRpcQuery } from '../hooks/useQuery';
 import { getExtensions } from '../server/controllers/extensions';
@@ -567,19 +566,23 @@ export function withSidebar<T extends { children?: React.ReactNode }>(
 	return function SidebarWrappedComponent(props: T) {
 		const [isOpen, setOpen] = useLocalState('sidebarOpen', Boolean);
 
+		// We want to avoid rendering sidebar on the server, because we need localStorage
+		// to correctly render it
+		// Two-pass rendering is recommended by the React team for client-side only
+		// component renders
+		const [showSidebar, setShowSidebar] = useState(false);
+		useEffect(() => {
+			setShowSidebar(true);
+		}, []);
+
 		return (
 			<>
-				{/* Avoid rendering sidebar on the server, because we need localStorage to correctly render */}
-				{global.window && <Sidebar isOpen={!!isOpen} setOpen={setOpen} />}
+				{showSidebar && <Sidebar isOpen={!!isOpen} setOpen={setOpen} />}
 				<main
 					className={classNames('flex flex-col flex-auto bg-slate-700', {
 						'p-5': !noPadding,
 					})}
 				>
-					<div className={'w-full d-flex flex-initial'}>
-						{/*    <InboxItems />*/}
-					</div>
-
 					<Main {...props} />
 				</main>
 			</>

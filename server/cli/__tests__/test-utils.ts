@@ -1,8 +1,8 @@
 import * as tmp from 'tmp-promise';
 import fs from 'fs';
 import path from 'path';
+import execa from 'execa';
 import stripAnsi from 'strip-ansi';
-import { exec } from 'child_process';
 
 type CleanupHook = () => Promise<void> | undefined | void;
 export class TestCleanup {
@@ -32,45 +32,43 @@ export async function buildFs(files: Record<string, string | null>) {
 		}
 	}
 
+	await fs.promises.mkdir(path.resolve(targetDir, './node_modules/@karimsa'), {
+		recursive: true,
+	});
+	await fs.promises.symlink(
+		path.resolve(__dirname, '../../../'),
+		path.resolve(targetDir, './node_modules/@karimsa/sidekick'),
+		'dir',
+	);
+
 	return {
 		path: targetDir,
 		cleanup: async () => fs.promises.rm(targetDir, { recursive: true }),
 	};
 }
 
-type CliOutput = {
-	exitCode: number;
-	stdout: string;
-	stderr: string;
-};
+const node = process.argv[0];
+const bootstrap = path.resolve(
+	__dirname,
+	'../../../sidekick-bootstrap.dist.js',
+);
 
 export async function runCliForTesting(
 	command: string,
-	env: Record<string, string>,
-): Promise<CliOutput> {
-	return new Promise((res, rej) => {
-		const out = { stdout: '', stderr: '' };
-		const proc = exec(
-			command,
-			{ env: { ...process.env, ...env } },
-			(error, stdout, stderr) => {
-				if (error) {
-					console.warn(error);
-				}
-
-				out.stdout += stdout;
-				out.stderr += stderr;
-			},
-		);
-
-		// Using `close` instead of `exit` to ensure that `stdio` has been fully
-		// written before resolving the promise
-		proc.on('close', (exitCode) => {
-			res({
-				stdout: stripAnsi(out.stdout),
-				stderr: stripAnsi(out.stderr),
-				exitCode: exitCode ?? 1,
-			});
-		});
-	});
+	options?: Omit<execa.Options, 'env'> & {
+		env?: Record<string, string>;
+	},
+) {
+	const { stdout, stderr, ...res } = await execa.command(
+		`${node} ${bootstrap} ${command}`,
+		{
+			...options,
+			env: options?.env as any,
+		},
+	);
+	return {
+		...res,
+		stdout: stripAnsi(stdout),
+		stderr: stripAnsi(stderr),
+	};
 }

@@ -69,7 +69,7 @@ describe('sidekick prepare', () => {
 
 		// Verify dry run for first run
 		{
-			const result = await runCliForTesting('yarn cli prepare --dryRun', env);
+			const result = await runCliForTesting('prepare --dryRun', { env });
 			expect(result.exitCode).toEqual(0);
 
 			expect(result.stdout).toMatch(/Found 2 stale services/);
@@ -79,7 +79,7 @@ describe('sidekick prepare', () => {
 
 		// Verify real run for first run
 		{
-			const result = await runCliForTesting('yarn cli prepare', env);
+			const result = await runCliForTesting('prepare', { env });
 			expect(result.exitCode).toEqual(0);
 
 			expect(result.stdout).toMatch(/output from foo/);
@@ -111,7 +111,9 @@ describe('sidekick prepare', () => {
 
 		// Verify dry run for new file
 		{
-			const result = await runCliForTesting('yarn cli prepare --dryRun', env);
+			const result = await runCliForTesting('prepare --dryRun', {
+				env,
+			});
 			expect(result.exitCode).toEqual(0);
 
 			expect(result.stdout).toMatch(/Found 1 stale services/);
@@ -121,7 +123,7 @@ describe('sidekick prepare', () => {
 
 		// Verify real run for new file
 		{
-			const result = await runCliForTesting('yarn cli prepare', env);
+			const result = await runCliForTesting('prepare', { env });
 			expect(result.exitCode).toEqual(0);
 
 			expect(result.stdout).not.toMatch(/output from foo/);
@@ -153,7 +155,7 @@ describe('sidekick prepare', () => {
 
 		// Verify dry run for new file
 		{
-			const result = await runCliForTesting('yarn cli prepare --dryRun', env);
+			const result = await runCliForTesting('prepare --dryRun', { env });
 			expect(result.exitCode).toEqual(0);
 
 			expect(result.stdout).toMatch(/Found 1 stale services/);
@@ -163,7 +165,7 @@ describe('sidekick prepare', () => {
 
 		// Verify real run for new file
 		{
-			const result = await runCliForTesting('yarn cli prepare', env);
+			const result = await runCliForTesting('prepare', { env });
 			expect(result.exitCode).toEqual(0);
 
 			expect(result.stdout).toMatch(/output from foo/);

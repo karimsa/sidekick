@@ -10,7 +10,6 @@ import { Page } from 'sidekick-extension-code';
 // @ts-ignore
 import { config } from 'sidekick-extension-config';
 
-
 /* Without setting margin=0 here, the iframe takes up more space than
  * it should and produces a horizontal scroll.
  */
@@ -39,7 +38,6 @@ let lastReportedLocation = '';
 let lastReportedTitle = '';
 
 setInterval(() => {
-	console.dir({ lastReportedLocation, current: window.location.href });
 	if (lastReportedLocation !== window.location.href) {
 		window.parent.postMessage(
 			{

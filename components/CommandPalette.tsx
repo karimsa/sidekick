@@ -368,7 +368,7 @@ const CommandPaletteInternal: React.FC = memo(function CommandPaletteInternal({
 																word.toLowerCase().startsWith(m),
 															)
 														) {
-															return <b>{word}</b>;
+															return <b key={word}>{word}</b>;
 														}
 														return word;
 													})}

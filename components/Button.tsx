@@ -19,6 +19,7 @@ const ButtonSizes = {
 
 export interface ButtonProps {
 	variant: keyof typeof ButtonVariants;
+	ref?: React.Ref<unknown>;
 
 	type?: 'button' | 'submit';
 	size?: keyof typeof ButtonSizes;

@@ -73,7 +73,7 @@ async function main() {
 			]);
 			if (exitType === 'SIGHUP') {
 				console.log(`Received SIGHUP, attempting to restart Sidekick`);
-			} else {
+			} else if (exitType === 'SIGTERM') {
 				console.log(`Received SIGTERM, exiting Sidekick`);
 			}
 			if (exitType !== 'EXIT') {

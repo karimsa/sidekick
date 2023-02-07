@@ -1,5 +1,7 @@
 const esbuild = require('esbuild');
 const fs = require('fs');
+const path = require('path');
+const babel = require('@babel/core');
 
 const isWatchMode = process.argv.includes('-w');
 
@@ -16,7 +18,47 @@ const makeAllPackagesExternal = {
 	},
 };
 
-const buildServerFile = async (input, output) => {
+// Resolve/polyfill the controller imports
+const resolveSidekickControllers = {
+	name: 'resolve-sidekick-controllers',
+	setup: (build) => {
+		build.onLoad({ filter: /\/server\/controllers\// }, async (args) => {
+			if (
+				!args.path.startsWith(path.resolve(__dirname, 'server/controllers'))
+			) {
+				return;
+			}
+
+			const methods = [];
+			const ast = babel.parse(await fs.promises.readFile(args.path, 'utf8'), {
+				parserOpts: {
+					plugins: ['typescript'],
+				},
+			});
+			babel.traverse(ast, {
+				ExportNamedDeclaration: (path) => {
+					if (path.node.declaration?.type !== 'VariableDeclaration') {
+						throw path.buildCodeFrameError(
+							`Expected export to be a variable declaration`,
+						);
+					}
+					methods.push(path.node.declaration.declarations[0].id.name);
+				},
+			});
+
+			return {
+				contents: methods
+					.map(
+						(methodName) =>
+							`export const ${methodName} = { methodName: '${methodName}' };`,
+					)
+					.join('\n'),
+			};
+		});
+	},
+};
+
+const buildServerFile = async (input, output, options) => {
 	const ctx = await esbuild.context({
 		entryPoints: [input],
 		outfile: output,
@@ -32,12 +74,12 @@ const buildServerFile = async (input, output) => {
 			),
 		},
 		plugins: [makeAllPackagesExternal],
-		// watch: isWatchMode,
+		...options,
 	});
+	await ctx.rebuild();
 	if (isWatchMode) {
 		await ctx.watch();
 	} else {
-		await ctx.rebuild();
 		await ctx.dispose();
 	}
 	fs.chmodSync(output, '0755');
@@ -53,6 +95,13 @@ Promise.all([
 	buildServerFile(
 		'./server/upgrade-cli/index.ts',
 		'./sidekick-upgrade.dist.js',
+	),
+	buildServerFile(
+		'./extension/index.ts',
+		'./extension/extension-helpers.dist.js',
+		{
+			plugins: [makeAllPackagesExternal, resolveSidekickControllers],
+		},
 	),
 ]).catch((error) => {
 	if (!error.errors) {

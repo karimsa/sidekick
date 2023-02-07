@@ -1,5 +1,4 @@
-import { type AxiosError } from 'axios';
-import omit from 'lodash/omit';
+import type { AxiosError } from 'axios';
 import { useCallback, useMemo } from 'react';
 import {
 	UseMutationOptions,
@@ -17,8 +16,9 @@ import { getConfig, updateConfig } from '../server/controllers/config';
 import { runExtensionMethod } from '../server/controllers/extensions';
 import type { RpcInputType, RpcOutputType } from '../server/utils/http';
 
-// @ts-ignore
-import { config as extensionConfig } from 'sidekick-extension-config';
+declare const SidekickExtensionConfig: {
+	id: string;
+};
 
 export function useConfig<T>(schema: z.Schema<T>): {
 	data?: T;
@@ -46,15 +46,22 @@ export function useConfig<T>(schema: z.Schema<T>): {
 				...config,
 				extensions: {
 					...config.extensions,
-					[extensionConfig.id]: schema.parse(updates),
+					[SidekickExtensionConfig.id]: schema.parse(updates),
 				},
 			});
 		},
 		[config, performUpdate, schema],
 	);
 
+	const parsedData = useMemo(() => {
+		const extConfig = config?.extensions[SidekickExtensionConfig.id] ?? null;
+		if (extConfig) {
+			return schema.parse(extConfig);
+		}
+	}, []);
+
 	return {
-		data: extensionConfig,
+		data: parsedData,
 		error: (errFetchingConfig || errUpdatingConfig) ?? undefined,
 		isLoading: isLoadingConfig || isUpdatingConfig,
 		updateConfig: updateConfigWrapper,
@@ -89,7 +96,7 @@ export function useQuery<Params, Result>(
 	const { data, ...props } = useRpcQuery(
 		runExtensionMethod,
 		{
-			extensionId: extensionConfig.id,
+			extensionId: SidekickExtensionConfig.id,
 			methodName: String(method),
 			params,
 			targetEnvironment: options?.targetEnvironment,
@@ -121,34 +128,29 @@ export function useMutation<Params, Result>(
 	},
 ) {
 	const wrappedOptions = useMemo(() => {
+		const { onSuccess, onError, onMutate, onSettled } =
+			options?.mutationOptions ?? {};
 		const mutationOpts: UseMutationOptions<
 			RpcOutputType<typeof runExtensionMethod>,
 			Error,
 			RpcInputType<typeof runExtensionMethod>
-		> = omit(options?.mutationOptions ?? {}, [
-			'onSuccess',
-			'onError',
-			'onMutate',
-			'onSettled',
-		]);
-		const { onSuccess, onError, onMutate, onSettled } =
-			options?.mutationOptions ?? {};
-
-		if (onSuccess) {
-			mutationOpts.onSuccess = (data, { params }, ctx) =>
-				onSuccess(data.result, params as Params, ctx);
-		}
-		if (onError) {
-			mutationOpts.onError = (error, { params }, ctx) =>
-				onError(error, params as Params, ctx);
-		}
-		if (onMutate) {
-			mutationOpts.onMutate = ({ params }) => onMutate(params as Params);
-		}
-		if (onSettled) {
-			mutationOpts.onSettled = (data, error, { params }, ctx) =>
-				onSettled(data?.result, error, params as Params, ctx);
-		}
+		> = {
+			...(options?.mutationOptions ?? {}),
+			onSuccess: onSuccess
+				? (data, { params }, ctx) =>
+						onSuccess(data.result, params as Params, ctx)
+				: undefined,
+			onError: onError
+				? (error, { params }, ctx) => onError(error, params as Params, ctx)
+				: undefined,
+			onMutate: onMutate
+				? ({ params }) => onMutate(params as Params)
+				: undefined,
+			onSettled: onSettled
+				? (data, error, { params }, ctx) =>
+						onSettled(data?.result, error, params as Params, ctx)
+				: undefined,
+		};
 
 		return mutationOpts;
 	}, [options?.mutationOptions]);
@@ -166,7 +168,7 @@ export function useMutation<Params, Result>(
 			},
 		) => {
 			mutate({
-				extensionId: extensionConfig.id,
+				extensionId: SidekickExtensionConfig.id,
 				methodName,
 				params,
 				targetEnvironment: options?.targetEnvironment,

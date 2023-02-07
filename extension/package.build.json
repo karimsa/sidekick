@@ -1,0 +1,12 @@
+{
+    "name": "@karimsa/sidekick-extension-helpers",
+    "version": "0.0.0",
+    "main": "./extension-helpers.dist.js",
+    "peerDependencies": {
+        "zod": "^3",
+        "react-query": "^3",
+        "react": "*",
+        "react-dom": "*",
+        "react-error-boundary": "^3"
+    }
+}

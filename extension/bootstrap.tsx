@@ -2,15 +2,18 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
-import { XCircleFillIcon } from '@primer/octicons-react';
 
 // This gets filled by the bundler
 // @ts-ignore
 import { Page } from 'sidekick-extension-code';
-// @ts-ignore
-import { config } from 'sidekick-extension-config';
 
-/* Without setting margin=0 here, the iframe takes up more space than
+declare const SidekickExtensionConfig: {
+	id: string;
+	name: string;
+};
+
+/*
+ * Without setting margin=0 here, the iframe takes up more space than
  * it should and produces a horizontal scroll.
  */
 const style = document.createElement('style');
@@ -77,13 +80,13 @@ const ExtensionErrorBoundary: React.FC<FallbackProps> = ({ error }) => (
 				marginBottom: '1.25rem',
 			}}
 		>
-			<XCircleFillIcon />
+			<span>🚨</span>
 			<span
 				style={{
 					marginLeft: '0.5rem',
 				}}
 			>
-				The extension &quot;{config.name}&quot; has crashed.
+				The extension &quot;{SidekickExtensionConfig.name}&quot; has crashed.
 			</span>
 		</p>
 		<pre

@@ -83,7 +83,7 @@ export default withSidebar(
 					/>
 				)}
 				{error && (
-					<div className={'w-full'}>
+					<div className={'w-full p-5'}>
 						<AlertCard title={`Extension '${extensionId}' failed to build`}>
 							<Code>{error.message}</Code>
 							<Code>{error.stack}</Code>
